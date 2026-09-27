@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kawazu — Ninja du marais</title>
+<meta name="description" content="Kawazu, un RPG en pixel art : une grenouille ninja quitte son marais pour remonter jusqu’au Sommet du Héron.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/style.css">
+<link rel="stylesheet" href="src/accueil.css">
+</head>
+<body class="accueil">
+
+<!-- La cinématique, en plein écran -->
+<canvas id="film" aria-label="Cinématique : l’histoire de la grenouille"></canvas>
+<p id="film-caption" class="film-caption" aria-live="polite"></p>
+<p id="film-tag" class="film-tag" aria-hidden="true"></p>
+
+<!-- L'écran titre, à la fin du film -->
+<div id="film-title" class="film-title" hidden>
+  <canvas id="title-logo" aria-hidden="true"></canvas>
+  <h1>KAWAZU</h1>
+  <p>Ninja du marais</p>
+  <button id="title-play" class="btn">Jouer ▶</button>
+</div>
+
+<!-- En haut à droite : le compte, et rien d'autre -->
+<button id="account-btn" class="btn account-btn">Connexion / Inscription</button>
+<aside id="account-panel" class="account-panel" hidden aria-label="Ton compte">
+  <button id="account-close" class="account-close" aria-label="Fermer">×</button>
+  <div id="account-body"></div>
+</aside>
+
+<!-- En bas à gauche : le son et revoir le film -->
+<div class="film-controls">
+  <button id="film-sound" class="link" aria-pressed="false">Son coupé</button>
+  <button id="film-replay" class="link">Revoir le film</button>
+</div>
+
+<script src="src/audio.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/looks.js"></script>
+<script src="src/biomes.js"></script>
+<script src="src/skills.js"></script>
+<script src="src/items.js"></script>
+<script src="src/tiles.js"></script>
+<script src="src/scene.js"></script>
+<script src="src/map.js"></script>
+<script src="src/accueil.js"></script>
+</body>
+</html>

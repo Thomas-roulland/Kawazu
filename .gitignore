@@ -1,0 +1,6 @@
+# Données des joueurs (comptes, mots de passe chiffrés, sauvegardes) : jamais sur GitHub
+server/data/
+*.tmp
+node_modules/
+.DS_Store
+Thumbs.db

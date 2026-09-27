@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kawazu — Ninja du marais</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+
+<!-- Écran titre : continuer ou créer sa grenouille -->
+<div id="title" class="title" hidden>
+  <div class="title-card">
+    <canvas id="title-logo" aria-hidden="true"></canvas>
+    <h1>KAWAZU</h1>
+    <p class="title-sub">Ninja du marais</p>
+    <div id="title-continue"></div>
+    <form id="create" class="create" autocomplete="off">
+      <h2>CRÉE TA GRENOUILLE</h2>
+      <div class="create-row">
+        <div class="create-preview"><canvas id="create-frog" aria-label="Aperçu de ta grenouille"></canvas></div>
+        <div class="create-fields">
+          <label for="create-name">Son nom</label>
+          <input id="create-name" maxlength="16" placeholder="Kawazu" required>
+          <span class="create-label">Sa couleur</span>
+          <div id="create-skins" class="skins" role="radiogroup" aria-label="Couleur"></div>
+        </div>
+      </div>
+      <button class="btn" type="submit">Commencer l’aventure ▶</button>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <!-- Menu latéral, façon Shakes & Fidget -->
+  <aside id="sidebar">
+    <div class="sb-brand">
+      <canvas id="logo" role="img" aria-label="Logo de Kawazu"></canvas>
+      <div><span class="sb-title">KAWAZU</span><span class="sb-sub">Ninja du marais</span></div>
+    </div>
+    <div class="sb-hero">
+      <canvas id="sb-portrait" aria-hidden="true"></canvas>
+      <div class="sb-hero-info">
+        <span class="sb-name" id="sb-name"></span>
+        <span>Niveau <b id="sb-level">1</b></span>
+        <span class="xp-track"><span id="sb-xp"></span></span>
+      </div>
+    </div>
+    <div class="sb-gold" title="Lucioles"><span class="luciole"></span><b id="sb-gold">0</b> lucioles</div>
+    <nav class="sb-menu" aria-label="Menu">
+      <button class="menu-btn is-active" data-page="camp"><img data-ico="camp" alt=""><span>Camp</span></button>
+      <button class="menu-btn" data-page="perso"><img data-ico="perso" alt=""><span>Personnage</span><i class="badge" id="badge-perso" hidden></i></button>
+      <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>Compétences</span><i class="badge" id="badge-skills" hidden></i></button>
+      <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
+      <button class="menu-btn" data-page="shop"><img data-ico="shop" alt=""><span>Boutique</span></button>
+    </nav>
+    <button id="sb-expedition" class="sb-expedition" hidden></button>
+    <div class="sb-foot">
+      <span>Objets <b id="sb-items">4 / 19</b></span>
+      <span class="sb-foot-btns">
+        <button id="open-save" class="mute" title="Sauvegarde" aria-label="Sauvegarde"></button>
+        <button id="mute" class="mute" aria-pressed="false" title="Couper ou remettre le son (M)"></button>
+      </span>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div id="notice" role="status" hidden></div>
+    <!-- Camp : grande scène, la grenouille au centre -->
+    <section id="page-camp" class="page" aria-label="Camp du marais">
+      <canvas id="scene-back" class="layer" aria-hidden="true"></canvas>
+      <canvas id="scene-mid" class="layer" aria-hidden="true"></canvas>
+      <canvas id="scene-front" class="layer" aria-hidden="true"></canvas>
+      <div class="vignette"></div>
+      <aside id="adventure" aria-label="Aventure">
+        <div class="adv-kicker">AVENTURE</div>
+        <div id="adv-world"></div>
+        <button id="adv-go" class="btn">Continuer ▶</button>
+        <button class="adv-link" data-page="map">Carte du monde</button>
+      </aside>
+    </section>
+
+    <!-- Personnage : fiche façon Shakes & Fidget -->
+    <section id="page-perso" class="page" aria-label="Personnage" hidden>
+      <div class="page-inner perso-layout">
+        <section class="panel sheet">
+          <header class="sheet-head">
+            <span class="lvl-badge" title="Niveau"><small>NIV.</small><b id="lvl-num">1</b></span>
+            <div class="sheet-id">
+              <h2 id="sheet-name">KAWAZU</h2>
+              <div class="xp"><span class="xp-track"><span id="xp-fill"></span></span><span id="xp-text">0 / 20 XP</span></div>
+            </div>
+          </header>
+          <div class="doll">
+            <div class="doll-col">
+              <button class="dslot" id="slot-tete" data-slot="tete"></button>
+              <button class="dslot" id="slot-echarpe" data-slot="echarpe"></button>
+              <button class="dslot" id="slot-ceinture" data-slot="ceinture"></button>
+            </div>
+            <div class="stage">
+              <canvas id="preview" aria-label="Ta grenouille sur son nénuphar"></canvas>
+              <div id="views" class="views" aria-label="Pose">
+                <button class="tab" data-view="face">Face</button>
+                <button class="tab" data-view="profil">Profil</button>
+                <button class="tab" data-view="dos">Dos</button>
+                <button class="tab" data-view="attaque">Attaque</button>
+              </div>
+            </div>
+            <div class="doll-col">
+              <button class="dslot" id="slot-arme" data-slot="arme"></button>
+              <button class="dslot" id="slot-anneau" data-slot="anneau"></button>
+            </div>
+          </div>
+          <div class="attr-head">
+            <h2>CARACTÉRISTIQUES</h2>
+            <span id="points" class="points"></span>
+          </div>
+          <div id="stats" class="stat-grid"></div>
+        </section>
+        <div class="perso-side">
+          <section id="feats" class="panel feats-panel" hidden></section>
+          <section class="panel inv-panel">
+            <h2>INVENTAIRE</h2>
+            <div id="filters" class="tabs">
+              <button class="tab" data-filter="tout">Tout</button>
+              <button class="tab" data-filter="baton">Bâtons</button>
+              <button class="tab" data-filter="kunai">Kunaïs</button>
+              <button class="tab" data-filter="tete">Tête</button>
+              <button class="tab" data-filter="echarpe">Écharpes</button>
+              <button class="tab" data-filter="ceinture">Ceintures</button>
+              <button class="tab" data-filter="anneau">Anneaux</button>
+            </div>
+            <div id="inventory"></div>
+            <div id="details"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- Compétences : l'arbre et le deck -->
+    <section id="page-skills" class="page" aria-label="Compétences" hidden>
+      <canvas id="temple-bg" aria-hidden="true"></canvas>
+      <canvas id="temple-fx" aria-hidden="true"></canvas>
+      <div id="tree-nodes" class="temple-nodes"></div>
+      <header class="temple-head">
+        <h1>TEMPLE DES VOIES</h1>
+        <p>Suis le cours de l’eau : chaque point de compétence te fait avancer d’une dalle.</p>
+        <div class="head-actions"><span id="voie-status" class="voie-status"></span><button id="tree-reset" class="btn btn-ghost" hidden></button><span id="skill-points" class="points"></span></div>
+      </header>
+      <aside class="panel deck-panel temple-side">
+        <div id="voie-pick" class="voie-pick" hidden></div>
+        <div id="deck-side" class="deck-side">
+          <h2>TON DECK</h2>
+          <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 3 sorts appris.</p>
+          <div id="deck" class="deck"></div>
+          <h2>SORTS APPRIS</h2>
+          <div id="learned" class="learned"></div>
+          <div id="node-info" class="node-info"></div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Carte du monde -->
+    <section id="page-map" class="page" aria-label="Carte du monde" hidden>
+      <div id="worldmap" class="worldmap"><canvas id="worldmap-canvas" aria-hidden="true"></canvas><div id="worldmap-regions"></div></div>
+      <aside id="stage-sheet" class="panel stage-sheet" hidden></aside>
+    </section>
+
+    <!-- Boutique de l'Aïeule Gamako -->
+    <section id="page-shop" class="page" aria-label="Boutique" hidden>
+      <canvas id="shop-scene" aria-label="La cabane de l’Aïeule Gamako"></canvas>
+      <header class="shop-sign">
+        <h1>CHEZ L’AÏEULE GAMAKO</h1>
+        <p>Marchande ancestrale · objets anciens et thés rares</p>
+        <button id="reroll" class="btn btn-ghost"></button>
+      </header>
+      <div class="bubble" id="gamako-says" role="status"></div>
+      <aside id="shop-card" class="shop-card"></aside>
+      <div id="stock" class="shop-wares"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Sauvegarde -->
+<div id="save-modal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-labelledby="save-title">
+    <h2 id="save-title">SAUVEGARDE</h2>
+    <p id="save-intro">La partie est enregistrée automatiquement dans ce navigateur. Attention : chaque adresse a sa propre sauvegarde (ouvrir le fichier en double-clic ou via <code>localhost</code> ne partage pas la même). Exporte-la dans un fichier pour la retrouver partout.</p>
+    <div class="modal-actions">
+      <button id="save-export" class="btn">Exporter (fichier)</button>
+      <label class="btn btn-ghost file-btn">Importer…<input id="save-import" type="file" accept=".json,application/json"></label>
+    </div>
+    <div id="save-msg" class="muted" role="status"></div>
+    <div id="save-online" class="danger-zone" hidden>
+      <a class="btn btn-ghost" href="/?grenouilles">Changer de grenouille</a>
+      <button id="logout" class="btn btn-ghost">Se déconnecter</button>
+    </div>
+    <div id="save-local" class="danger-zone">
+      <button id="save-reset" class="btn btn-ghost">Nouvelle partie</button>
+      <span id="reset-confirm" hidden>Tout effacer ? <button id="reset-yes" class="btn">Oui, recommencer</button> <button id="reset-no" class="btn btn-ghost">Non</button></span>
+    </div>
+    <button id="save-close" class="btn btn-ghost modal-close">Fermer</button>
+  </div>
+</div>
+
+<!-- Combat au tour par tour -->
+<div id="battle" hidden>
+  <header class="bt-head">
+    <div><span id="bt-title"></span><span id="bt-weather" class="bt-weather" hidden></span></div>
+    <button id="bt-flee" class="btn btn-ghost">Fuir</button>
+  </header>
+  <div class="bt-bars">
+    <div class="bt-card">
+      <div class="bt-name" id="bt-hero-name">Kawazu</div>
+      <div class="bt-hp"><span id="bt-hero-hp"></span></div>
+      <div class="bt-sub"><span id="bt-hero-hptext"></span><span class="souffle" id="bt-souffle" title="Souffle"></span></div>
+      <div class="bt-status" id="bt-hero-status"></div>
+    </div>
+    <div class="bt-vs">VS</div>
+    <div class="bt-card enemy">
+      <div class="bt-name"><span id="bt-enemy-name"></span> <small id="bt-enemy-lvl"></small></div>
+      <div class="bt-hp"><span id="bt-enemy-hp"></span></div>
+      <div class="bt-sub"><span id="bt-enemy-hptext"></span></div>
+      <div class="bt-status" id="bt-enemy-status"></div>
+    </div>
+  </div>
+  <div id="bt-stage" class="bt-stage"><canvas id="bt-canvas" aria-label="Combat"></canvas></div>
+  <footer class="bt-foot">
+    <div id="bt-skills" class="bt-skills"></div>
+    <div class="bt-side">
+      <div class="bt-controls">
+        <button id="bt-auto" class="bt-toggle" aria-pressed="false">Auto</button>
+        <button class="bt-toggle" data-speed="1">×1</button>
+        <button class="bt-toggle" data-speed="2">×2</button>
+        <button class="bt-toggle" data-speed="4">×4</button>
+      </div>
+      <div id="bt-log" class="bt-log" aria-live="polite"></div>
+    </div>
+  </footer>
+  <div id="bt-result" class="bt-result" hidden></div>
+</div>
+
+<script src="src/cloud.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/sprites.js"></script>
+<script src="src/looks.js"></script>
+<script src="src/biomes.js"></script>
+<script src="src/skills.js"></script>
+<script src="src/items.js"></script>
+<script src="src/tiles.js"></script>
+<script src="src/worlds.js"></script>
+<script src="src/scene.js"></script>
+<script src="src/map.js"></script>
+<script src="src/shop.js"></script>
+<script src="src/feats.js"></script>
+<script src="src/battle.js"></script>
+<script src="src/hub.js"></script>
+</body>
+</html>
