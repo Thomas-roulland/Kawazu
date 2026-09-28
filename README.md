@@ -62,7 +62,10 @@ Les **lucioles** sont la monnaie du jeu.
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
   l’ambiance du biome en cours (lagune, saules d’automne, grotte, ruines englouties, sommet enneigé),
-  et un panneau « Aventure » pour reprendre le monde en cours.
+  et un panneau « Aventure » pour reprendre le monde en cours. **Méditation** : la grenouille s’assoit sur un nénuphar,
+  les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
+  de l’XP d’un combat de son niveau ; 10 h au plus). On récolte en la faisant se lever ou en revenant (elle continue
+  alors de méditer) ; un combat ou une mission la fait se lever.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
   (tête, arme, écharpe, **ceinture**, anneau : l'écharpe et la ceinture changent de couleur sur le sprite),
   les caractéristiques en cartes détaillées (base de la voie, points répartis × la voie, dalles du Temple, objets ;
@@ -71,11 +74,14 @@ Les **lucioles** sont la monnaie du jeu.
   et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance).
 - **La Voie** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
   flaques : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier et rendent les points,
-  contre 80 lucioles). Chaque voie a ses **caractéristiques de départ** et **multiplie les points** qu’on répartit :
-  - **Voie des Armes** (corps à corps : bâtons, harpons, **katanas**, **masses**) : Force ×2, Vitalité ×1,5 ;
-  - **Voie du Lancer** (distance : kunaïs, **shurikens**) : Agilité ×2, Force ×1,5 ;
-  - **Voie de l’Ermite** (mains nues) : Esprit ×2, Vitalité ×1,5. Mode Ermite : peau orange, yeux de crapaud,
-    plus d’arme ; paumes, **coups de pied** et **coups de boule**.
+  contre 80 lucioles). Chaque voie a ses **caractéristiques de départ**, un **attribut principal** (celui qui fait les
+  dégâts, compté ×2 quand on y met un point ; la Vitalité compte ×1,5) et ses traits :
+  - **Voie des Armes** (corps à corps : bâtons, harpons, **katanas**, **masses**) : Force ; endurance ×1,1 et une armure
+    qui grandit avec le niveau ;
+  - **Voie du Lancer** (distance : kunaïs, **shurikens**, qui donnent de l’Agilité) : Agilité ; critique, esquive et
+    initiative, des lancers qui ne ratent jamais ;
+  - **Voie de l’Ermite** (mains nues, qui donnent de l’Esprit) : Esprit ; sorts plus puissants qui reviennent plus vite,
+    une petite armure. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et **coups de boule**.
 
   Une voie ne manie que sa famille d’armes. Elle offre **trois branches de 10 dalles** (sorts aux étapes 1, 4, 7, 10 ;
   caractéristiques aux étapes 2, 5, 8 ; passifs aux étapes 3, 6, 9) qui **se rejoignent sur la dalle-sommet** (niveau 90,
@@ -158,7 +164,8 @@ Les **lucioles** sont la monnaie du jeu.
 L’arène fait 400×225 pixels et ne remplit pas tout l’écran : elle est cadrée au centre, entourée de son propre décor
 flouté. Les combattants paraissent moins gros, les secousses restent douces.
 
-Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité décide qui commence.
+Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité donne plus de chances de jouer en premier (la plus agile
+commence plus souvent, pas toujours).
 
 - Plus de réserve à gérer : chaque sort a son **temps de relance** en tours (l’attaque de base n’en a pas), que
   l’**Esprit** raccourcit.
@@ -175,8 +182,16 @@ Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité décide qui comm
   (sorts en relance au départ).
 - Montée de niveau : +3 points de caractéristique, +1 point de voie.
 
-Caractéristiques : **Vitalité** → PV (+6 par point) ; **Force** → dégâts (+1,1 par point) ; **Agilité** → critique,
-esquive, initiative ; **Esprit** → puissance des sorts (+2 % par point) et relance (−1 tour à 40, 100 et 180).
+Caractéristiques : **Vitalité** → PV (40 + 14 par point) ; l’**attribut principal** → dégâts (2 + 0,9 par point ; hors
+Voie des Armes, la Force ajoute 0,4 par point) ; **Agilité** → critique, esquive et initiative, à rendement décroissant
+(il en faut plus à mesure que le niveau monte) ; **Esprit** → puissance des sorts (jusqu’à +40 %) et relance (−1 tour à 60
+et à 200 ; un soin ne gagne qu’un tour, et ne profite pas de la puissance des sorts). Après un étourdissement, on ne peut
+plus être étourdi au tour suivant.
+
+**Équilibrage** : les voies ont été réglées avec un simulateur qui rejoue les règles du combat (des milliers de duels
+par niveau, de 5 à 200) : entre voies, chaque duel tombe à peu près entre 35 et 65 % de victoires. Les sages de la
+tour choisissent leurs 4 meilleurs sorts, et les monstres ont été renforcés (×2,2 PV, ×2,6 dégâts) pour suivre la
+puissance des voies.
 
 ## Structure
 

@@ -15,6 +15,8 @@ function enemySize(e) {
   return Math.round((SPECIES[e.species].size === 32 ? 96 : 48) * e.scale);
 }
 
+// La force des monstres, réglée pour que les voies (qui multiplient les points) trouvent encore du répondant
+var MONSTER_POWER = { hp: 2.2, dmg: 2.6 };
 function makeEnemy(w, level, variant, rank, title) {
   var b = BIOMES[w];
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
@@ -24,8 +26,8 @@ function makeEnemy(w, level, variant, rank, title) {
     name: isGuard ? v.name + ' ' + title : v.name, species: v.species, pal: v.pal, level: level,
     rank: rank || 'normal', behavior: s.behavior,
     scale: isBoss ? (s.size === 32 ? 1 : 1.9) : (isGuard ? 1.45 : 1),
-    maxHp: Math.round(s.hp * 2.4 * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1))),
-    dmg: Math.round((2 + 0.95 * level) * (isBoss || isGuard ? 1.1 : 1)),
+    maxHp: Math.round(s.hp * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1))),
+    dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1)),
     agi: 6 + level * 0.6,
     dodge: s.behavior === 'flyer' ? 0.18 : 0.05
   };
@@ -110,6 +112,27 @@ function stageFight(save, w, st) {
       itemChance: Math.min(1, (s.rank === 'boss' ? 1 : (s.rank === 'gardien' ? 0.5 : 0.15)) + R.item)
     }
   };
+}
+
+// ---------- Méditation au camp : la grenouille médite sur un nénuphar, même quand on n'est pas là ----------
+// Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
+// lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.
+var MEDITATION_MAX_H = 10;
+function meditationRates(level) { return { xp: Math.round(0.5 * (10 + 5 * level)), gold: Math.round(0.3 * (6 + 3 * level)) }; }
+function meditationGain(save, now) {
+  var m = save.meditation;
+  if (!m) return null;
+  var ms = Math.max(0, Math.min(MEDITATION_MAX_H * 3600e3, (now || Date.now()) - m.since)), h = ms / 3600e3, r = meditationRates(save.level);
+  return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: Math.floor(r.xp * h), gold: Math.floor(r.gold * h) };
+}
+// Récolte ce qui a été gagné ; again : elle continue de méditer (au retour), sinon elle se lève
+function claimMeditation(save, again) {
+  var g = meditationGain(save);
+  if (!g) return null;
+  save.gold += g.gold;
+  g.levels = g.xp ? gainXp(save, g.xp) : 0;
+  save.meditation = again ? { since: Date.now() } : null;
+  return g;
 }
 
 // ---------- Missions en temps réel (comme la taverne de Shakes & Fidget) ----------

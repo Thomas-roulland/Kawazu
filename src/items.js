@@ -275,7 +275,7 @@ var HERMIT_SKIN = { name: 'Mode Ermite', g: '#9a4212', m: '#e07a2a', l: '#f8b060
 function hermitHands() {
   return {
     slot: 'arme', kind: 'mains', wtype: 'mains', name: 'Mains de l’ermite', icon: 'baton', drop: 0,
-    stats: { force: 2 + Math.floor(playerLevel / 2), esprit: 2 },
+    stats: { esprit: 3 + Math.floor(playerLevel / 4), force: 2 },
     desc: 'Mode Ermite : pas d’arme, que la paume. Plus fortes à chaque niveau.',
     blade: '#f3d27a', wave: ['#fff0a0', '#e07a2a'],
     look: { weapon: 'mains' },
@@ -357,28 +357,42 @@ function paletteFor(basePal, equip) {
   return pal;
 }
 
-// Stats de combat au tour par tour, tirées des caractéristiques
-// Vitalité → PV ; Force → dégâts ; Agilité → critique, esquive et initiative ;
-// Esprit → puissance des sorts (+2 % par point) et tours de relance (−1 à 40 points, −2 à 100, −3 à 180)
-var ESPRIT_STEPS = [40, 100, 180];
-function combatStats(stats) {
+// Stats de combat au tour par tour, tirées des caractéristiques. Tous les réglages de l'équilibre sont dans BAL.
+// - Vitalité → PV (+6 par point, × l'endurance de la voie) ;
+// - l'attribut principal de la voie (Force pour les Armes, Agilité pour le Lancer, Esprit pour l'Ermite) → dégâts
+//   (+1,1 par point) ; hors Voie des Armes, la Force ajoute encore 0,5 dégât par point ;
+// - Agilité → critique, esquive et initiative, à rendement décroissant (il en faut plus quand le niveau monte) ;
+// - Esprit → puissance des sorts (à rendement décroissant) et tours de relance (−1 à 50 points, −2 à 150, −3 à 300).
+var BAL = {
+  critBase: 0.05, critMax: 0.4, critK: 30, critL: 2.5,
+  dodgeMax: 0.35, dodgeK: 40, dodgeL: 3,
+  offForce: 0.4, spellMax: 0.4, spellK: 120,
+  hpBase: 40, hpVit: 14, dmgMain: 0.9
+};
+var ESPRIT_STEPS = [60, 200];
+function mainStat(voie) { var v = voieDef(voie); return v ? v.main : 'force'; }
+function combatStats(stats, voie, level) {
+  var v = voieDef(voie), main = mainStat(voie), L = level || 1;
+  var A = Math.max(0, stats.agilite), E = Math.max(0, stats.esprit);
   return {
-    maxHp: 20 + stats.vitalite * 6,
-    dmg: 2 + stats.force * 1.1,
-    crit: Math.min(0.4, 0.05 + stats.agilite * 0.008),
-    dodge: Math.min(0.3, stats.agilite * 0.006),
+    maxHp: Math.round((BAL.hpBase + stats.vitalite * BAL.hpVit) * (v ? v.hp : 1)),
+    dmg: 2 + BAL.dmgMain * Math.max(0, stats[main]) + (main === 'force' ? 0 : BAL.offForce * Math.max(0, stats.force)),
+    crit: BAL.critBase + BAL.critMax * A / (A + BAL.critK + BAL.critL * L),
+    dodge: BAL.dodgeMax * A / (A + BAL.dodgeK + BAL.dodgeL * L),
     agi: stats.agilite,
-    spell: 1 + Math.max(0, stats.esprit) * 0.02,
-    cdr: ESPRIT_STEPS.filter(function (t) { return stats.esprit >= t; }).length
+    spell: 1 + BAL.spellMax * E / (E + BAL.spellK),
+    cdr: ESPRIT_STEPS.filter(function (t) { return E >= t; }).length,
+    armor: v ? v.armor + (v.armorL || 0) * L : 0
   };
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
 function combatProfile(save) {
-  var cs = combatStats(computeStats(save.equip)), pas = treeBonuses(save).passives;
+  var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives;
   return {
     maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult),
     crit: Math.min(0.75, cs.crit + pas.crit), critMult: 1.6 + pas.critDmg, dodge: Math.min(0.5, cs.dodge + pas.dodge),
-    agi: cs.agi, spell: cs.spell + pas.spellMult, cdr: cs.cdr, size: 1 + pas.size, pas: pas
+    agi: cs.agi, spell: cs.spell + pas.spellMult, cdr: cs.cdr, size: 1 + pas.size, pas: pas,
+    armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce)
   };
 }
 
@@ -596,6 +610,11 @@ Object.assign(ITEMS, {
 });
 ITEMS.ceinture_champion.from = ITEMS.ceinture_dojo.from = { dojo: true };
 
+// Les armes de jet se manient à l'Agilité (l'attribut principal de la Voie du Lancer) : leur bonus de Force devient
+// de l'Agilité, et leur petite Agilité devient de la Force.
+function swapThrown(st) { var o = Object.assign({}, st), f = st.force || 0, a = st.agilite || 0; delete o.force; delete o.agilite; if (f) o.agilite = f; if (a) o.force = a; return o; }
+Object.keys(ITEMS).forEach(function (id) { if (ITEMS[id].kind === 'kunai') ITEMS[id].stats = swapThrown(ITEMS[id].stats); });
+
 var ITEM_TIER = {
   echarpe_roseaux: 1, dent_brochet: 1, anneau_vase: 1, chapeau_paille: 1, feuille_nenuphar: 1,
   harpon_pecheur: 2, perle_rosee: 2, anneau_nenuphar: 2, echarpe_brume: 2, couronne_mousse: 2,
@@ -705,7 +724,7 @@ function rollLoot(save, maxTier, chance, luck) {
 // Enregistrée automatiquement dans le navigateur (localStorage), et exportable dans un fichier.
 // Attention : le navigateur range la sauvegarde par adresse (fichier ouvert en double-clic ≠ http://localhost),
 // d'où l'export / import pour la retrouver partout.
-var SAVE_VERSION = 5;
+var SAVE_VERSION = 6;
 
 function newSave() {
   return {
@@ -718,6 +737,7 @@ function newSave() {
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
     tower: 0, // le plus haut étage vaincu de la Tour des Cent Sages
+    meditation: null, // { since } : la grenouille médite au camp depuis ce moment
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 }
   };
@@ -740,11 +760,15 @@ function parseSave(data) {
   if (data.alloc) Object.keys(save.alloc).forEach(function (k) { save.alloc[k] = int(data.alloc[k], 0) || 0; });
   if (data.alloc && data.alloc.souffle && !data.alloc.esprit) save.alloc.esprit = int(data.alloc.souffle, 0) || 0; // le Souffle est devenu l'Esprit
   save.level = Math.min(MAX_LEVEL, save.level);
-  if (data.v === SAVE_VERSION) {
+  if (data.v === SAVE_VERSION || data.v === 5) {
     save.skillPoints = int(data.skillPoints, 0) || 0;
     save.voie = VOIES.some(function (v) { return v.id === data.voie; }) ? data.voie : null;
     if (Array.isArray(data.tree)) save.tree = data.tree.filter(function (id) { var n = nodeById(id); return n && n.voie === save.voie; });
     if (Array.isArray(data.deck)) save.deck = data.deck.filter(function (id) { return skillById(id); }).slice(0, DECK_SIZE);
+    if (data.v === 5) { // l'équilibre des voies a changé (attribut principal, Vitalité ×1,5 pour toutes) : les points sont rendus
+      Object.keys(save.alloc).forEach(function (k) { save.points += save.alloc[k]; save.alloc[k] = 0; });
+      if (save.hero && save.points) save.notice = 'Les voies ont été rééquilibrées : chacune a maintenant son attribut principal (Force, Agilité ou Esprit), qui fait ses dégâts. Tes ' + save.points + ' points de caractéristique te sont rendus : répartis-les entre ton attribut principal et ta Vitalité !';
+    }
   } else {
     // l'arbre a changé : on rend 1 point par niveau déjà gagné (la voie choisie est gardée)
     save.skillPoints = save.level - 1;
@@ -756,6 +780,8 @@ function parseSave(data) {
     else if (data.v === 3) save.notice = 'Le Temple des voies a été refait. Tes ' + save.skillPoints + ' points de voie te sont rendus : choisis ta voie !';
   }
   // les exemplaires d'abord, pour que l'inventaire, l'étal et l'équipement les reconnaissent
+  // avant la version 6, les armes de jet donnaient de la Force : leurs exemplaires passent à l'Agilité
+  if (data.items && typeof data.items === 'object' && data.v < 6) Object.keys(data.items).forEach(function (id) { var it = data.items[id], b = it && ITEMS[it.base]; if (b && b.kind === 'kunai' && it.stats) it.stats = swapThrown(it.stats); });
   if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
@@ -776,6 +802,7 @@ function parseSave(data) {
   save.ach = Array.isArray(data.ach) ? data.ach.filter(function (id) { return typeof id === 'string'; }) : null;
   save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
   save.tower = Math.min(100, int(data.tower, 0) || 0);
+  if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};
   save.album = { monstres: {}, objets: [], paliers: [] };
   if (al.monstres && typeof al.monstres === 'object') Object.keys(al.monstres).forEach(function (k) { var n = int(al.monstres[k], 1); if (n && k.length < 12) save.album.monstres[k] = n; });

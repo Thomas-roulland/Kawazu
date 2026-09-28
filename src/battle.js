@@ -354,7 +354,7 @@ var BattleScene = (function () {
   function afterHit(att, def, s, dealt) {
     if (s.drain) heal(att, dealt * s.drain);
     if (!alive(def)) return;
-    if (s.stun && Math.random() < s.stun + att.pas.stunChance) {
+    if (s.stun && !def.stunImmune && Math.random() < s.stun + att.pas.stunChance) {
       if (!def.stun) floater(midX(def), headY(def) - 6, 'Étourdi !', '#f3d27a');
       def.stun = 1;
     }
@@ -898,7 +898,7 @@ var BattleScene = (function () {
     var cx = midX(att), k = s.base ? 1 : att.spell;
     // les effets sur soi
     if (s.heal) {
-      heal(att, att.maxHp * s.heal * k);
+      heal(att, att.maxHp * s.heal); // les soins ne profitent pas de la puissance des sorts
       burst(cx, GROUND - 40, '#8fce52', 16);
       addFx(0.8, function (kk) { ctx.fillStyle = '#c8f08a'; for (var i = 0; i < 5; i++) { var px = cx - 14 + i * 7, py = GROUND - 20 - kk * 40 - (i % 2) * 8; ctx.globalAlpha = 1 - kk; ctx.fillRect(R(px) - 1, R(py), 3, 1); ctx.fillRect(R(px), R(py) - 1, 1, 3); } ctx.globalAlpha = 1; });
       sfx('heart');
@@ -954,7 +954,7 @@ var BattleScene = (function () {
     renderHud();
     if (f.hp <= 0) return 'dead';
     if (f.stun > 0) {
-      f.stun--;
+      f.stun--; f.stunImmune = 2; // après un étourdissement, un tour sans pouvoir l'être à nouveau
       log('Étourdissement : ' + nameOf(f) + ' passe son tour.', f === P ? 'danger' : '');
       await wait(450);
       return 'stun';
@@ -976,6 +976,7 @@ var BattleScene = (function () {
     if (f.weaken > 0) f.weaken--;
     if (f.mark > 0) f.mark--;
     if (f.buff > 0 && !f.buffFresh) f.buff--;
+    if (f.stunImmune > 0) f.stunImmune--;
     f.buffFresh = false;
   }
 
@@ -1334,7 +1335,7 @@ var BattleScene = (function () {
     var pr = combatProfile(save);
     P = arm({
       hp: pr.maxHp, maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi,
-      spell: pr.spell, cdr: pr.cdr, size: pr.size, pas: pr.pas, dmgReduce: pr.pas.dmgReduce,
+      spell: pr.spell, cdr: pr.cdr, size: pr.size, pas: pr.pas, dmgReduce: pr.dmgReduce,
       skills: deckSkills(save, weapon), kind: weapon.kind, wtype: weaponType(weapon), weapon: weapon, weaponId: baseOf(save.equip.arme || ''),
       blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, imgs: heroImgs()
     }, 1, MARGIN);
@@ -1369,11 +1370,11 @@ var BattleScene = (function () {
     last = performance.now();
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(frame);
-    // l'Agilité décide qui commence
-    var t = token;
+    // l'Agilité donne plus de chances de commencer (l'arbre d'entraînement laisse toujours la main)
+    var t = token, a = Math.max(1, P.agi), b = Math.max(1, E.agi), first = E.agi < 0 || Math.random() < a / (a + b);
     setTimeout(function () {
       if (t !== token) return;
-      if (P.agi >= E.agi) { log(heroName() + ' a l’initiative : à toi de commencer.', 'hero'); playerTurn(); }
+      if (first) { log(heroName() + ' a l’initiative : à toi de commencer.', 'hero'); playerTurn(); }
       else { log(E.name + ' a l’initiative et frappe en premier.', 'danger'); busy = true; renderHud(); enemyTurn(); }
     }, 700 / speed());
   }

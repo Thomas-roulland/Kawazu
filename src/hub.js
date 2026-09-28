@@ -64,6 +64,10 @@
   var BRANCH_ICON = { baton: [iconUrls.baton_roseau, iconUrls.katana_roseau, iconUrls.masse_fer], kunai: [iconUrls.kunai_acier, iconUrls.shuriken_eau, ICON.ombre], ermite: [ICON.paume, ICON.pied, ICON.crapaud] };
   var n1 = function (v) { return String(Math.round(v * 10) / 10).replace('.', ','); };
   var pc = function (v) { return Math.round(v * 100) + ' %'; };
+  // L'endurance et l'armure d'une voie, s'il y en a : « , endurance ×1,1, armure 6 % (+0,04 % par niveau) »
+  var voieTraits = function (v) {
+    return (v.hp !== 1 ? ', endurance ×' + n1(v.hp) : '') + (v.armor ? ', armure ' + pc(v.armor + (v.armorL || 0) * save.level) + (v.armorL ? ' (elle grandit avec le niveau)' : '') : '');
+  };
   // « Force ×2, Vitalité ×1,5 » : ce que vaut un point dans la voie
   var multText = function (v) { return Object.keys(v.mult).map(function (k) { return STAT_WORD[k] + ' ×' + n1(v.mult[k]); }).join(', '); };
 
@@ -100,8 +104,18 @@
     return {
       face: imgs(anims.idle.frames), profil: imgs(anims.idleRight.frames), dos: imgs(anims.idleUp.frames),
       atk: imgs(anims.attack.frames), fx: imgs(anims.attack.fx),
+      zen: imgs([closedEyes(anims.idle.frames[0])])[0],
       kunai: weaponType(weaponOf(equip)) === 'shuriken' ? iconCanvas(weaponOf(equip)) : kunaiProjectileImgs(weaponOf(equip).blade).right
     };
+  }
+  // Les yeux fermés (méditation) : le blanc des yeux devient peau, et une paupière sombre les barre
+  function closedEyes(g) {
+    var out = g.map(function (r) { return r.slice(); }), eye = function (ch) { return ch === 'w' || ch === 'E'; };
+    for (var y = 3; y <= 8; y++) for (var x = 1; x < out[y].length - 1; x++) {
+      var ch = g[y][x], pupil = ch === 'k' && (y === 6 || y === 7) && (eye(g[y][x - 1]) || eye(g[y][x + 1]));
+      if (eye(ch) || pupil) out[y][x] = y === 6 ? 'k' : 'm';
+    }
+    return out;
   }
   function buildHero() {
     HERO_IMG = frogFrames(save.equip);
@@ -180,6 +194,8 @@
     showPage('camp');
     startTick();
     if (save.notice) { notice(save.notice); delete save.notice; persist(); }
+    // de retour : ce que la grenouille a gagné en méditant pendant l'absence (et elle continue)
+    if (save.meditation && meditationGain(save).ms >= 60000) endMeditation(true, 'Pendant ton absence');
   }
 
   // ---------- Page Camp : trois couches pour l'effet de profondeur ----------
@@ -232,7 +248,7 @@
   function drawCamp(now) {
     if (!sceneStatic) campBiome();
     var t = now / 1000, set = HERO_IMG.face;
-    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / 500) % set.length], null);
+    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / 500) % set.length], null, save.meditation ? HERO_IMG.zen : null);
     var tx = parallax.tx + Math.sin(t * 0.25) * 0.15, ty = parallax.ty + Math.cos(t * 0.2) * 0.1;
     parallax.x += (tx - parallax.x) * 0.06;
     parallax.y += (ty - parallax.y) * 0.06;
@@ -342,7 +358,7 @@
     else if (state.page === 'skills') drawTempleFx(now);
     else if (state.page === 'dojo') drawCascade(now);
     else if (state.page === 'tower') TowerPage.animate(now);
-    if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); }
+    if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); if (state.page === 'camp' && save.meditation) renderMeditation(); }
     raf = requestAnimationFrame(tick);
   }
   function startTick() { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); Sfx.ambient(state.page === 'camp'); }
@@ -405,7 +421,34 @@
   }
   function nextStage(w) { return Math.min(STAGES, save.progress[w] + 1); }
 
+  // ---------- Méditation au camp ----------
+  var hmm = function (ms) { var m = Math.floor(ms / 60000); return m >= 60 ? Math.floor(m / 60) + ' h ' + ('0' + m % 60).slice(-2) : m + ' min'; };
+  function renderMeditation() {
+    var box = $('meditation'), r = meditationRates(save.level), g = meditationGain(save);
+    if (!g) {
+      box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu sur le nénuphar : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
+        (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer sur le nénuphar</button>');
+      return;
+    }
+    box.innerHTML = '<div class="adv-kicker">MÉDITATION · ' + hmm(g.ms) + (g.full ? ' (PLEIN)' : '') + '</div>' +
+      '<p class="med-text"><b>+' + g.xp + ' XP</b> · <b>+' + g.gold + ' lucioles</b> en attente</p>' +
+      '<p class="muted med-text">' + (g.full ? 'Il a médité ' + MEDITATION_MAX_H + ' h : il ne gagne plus rien de plus, récolte !' : r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus. Un combat ou une mission le fait se lever.') + '</p>' +
+      '<button class="btn" id="med-stop">Se lever et récolter</button>';
+  }
+  // Se lever (again : au retour, il reprend aussitôt sa méditation) ; annonce ce qui a été gagné
+  function endMeditation(again, why) {
+    var g = claimMeditation(save, again);
+    if (!g) return;
+    persist();
+    if (g.xp || g.gold) {
+      Sfx.play(g.levels ? 'levelup' : 'pickup');
+      notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' sur le nénuphar, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
+    }
+    renderAll();
+  }
+
   function renderAdventure() {
+    renderMeditation();
     var w = currentWorld(), st = nextStage(w), done = save.progress[w] >= STAGES;
     var e = worldStages(w)[st - 1].enemy;
     $('adv-world').innerHTML = '<span><b>' + BIOMES[w].name + '</b></span>' +
@@ -457,18 +500,21 @@
     };
     Object.keys(G).forEach(function (k) { STAT_ICON[k] = stringsToCanvas(pad(G[k][0], 16), G[k][1]).toDataURL(); });
   })();
-  var STAT_RULE = {
-    vitalite: 'Chaque point : +6 points de vie.',
-    agilite: 'Chaque point : +0,8 % de critique, +0,6 % d’esquive, et tu joues plus tôt.',
-    force: 'Chaque point : +1,1 dégât à chaque coup.',
-    esprit: 'Chaque point : +2 % de puissance des sorts ; à ' + ESPRIT_STEPS.slice(0, -1).join(', ') + ' et ' + ESPRIT_STEPS[ESPRIT_STEPS.length - 1] + ' points, les sorts se relancent un tour plus tôt.'
-  };
+  // Ce que fait chaque caractéristique, selon la voie (l'attribut principal fait les dégâts)
+  function statRule(id) {
+    var voie = chosenVoie(save), main = mainStat(voie), v = voieDef(voie), top = 'Ton attribut principal : +' + n1(BAL.dmgMain) + ' dégât à chaque coup par point. ';
+    if (id === 'vitalite') return 'Chaque point : +' + BAL.hpVit + ' points de vie' + (v && v.hp !== 1 ? ', ×' + n1(v.hp) + ' (l’endurance de ta voie)' : '') + '.';
+    if (id === 'force') return main === 'force' ? top : 'Chaque point : +' + n1(BAL.offForce) + ' dégât à chaque coup (la Force n’est pas ton attribut principal).';
+    if (id === 'agilite') return (main === 'agilite' ? top : '') + 'Critique, esquive et chances de jouer en premier, à rendement décroissant : il en faut plus à mesure que ton niveau monte.';
+    return (main === 'esprit' ? top : '') + 'Puissance des sorts (jusqu’à +' + pc(BAL.spellMax) + ', à rendement décroissant) ; à ' + ESPRIT_STEPS.join(' et ') + ' points, les sorts se relancent un tour plus tôt.';
+  }
   var STAT_FX = {
     vitalite: function (pr) { return '→ <b>' + pr.maxHp + '</b> points de vie'; },
-    agilite: function (pr) { return '→ <b>' + pc(pr.crit) + '</b> de critique · <b>' + pc(pr.dodge) + '</b> d’esquive'; },
-    force: function (pr) { return '→ <b>' + Math.round(pr.dmg) + '</b> dégâts par coup'; },
-    esprit: function (pr) { return '→ sorts <b>+' + pc(pr.spell - 1) + '</b>' + (pr.cdr ? ' · relance <b>−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') + '</b>' : ''); }
+    agilite: function (pr, main) { return '→ ' + (main === 'agilite' ? '<b>' + Math.round(pr.dmg) + '</b> dégâts par coup · ' : '') + '<b>' + pc(pr.crit) + '</b> de critique · <b>' + pc(pr.dodge) + '</b> d’esquive'; },
+    force: function (pr, main, p) { return main === 'force' ? '→ <b>' + Math.round(pr.dmg) + '</b> dégâts par coup' : '→ <b>+' + Math.round(BAL.offForce * p.total) + '</b> dégâts par coup'; },
+    esprit: function (pr, main) { return '→ ' + (main === 'esprit' ? '<b>' + Math.round(pr.dmg) + '</b> dégâts par coup · ' : '') + 'sorts <b>+' + pc(pr.spell - 1) + '</b>' + (pr.cdr ? ' · relance <b>−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') + '</b>' : ''); }
   };
+  var STAT_NAME = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit', vitalite: 'Vitalité' };
 
   // Une carte par caractéristique : sa valeur, d'où elle vient (base de la voie, points × la voie, temple, objets)
   // et ce qu'elle donne. Dessous, la fiche de combat : tout ce que ces chiffres deviennent, et pourquoi.
@@ -476,21 +522,22 @@
     var parts = statParts(save.equip), pr = combatProfile(save), v = voieDef(chosenVoie(save));
     var max = Math.max.apply(null, STATS.map(function (st) { return parts[st.id].total; }));
     var scale = Math.max(STAT_MAX, Math.ceil(max / 10) * 10 + 10);
-    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs.</span>'
-      : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1. Choisis ta voie au Temple : elle change tes caractéristiques de départ et multiplie tes points.</span>';
+    var main = mainStat(chosenVoie(save));
+    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.</span>'
+      : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1 et la Force fait tes dégâts. Choisis ta voie au Temple : elle te donne un attribut principal et multiplie tes points.</span>';
     $('stats').innerHTML = STATS.map(function (st) {
       var p = parts[st.id], seg = function (val, cls) { return val > 0 ? '<span class="' + cls + '" style="width:' + Math.min(100, val / scale * 100) + '%"></span>' : ''; };
       var bits = ['<span>Base <b>' + p.base + '</b></span>', '<span>Points <b>' + p.pts + (p.mult !== 1 ? ' ×' + n1(p.mult) + ' = ' + p.fromPts : '') + '</b></span>'];
       if (p.tree) bits.push('<span class="tree">Temple <b>+' + p.tree + '</b></span>');
       if (p.gear) bits.push('<span class="' + (p.gear < 0 ? 'st-down' : 'gear') + '">Objets <b>' + fmt(p.gear) + '</b></span>');
-      return '<div class="scard" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + STAT_RULE[st.id] + '">' +
+      return '<div class="scard' + (st.id === main ? ' is-main' : '') + '" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + statRule(st.id) + '">' +
         '<span class="scard-ico"><img src="' + STAT_ICON[st.id] + '" alt=""></span>' +
-        '<span class="scard-name">' + st.name.toUpperCase() + (p.mult !== 1 ? '<i class="scard-mult" title="Un point réparti vaut ' + n1(p.mult) + '">×' + n1(p.mult) + '</i>' : '') + '</span>' +
+        '<span class="scard-name">' + st.name.toUpperCase() + (st.id === main ? '<i class="scard-main">PRINCIPAL</i>' : '') + (p.mult !== 1 ? '<i class="scard-mult" title="Un point réparti vaut ' + n1(p.mult) + '">×' + n1(p.mult) + '</i>' : '') + '</span>' +
         '<span class="scard-val">' + p.total + '</span>' +
         '<button class="scard-plus" data-stat="' + st.id + '"' + (save.points > 0 ? '' : ' hidden') + ' aria-label="Ajouter un point en ' + st.name + ' (+' + n1(p.mult) + ')">+</button>' +
         '<span class="scard-bar">' + seg(p.base, 'base') + seg(p.fromPts, 'own') + seg(p.tree, 'tree') + seg(p.gear, 'gear') + '</span>' +
         '<span class="scard-parts">' + bits.join('') + '</span>' +
-        '<span class="scard-fx"><span>' + STAT_FX[st.id](pr) + '</span><small>' + STAT_RULE[st.id] + '</small></span></div>';
+        '<span class="scard-fx"><span>' + STAT_FX[st.id](pr, main, p) + '</span><small>' + statRule(st.id) + '</small></span></div>';
     }).join('');
     renderCombat(pr);
   }
@@ -498,14 +545,15 @@
     var pas = pr.pas, rows = [];
     var row = function (ico, name, val, how) { rows.push('<li><img src="' + ico + '" alt=""><span class="cs-name">' + name + '<small>' + how + '</small></span><b>' + val + '</b></li>'); };
     var temple = function (v, txt) { return v ? ', ' + (txt || '+' + pc(v)) + ' du temple' : ''; };
-    row(STAT_ICON.vitalite, 'Points de vie', pr.maxHp, '20 + 6 par Vitalité' + temple(pas.hpMult));
-    row(STAT_ICON.force, 'Dégâts par coup', Math.round(pr.dmg), '2 + 1,1 par Force' + temple(pas.dmgMult));
-    row(STAT_ICON.agilite, 'Critique', pc(pr.crit), '5 % + 0,8 % par Agilité (40 % au plus)' + temple(pas.crit) + ' · un critique fait ×' + n1(pr.critMult));
-    row(STAT_ICON.agilite, 'Esquive', pc(pr.dodge), '0,6 % par Agilité (30 % au plus)' + temple(pas.dodge, '+' + n1(pas.dodge * 100) + ' %'));
-    row(STAT_ICON.agilite, 'Initiative', pr.agi, 'la grenouille la plus agile joue en premier');
-    row(STAT_ICON.esprit, 'Puissance des sorts', '+' + pc(pr.spell - 1), '2 % par point d’Esprit' + temple(pas.spellMult) + ' ; l’attaque de base n’en profite pas');
-    row(STAT_ICON.esprit, 'Relance des sorts', pr.cdr ? '−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') : 'normale', pr.cdr >= ESPRIT_STEPS.length ? 'le plus court possible (jamais moins d’un tour)' : '−1 tour à ' + ESPRIT_STEPS.join(', ') + ' d’Esprit · prochain palier : ' + ESPRIT_STEPS[pr.cdr]);
-    if (pas.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pas.dmgReduce), 'passifs du temple');
+    var v = voieDef(chosenVoie(save)), main = mainStat(chosenVoie(save));
+    row(STAT_ICON.vitalite, 'Points de vie', pr.maxHp, BAL.hpBase + ' + ' + BAL.hpVit + ' par Vitalité' + (v && v.hp !== 1 ? ', ×' + n1(v.hp) + ' (endurance de la voie)' : '') + temple(pas.hpMult));
+    row(STAT_ICON[main], 'Dégâts par coup', Math.round(pr.dmg), '2 + ' + n1(BAL.dmgMain) + ' par ' + STAT_NAME[main] + (main !== 'force' ? ' + ' + n1(BAL.offForce) + ' par Force' : '') + temple(pas.dmgMult));
+    row(STAT_ICON.agilite, 'Critique', pc(pr.crit), 'selon ton Agilité et ton niveau' + temple(pas.crit) + ' · un critique fait ×' + n1(pr.critMult));
+    row(STAT_ICON.agilite, 'Esquive', pc(pr.dodge), 'selon ton Agilité et ton niveau' + temple(pas.dodge, '+' + n1(pas.dodge * 100) + ' %'));
+    row(STAT_ICON.agilite, 'Initiative', pr.agi, 'plus d’Agilité que l’adversaire, plus de chances de jouer en premier');
+    row(STAT_ICON.esprit, 'Puissance des sorts', '+' + pc(pr.spell - 1), 'selon ton Esprit (jusqu’à +' + pc(BAL.spellMax) + ')' + temple(pas.spellMult) + ' ; l’attaque de base et les soins n’en profitent pas');
+    row(STAT_ICON.esprit, 'Relance des sorts', pr.cdr ? '−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') : 'normale', (pr.cdr >= ESPRIT_STEPS.length ? 'le plus court possible (jamais moins d’un tour)' : '−1 tour à ' + ESPRIT_STEPS.join(' et ') + ' d’Esprit · prochain palier : ' + ESPRIT_STEPS[pr.cdr]) + ' ; un soin ne gagne qu’un tour');
+    if (pr.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pr.dmgReduce), [pr.armor ? 'armure de la voie ' + pc(pr.armor) : '', pas.dmgReduce ? 'passifs du temple ' + pc(pas.dmgReduce) : ''].filter(Boolean).join(' + '));
     var others = ['riposte', 'lifesteal', 'shield', 'regenHp', 'flow', 'multiHit', 'execute', 'stunChance', 'bleedMult', 'poisonMult'].filter(function (k) { return pas[k]; });
     $('combat-stats').innerHTML = '<h2>EN COMBAT</h2><ul class="cs-list">' + rows.join('') + '</ul>' +
       (others.length ? '<p class="cs-pas"><b>Passifs :</b> ' + others.map(function (k) { return PASSIVE_TEXT[k](pas[k]); }).join(' · ') + '.</p>' : '');
@@ -969,7 +1017,7 @@
       '<h3>TES CARACTÉRISTIQUES DE DÉPART</h3><div class="vp-stats">' + STATS.map(function (st) {
         return '<span style="--c:' + st.color + '"><img src="' + STAT_ICON[st.id] + '" alt=""><b>' + v.base[st.id] + '</b><small>' + st.name + '</small>' + (v.mult[st.id] ? '<i>1 pt = ' + n1(v.mult[st.id]) + '</i>' : '') + '</span>';
       }).join('') + '</div>' +
-      '<p class="vp-desc small">Chaque point de caractéristique réparti vaut ' + multText(v) + ' (×1 ailleurs).' + (v.id === 'ermite' ? ' Sans arme : tu te bats à mains nues.' : ' Tu te bats ' + (v.id === 'kunai' ? 'à distance' : 'au corps à corps') + '.') + '</p>' +
+      '<p class="vp-desc small">Attribut principal : <b>' + STAT_NAME[v.main] + '</b>, qui fait tes dégâts. Chaque point de caractéristique réparti vaut ' + multText(v) + ' (×1 ailleurs)' + voieTraits(v) + '.' + (v.id === 'ermite' ? ' Sans arme : tu te bats à mains nues.' : ' Tu te bats ' + (v.id === 'kunai' ? 'à distance' : 'au corps à corps') + '.') + '</p>' +
       '<h3>TROIS BRANCHES, UN SOMMET</h3>' + PATHS[v.id].map(function (p, i) {
         return '<div class="vp-branch"><div class="vp-bhead"><img src="' + BRANCH_ICON[v.id][i] + '" alt=""><b>' + p.name + '</b><small>' + p.tag + '</small></div><ul class="vp-spells">' + p.skills.map(function (id, j) {
           var s = skillById(id);
@@ -1339,7 +1387,7 @@
       return (dojo.fighters[card.id] = {
         frog: true, name: card.nom, pseudo: card.pseudo, level: card.niveau, rank: 'duel',
         maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi, spell: pr.spell, cdr: pr.cdr,
-        size: pr.size, pas: pr.pas, dmgReduce: pr.pas.dmgReduce,
+        size: pr.size, pas: pr.pas, dmgReduce: pr.dmgReduce,
         skills: deckSkills(ps, weapon), kind: weapon.kind, wtype: weaponType(weapon), weaponId: baseOf(equip.arme || ''),
         blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave,
         imgs: { idle: imgs(anims.idleRight.frames), atk: imgs(anims.attack.frames), hurt: imgs(anims.hurt.frames), kick: imgs(anims.kick.frames), fx: imgs(buildFx(weaponFx(weapon))) }
@@ -1771,6 +1819,7 @@
 
   // ---------- Combats ----------
   function startFight(fight) {
+    if (save.meditation) endMeditation(false, 'Kawazu se lève pour combattre');
     visible = false;
     cancelAnimationFrame(raf);
     Sfx.ambient(false);
@@ -1868,7 +1917,9 @@
     if (t.dataset.world) { var ow = +t.dataset.world; openStage(ow, t.dataset.st ? +t.dataset.st : nextStage(ow)); return; }
     if (t.hasAttribute('data-close-sheet')) { state.sheet = null; renderWorldMap(); return; }
     if (t.dataset.fight) { startFight(stageFight(save, state.sheet.w, +t.dataset.fight)); return; }
-    if (t.dataset.exp) { startExpedition(save, state.sheet.w, state.sheet.st, t.dataset.exp); persist(); renderStageSheet(); renderSidebar(); return; }
+    if (t.dataset.exp) { if (save.meditation) endMeditation(false, 'Kawazu se lève pour partir en mission'); startExpedition(save, state.sheet.w, state.sheet.st, t.dataset.exp); persist(); renderStageSheet(); renderSidebar(); return; }
+    if (t.id === 'med-start') { save.meditation = { since: Date.now() }; persist(); Sfx.play('drip'); renderMeditation(); return; }
+    if (t.id === 'med-stop') { endMeditation(false); return; }
     if (t.id === 'exp-claim' || (t.id === 'sb-expedition' && expeditionLeft(save) <= 0)) { claimExpedition(); return; }
     if (t.id === 'sb-expedition') { openStage(save.expedition.w, save.expedition.st); return; }
     if (t.id === 'exp-cancel') { save.expedition = null; persist(); renderStageSheet(); renderSidebar(); return; }

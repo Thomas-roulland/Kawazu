@@ -5,6 +5,7 @@
 var CampScene = (function () {
   var W = 320, H = 180, HORIZON = 100;
   var HERO = { x: 144, y: 87 }; // Kawazu au centre du ponton (pieds en y = 118)
+  var PAD = { x: 178, y: 150 }; // le nénuphar de la méditation, sur l'eau devant le ponton
   var MOON = { x: 236, y: 34 };
   var BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 
@@ -370,7 +371,7 @@ var CampScene = (function () {
   // Le décor est dessiné en trois couches superposées (effet de profondeur au mouvement de la souris) :
   // L.back = ciel, arbres, lac et brume lointaine ; L.mid = halo, cabane, ponton et Kawazu ;
   // L.front = roseaux, branche moussue, brume proche et lucioles.
-  function draw(L, stat, t, hero, fx) {
+  function draw(L, stat, t, hero, fx, zen) {
     var ctx = L.back, th = stat.theme || THEMES.marais;
     ctx.drawImage(stat.back, 0, 0);
 
@@ -421,8 +422,8 @@ var CampScene = (function () {
     // ----- couche du milieu : halo, cabane, ponton, Kawazu -----
     ctx = L.mid;
     ctx.clearRect(0, 0, W, H);
-    // halo clair derrière Kawazu, qui respire doucement
-    var hx = HERO.x + 16, hy = HERO.y + 18;
+    // halo clair derrière Kawazu, qui respire doucement (sur le nénuphar quand il médite)
+    var hx = zen ? PAD.x : HERO.x + 16, hy = zen ? PAD.y - 14 : HERO.y + 18;
     var r = 58 + Math.sin(t * 0.8) * 3;
     var glow = ctx.createRadialGradient(hx, hy, 4, hx, hy, r);
     glow.addColorStop(0, 'rgba(' + th.halo + ',0.42)');
@@ -450,13 +451,16 @@ var CampScene = (function () {
       ctx.fillRect(Math.round(84 + Math.sin(sph * 6 + p) * 3 + sph * 14 - size / 2), Math.round(46 - sph * 42), size, size);
     }
 
-    // Kawazu + ombre (+ onde de choc éventuelle)
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(HERO.x + 16, HERO.y + 31, 11, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (hero) ctx.drawImage(hero, HERO.x, HERO.y);
-    if (fx) ctx.drawImage(fx, HERO.x + 28, HERO.y);
+    // Kawazu + ombre (+ onde de choc éventuelle), ou Kawazu qui médite sur son nénuphar
+    if (zen) drawZen(ctx, t, zen);
+    else {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(HERO.x + 16, HERO.y + 31, 11, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (hero) ctx.drawImage(hero, HERO.x, HERO.y);
+      if (fx) ctx.drawImage(fx, HERO.x + 28, HERO.y);
+    }
 
     // ----- premier plan : roseaux, branche moussue, brume proche, lucioles -----
     ctx = L.front;
@@ -581,5 +585,32 @@ var CampScene = (function () {
     return c;
   }
 
-  return { W: W, H: H, HERO: HERO, buildStatic: buildStatic, draw: draw, makeLogo: makeLogo };
+  // La méditation : un grand nénuphar qui tangue doucement, des ronds dans l'eau, la grenouille assise les yeux
+  // fermés, un souffle lumineux qui monte et des pétales de lotus qui s'envolent
+  function drawZen(ctx, t, img) {
+    var bob = Math.round(Math.sin(t * 1.3) * 1), px = PAD.x, py = PAD.y + bob;
+    for (var k = 0; k < 3; k++) { // ronds dans l'eau
+      var ph = (t * 0.25 + k / 3) % 1, rx = 22 + ph * 26, ry = 5 + ph * 6;
+      ctx.strokeStyle = 'rgba(200,230,210,' + (0.35 * (1 - ph)).toFixed(2) + ')';
+      ctx.beginPath(); ctx.ellipse(px, PAD.y + 2, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    for (var y = -7; y <= 7; y++) for (var x = -24; x <= 24; x++) { // la feuille, avec son encoche
+      var d = (x * x) / 576 + (y * y) / 49;
+      if (d > 1 || (x > -3 && x < 3 && y > 0)) continue;
+      ctx.fillStyle = d > 0.82 ? '#1f4a2a' : (y < -3 ? '#6fae4a' : (Math.abs(x + y * 2) % 9 === 0 ? '#3f7a3a' : '#4e9a45'));
+      ctx.fillRect(px + x, py + y, 1, 1);
+    }
+    ctx.fillStyle = '#ff9ac0'; ctx.fillRect(px + 17, py - 4, 3, 2); ctx.fillStyle = '#ffd0e0'; ctx.fillRect(px + 18, py - 5, 1, 1); // une petite fleur
+    var breath = 0.5 + 0.5 * Math.sin(t * 0.9); // le souffle qui monte et descend
+    ctx.strokeStyle = 'rgba(243,210,122,' + (0.15 + breath * 0.2).toFixed(2) + ')';
+    ctx.beginPath(); ctx.ellipse(px, py - 16, 15 + breath * 3, 17 + breath * 3, 0, 0, Math.PI * 2); ctx.stroke();
+    if (img) ctx.drawImage(img, px - 16, py - 30);
+    for (var p = 0; p < 6; p++) { // des pétales et des lucioles qui s'élèvent
+      var q = (t * 0.12 + p / 6) % 1;
+      ctx.fillStyle = p % 2 ? 'rgba(255,208,224,' + (0.8 * (1 - q)).toFixed(2) + ')' : 'rgba(243,226,138,' + (0.9 * (1 - q)).toFixed(2) + ')';
+      ctx.fillRect(Math.round(px - 14 + (p * 7) % 28 + Math.sin(t * 1.5 + p) * 3), Math.round(py - 22 - q * 40), p % 2 ? 2 : 1, 1);
+    }
+  }
+
+  return { W: W, H: H, HERO: HERO, PAD: PAD, buildStatic: buildStatic, draw: draw, makeLogo: makeLogo };
 })();

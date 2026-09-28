@@ -8,17 +8,18 @@
 
 var DECK_SIZE = 4;
 
-// base : les caractéristiques de départ de la voie ; mult : ce que vaut un point réparti dans chaque caractéristique
+// base : les caractéristiques de départ de la voie ; main : son attribut principal (celui qui fait les dégâts) ;
+// mult : ce que vaut un point réparti dans chaque caractéristique ; hp : son endurance ; armor : les dégâts qu'elle encaisse en moins
 var VOIES = [
   { id: 'baton', name: 'Voie des Armes', short: 'Armes', color: '#8fce52', family: 'corps à corps',
     desc: 'Corps à corps : bâtons, katanas et masses. Des ondes qui étourdissent, des entailles qui saignent et une force de colosse.',
-    base: { vitalite: 9, agilite: 6, force: 8, esprit: 4 }, mult: { force: 2, vitalite: 1.5 } },
+    base: { vitalite: 9, agilite: 6, force: 8, esprit: 4 }, main: 'force', mult: { force: 2, vitalite: 1.5 }, hp: 1.1, armor: 0.06, armorL: 0.0004 },
   { id: 'kunai', name: 'Voie du Lancer', short: 'Lancer', color: '#9cc7e0', family: 'distance',
     desc: 'À distance : kunaïs et shurikens d’eau. Des lancers qui ne ratent jamais, des marques, du poison et une ombre insaisissable.',
-    base: { vitalite: 5, agilite: 11, force: 6, esprit: 5 }, mult: { agilite: 2, force: 1.5 } },
+    base: { vitalite: 8, agilite: 9, force: 5, esprit: 5 }, main: 'agilite', mult: { agilite: 2, vitalite: 1.5 }, hp: 1.06, armor: 0 },
   { id: 'ermite', name: 'Voie de l’Ermite', short: 'Ermite', color: '#e0b43a', family: 'mains nues',
     desc: 'Mains nues : paumes d’énergie, coups de pied et coups de boule. L’énergie de la nature frappe, soigne et protège.',
-    base: { vitalite: 8, agilite: 5, force: 5, esprit: 9 }, mult: { esprit: 2, vitalite: 1.5 } }
+    base: { vitalite: 8, agilite: 5, force: 3, esprit: 11 }, main: 'esprit', mult: { esprit: 2, vitalite: 1.5 }, hp: 1.05, armor: 0.05 }
 ];
 function voieDef(id) { return VOIES.filter(function (v) { return v.id === id; })[0] || null; }
 // ce que rapporte un point réparti dans une caractéristique, selon la voie (1 sans voie)
@@ -37,62 +38,62 @@ var SKILLS = [
   { id: 'coup_baton', voie: 'baton', base: 'baton', name: 'Coup de bâton', cd: 0, power: 1, hits: 1, anim: 'arc', desc: 'Frappe simple : une onde grise en demi-cercle, 100 % des dégâts.' },
   { id: 'estoc', voie: 'baton', base: 'harpon', name: 'Coup d’estoc', cd: 0, power: 1.05, hits: 1, anim: 'arc', desc: 'Le harpon file tout droit : 105 % des dégâts.' },
   { id: 'entaille', voie: 'baton', base: 'katana', name: 'Entaille', cd: 0, power: 0.9, hits: 1, critBonus: 0.1, anim: 'slash', desc: 'Un coup de sabre vif : 90 % des dégâts, +10 % de chances de critique.' },
-  { id: 'coup_masse', voie: 'baton', base: 'masse', name: 'Coup de masse', cd: 0, power: 1.2, hits: 1, anim: 'slam', desc: 'Lourd et puissant : 120 % des dégâts.' },
-  { id: 'lancer', voie: 'kunai', base: 'kunai', name: 'Lancer de kunaï', cd: 0, power: 0.85, hits: 1, anim: 'kunai', desc: 'Un kunaï qui ne rate jamais : 85 % des dégâts.' },
-  { id: 'shuriken', voie: 'kunai', base: 'shuriken', name: 'Lancer de shurikens', cd: 0, power: 0.45, hits: 2, anim: 'shuriken', desc: 'Deux étoiles tournoyantes qui ne ratent jamais : 2 × 45 % des dégâts.' },
-  { id: 'frappe', voie: 'ermite', base: 'mains', name: 'Frappe du crapaud', cd: 0, power: 1.05, hits: 1, anim: 'arc', desc: 'Un coup de paume à mains nues : 105 % des dégâts.' },
+  { id: 'coup_masse', voie: 'baton', base: 'masse', name: 'Coup de masse', cd: 0, power: 1.1, hits: 1, anim: 'slam', desc: 'Lourd et puissant : 110 % des dégâts.' },
+  { id: 'lancer', voie: 'kunai', base: 'kunai', name: 'Lancer de kunaï', cd: 0, power: 0.95, hits: 1, anim: 'kunai', desc: 'Un kunaï qui ne rate jamais : 95 % des dégâts.' },
+  { id: 'shuriken', voie: 'kunai', base: 'shuriken', name: 'Lancer de shurikens', cd: 0, power: 0.5, hits: 2, anim: 'shuriken', desc: 'Deux étoiles tournoyantes qui ne ratent jamais : 2 × 50 % des dégâts.' },
+  { id: 'frappe', voie: 'ermite', base: 'mains', name: 'Frappe du crapaud', cd: 0, power: 1.1, hits: 1, anim: 'arc', desc: 'Un coup de paume à mains nues : 110 % des dégâts.' },
 
   // ----- Voie des Armes -----
   // Bâton de jade
   { id: 'onde', voie: 'baton', name: 'Onde de choc', cd: 1, power: 1.5, hits: 1, anim: 'wave', desc: 'Une grande onde en demi-cercle : 150 % des dégâts.' },
-  { id: 'balayage', voie: 'baton', name: 'Balayage', cd: 3, power: 1.1, hits: 1, stun: 0.6, anim: 'sweep', desc: 'Fauche les pattes : 110 % des dégâts, 60 % de chances d’étourdir un tour.' },
+  { id: 'balayage', voie: 'baton', name: 'Balayage', cd: 3, power: 1.2, hits: 1, stun: 0.5, anim: 'sweep', desc: 'Fauche les pattes : 120 % des dégâts, 50 % de chances d’étourdir un tour.' },
   { id: 'garde', voie: 'baton', name: 'Garde du roseau', cd: 4, power: 0, hits: 0, guard: 2, counter: true, desc: 'Pendant 2 tours ennemis : dégâts reçus divisés par deux, et tu ripostes à chaque coup encaissé.' },
-  { id: 'tempete', voie: 'baton', name: 'Tempête de jade', cd: 5, power: 0.9, hits: 3, stun: 0.25, anim: 'wave', desc: 'Trois ondes d’affilée : 3 × 90 % des dégâts, chacune peut étourdir (25 %).' },
+  { id: 'tempete', voie: 'baton', name: 'Tempête de jade', cd: 5, power: 1.05, hits: 3, stun: 0.25, anim: 'wave', desc: 'Trois ondes d’affilée : 3 × 105 % des dégâts, chacune peut étourdir (25 %).' },
   // Katana
-  { id: 'croix', voie: 'baton', name: 'Coupe croisée', cd: 2, power: 0.8, hits: 2, bleed: 3, anim: 'xslash', desc: 'Deux entailles en croix : 2 × 80 % des dégâts, et l’ennemi saigne 3 tours.' },
+  { id: 'croix', voie: 'baton', name: 'Coupe croisée', cd: 2, power: 0.7, hits: 2, bleed: 3, anim: 'xslash', desc: 'Deux entailles en croix : 2 × 70 % des dégâts, et l’ennemi saigne 3 tours.' },
   { id: 'iai', voie: 'baton', name: 'Iaï éclair', cd: 3, power: 2, hits: 1, critBonus: 0.5, anim: 'dash', desc: 'Dégaine et traverse l’ennemi en un éclair : 200 % des dégâts, +50 % de chances de critique.' },
-  { id: 'danse', voie: 'baton', name: 'Danse des lames', cd: 4, power: 0.6, hits: 4, bleed: 3, anim: 'slashes', desc: 'Quatre entailles tourbillonnantes : 4 × 60 % des dégâts, et l’ennemi saigne.' },
-  { id: 'lune', voie: 'baton', name: 'Lune tranchante', cd: 5, power: 2.6, hits: 1, pierce: true, bleed: 3, anim: 'crescent', desc: 'Un croissant de lune géant fend l’air : 260 % des dégâts, ignore la garde et l’armure, saignement.' },
+  { id: 'danse', voie: 'baton', name: 'Danse des lames', cd: 4, power: 0.72, hits: 4, bleed: 3, anim: 'slashes', desc: 'Quatre entailles tourbillonnantes : 4 × 72 % des dégâts, et l’ennemi saigne.' },
+  { id: 'lune', voie: 'baton', name: 'Lune tranchante', cd: 5, power: 3, hits: 1, pierce: true, bleed: 3, anim: 'crescent', desc: 'Un croissant de lune géant fend l’air : 300 % des dégâts, ignore la garde et l’armure, saignement.' },
   // Colosse
-  { id: 'fracas', voie: 'baton', name: 'Fracas', cd: 2, power: 1.7, hits: 1, stun: 0.3, anim: 'slam', desc: 'Un bond, puis l’arme s’abat : 170 % des dégâts, 30 % de chances d’étourdir.' },
+  { id: 'fracas', voie: 'baton', name: 'Fracas', cd: 2, power: 1.5, hits: 1, stun: 0.25, anim: 'slam', desc: 'Un bond, puis l’arme s’abat : 150 % des dégâts, 25 % de chances d’étourdir.' },
   { id: 'cri', voie: 'baton', name: 'Cri de guerre', cd: 5, power: 0, hits: 0, buff: 3, weaken: 2, anim: 'roar', desc: '+40 % de dégâts pendant 3 tours, et l’ennemi effrayé fait 30 % de dégâts en moins pendant 2 tours.' },
-  { id: 'moulinet', voie: 'baton', name: 'Moulinet', cd: 3, power: 0.55, hits: 4, anim: 'spin', desc: 'L’arme tournoie autour de toi : 4 × 55 % des dégâts.' },
-  { id: 'seisme', voie: 'baton', name: 'Séisme', cd: 5, power: 2.8, hits: 1, stun: 0.5, anim: 'quake', desc: 'Un saut immense et une chute qui fend la terre : 280 % des dégâts, 50 % de chances d’étourdir.' },
+  { id: 'moulinet', voie: 'baton', name: 'Moulinet', cd: 3, power: 0.65, hits: 4, anim: 'spin', desc: 'L’arme tournoie autour de toi : 4 × 65 % des dégâts.' },
+  { id: 'seisme', voie: 'baton', name: 'Séisme', cd: 5, power: 3.2, hits: 1, stun: 0.5, anim: 'quake', desc: 'Un saut immense et une chute qui fend la terre : 320 % des dégâts, 50 % de chances d’étourdir.' },
   // la dalle-sommet
-  { id: 'acier', voie: 'baton', name: 'Tempête d’acier', cd: 6, power: 0.7, hits: 6, bleed: 3, anim: 'storm', desc: 'Toutes tes armes à la fois : 6 × 70 % des dégâts, et l’ennemi saigne.' },
+  { id: 'acier', voie: 'baton', name: 'Tempête d’acier', cd: 6, power: 0.85, hits: 6, bleed: 3, anim: 'storm', desc: 'Toutes tes armes à la fois : 6 × 85 % des dégâts, et l’ennemi saigne.' },
 
   // ----- Voie du Lancer -----
   // Kunaï
-  { id: 'double', voie: 'kunai', name: 'Double lancer', cd: 1, power: 0.7, hits: 2, anim: 'kunai', desc: 'Deux kunaïs qui ne ratent jamais : 2 × 70 % des dégâts.' },
-  { id: 'eventail', voie: 'kunai', name: 'Éventail de kunaïs', cd: 3, power: 0.6, hits: 3, anim: 'fan', desc: 'Trois kunaïs en éventail : 3 × 60 % des dégâts.' },
+  { id: 'double', voie: 'kunai', name: 'Double lancer', cd: 1, power: 0.75, hits: 2, anim: 'kunai', desc: 'Deux kunaïs qui ne ratent jamais : 2 × 75 % des dégâts.' },
+  { id: 'eventail', voie: 'kunai', name: 'Éventail de kunaïs', cd: 3, power: 0.75, hits: 3, anim: 'fan', desc: 'Trois kunaïs en éventail : 3 × 75 % des dégâts.' },
   { id: 'marque', voie: 'kunai', name: 'Kunaï marqueur', cd: 4, power: 0.8, hits: 1, mark: 3, anim: 'marker', desc: '80 % des dégâts, et le parchemin marque l’ennemi : il subit +30 % de dégâts pendant 3 tours.' },
-  { id: 'pluie', voie: 'kunai', name: 'Pluie de kunaïs', cd: 5, power: 0.5, hits: 6, anim: 'rain', desc: 'Six kunaïs tombés du ciel : 6 × 50 % des dégâts.' },
+  { id: 'pluie', voie: 'kunai', name: 'Pluie de kunaïs', cd: 5, power: 0.6, hits: 6, anim: 'rain', desc: 'Six kunaïs tombés du ciel : 6 × 60 % des dégâts.' },
   // Shuriken d'eau
-  { id: 'mizu', voie: 'kunai', name: 'Shuriken d’eau', cd: 2, power: 1.3, hits: 1, pierce: true, anim: 'water', desc: 'Une étoile d’eau tournoyante : 130 % des dégâts, traverse la garde et l’armure.' },
-  { id: 'prison', voie: 'kunai', name: 'Prison d’eau', cd: 4, power: 0.6, hits: 1, stun: 0.75, anim: 'bubble', desc: 'Enferme l’ennemi dans une bulle : 60 % des dégâts, 75 % de chances de l’étourdir.' },
-  { id: 'fuma', voie: 'kunai', name: 'Shuriken géant', cd: 4, power: 0.75, hits: 3, anim: 'fuma', desc: 'Un grand shuriken qui fait l’aller-retour : 3 × 75 % des dégâts.' },
-  { id: 'tourbillon', voie: 'kunai', name: 'Tourbillon d’eau', cd: 5, power: 0.55, hits: 5, weaken: 2, anim: 'vortex', desc: 'Cinq shurikens d’eau tournent autour de l’ennemi : 5 × 55 % des dégâts ; trempé, il fait 30 % de dégâts en moins 2 tours.' },
+  { id: 'mizu', voie: 'kunai', name: 'Shuriken d’eau', cd: 2, power: 1.5, hits: 1, pierce: true, anim: 'water', desc: 'Une étoile d’eau tournoyante : 150 % des dégâts, traverse la garde et l’armure.' },
+  { id: 'prison', voie: 'kunai', name: 'Prison d’eau', cd: 4, power: 0.8, hits: 1, stun: 0.6, anim: 'bubble', desc: 'Enferme l’ennemi dans une bulle : 80 % des dégâts, 60 % de chances de l’étourdir.' },
+  { id: 'fuma', voie: 'kunai', name: 'Shuriken géant', cd: 4, power: 0.85, hits: 3, anim: 'fuma', desc: 'Un grand shuriken qui fait l’aller-retour : 3 × 85 % des dégâts.' },
+  { id: 'tourbillon', voie: 'kunai', name: 'Tourbillon d’eau', cd: 5, power: 0.65, hits: 5, weaken: 2, anim: 'vortex', desc: 'Cinq shurikens d’eau tournent autour de l’ennemi : 5 × 65 % des dégâts ; trempé, il fait 30 % de dégâts en moins 2 tours.' },
   // Ombre
   { id: 'aiguille', voie: 'kunai', name: 'Aiguille empoisonnée', cd: 2, power: 0.4, hits: 1, poison: 4, anim: 'needle', desc: '40 % des dégâts et un poison tenace pendant 4 tours.' },
   { id: 'ombre', voie: 'kunai', name: 'Pas de l’ombre', cd: 4, power: 0, hits: 0, shadow: true, desc: 'Tu esquives à coup sûr la prochaine attaque, et ton coup suivant est critique.' },
   { id: 'nuage', voie: 'kunai', name: 'Nuage toxique', cd: 4, power: 0.3, hits: 1, poison: 5, weaken: 2, anim: 'cloud', desc: '30 % des dégâts, poison pendant 5 tours, et l’ennemi étouffé fait 30 % de dégâts en moins 2 tours.' },
-  { id: 'clone', voie: 'kunai', name: 'Clone d’ombre', cd: 5, power: 0.65, hits: 4, shadowAfter: true, anim: 'clone', desc: 'Ton ombre surgit derrière l’ennemi : 4 × 65 % des dégâts, puis tu esquives la prochaine attaque.' },
+  { id: 'clone', voie: 'kunai', name: 'Clone d’ombre', cd: 5, power: 0.75, hits: 4, shadowAfter: true, anim: 'clone', desc: 'Ton ombre surgit derrière l’ennemi : 4 × 75 % des dégâts, puis tu esquives la prochaine attaque.' },
   // la dalle-sommet
   { id: 'deluge', voie: 'kunai', name: 'Déluge de lames', cd: 6, power: 0.45, hits: 8, mark: 2, anim: 'deluge', desc: 'Kunaïs et shurikens pleuvent : 8 × 45 % des dégâts, et l’ennemi est marqué.' },
 
   // ----- Voie de l'Ermite -----
   // Paume
-  { id: 'paume', voie: 'ermite', name: 'Paume de l’ermite', cd: 1, power: 1.4, hits: 1, anim: 'palm', desc: 'Un coup de paume chargé d’énergie : 140 % des dégâts.' },
-  { id: 'coassement', voie: 'ermite', name: 'Coassement du sage', cd: 4, power: 1.3, hits: 1, stun: 0.65, anim: 'roar', desc: 'Un cri qui fait trembler l’air : 130 % des dégâts, 65 % de chances d’étourdir.' },
+  { id: 'paume', voie: 'ermite', name: 'Paume de l’ermite', cd: 1, power: 1.6, hits: 1, anim: 'palm', desc: 'Un coup de paume chargé d’énergie : 160 % des dégâts.' },
+  { id: 'coassement', voie: 'ermite', name: 'Coassement du sage', cd: 4, power: 1.45, hits: 1, stun: 0.5, anim: 'roar', desc: 'Un cri qui fait trembler l’air : 145 % des dégâts, 50 % de chances d’étourdir.' },
   { id: 'grande_paume', voie: 'ermite', name: 'Paume du crapaud géant', cd: 4, power: 2.2, hits: 1, pierce: true, anim: 'bigpalm', desc: 'Une paume d’énergie géante s’abat : 220 % des dégâts, ignore la garde et l’armure.' },
   { id: 'orbe', voie: 'ermite', name: 'Orbe du marais', cd: 5, power: 3, hits: 1, anim: 'orb', desc: 'Une sphère d’énergie tournoyante, enfoncée à bout de bras : 300 % des dégâts.' },
   // Pieds et tête
-  { id: 'pied', voie: 'ermite', name: 'Coup de pied', cd: 1, power: 1.3, hits: 1, anim: 'kick', desc: 'Un coup de pied sauté : 130 % des dégâts.' },
-  { id: 'boule', voie: 'ermite', name: 'Coup de boule', cd: 3, power: 1.6, hits: 1, stun: 0.5, anim: 'headbutt', desc: 'Tête la première : 160 % des dégâts, 50 % de chances d’étourdir.' },
+  { id: 'pied', voie: 'ermite', name: 'Coup de pied', cd: 1, power: 1.5, hits: 1, anim: 'kick', desc: 'Un coup de pied sauté : 150 % des dégâts.' },
+  { id: 'boule', voie: 'ermite', name: 'Coup de boule', cd: 3, power: 1.75, hits: 1, stun: 0.5, anim: 'headbutt', desc: 'Tête la première : 175 % des dégâts, 50 % de chances d’étourdir.' },
   { id: 'retourne', voie: 'ermite', name: 'Coup de pied retourné', cd: 3, power: 0.9, hits: 2, anim: 'spinkick', desc: 'Une vrille en l’air, deux talons : 2 × 90 % des dégâts.' },
   { id: 'chute', voie: 'ermite', name: 'Chute du crapaud', cd: 5, power: 2.8, hits: 1, stun: 0.4, anim: 'jump', desc: 'Un bond jusqu’au ciel, puis un coup de boule en piqué : 280 % des dégâts, 40 % de chances d’étourdir.' },
   // Crapaud sage
-  { id: 'langue', voie: 'ermite', name: 'Langue fouet', cd: 2, power: 1, hits: 1, drain: 0.5, anim: 'tongue', desc: '100 % des dégâts, et la langue te rend la moitié en PV.' },
+  { id: 'langue', voie: 'ermite', name: 'Langue fouet', cd: 2, power: 1.3, hits: 1, drain: 0.5, anim: 'tongue', desc: '130 % des dégâts, et la langue te rend la moitié en PV.' },
   { id: 'respiration', voie: 'ermite', name: 'Respiration du marais', cd: 4, power: 0, hits: 0, heal: 0.3, cleanse: true, desc: 'Soigne 30 % des PV maximum et chasse poison, saignement et étourdissement.' },
   { id: 'peau', voie: 'ermite', name: 'Peau de rosée', cd: 5, power: 0, hits: 0, buff: 3, desc: '+40 % de dégâts pendant 3 tours.' },
   { id: 'huile', voie: 'ermite', name: 'Huile du mont Kaeru', cd: 6, power: 0, hits: 0, heal: 0.25, guard: 2, desc: 'Soigne 25 % des PV maximum et divise par deux les dégâts reçus pendant 2 tours ennemis.' },
@@ -116,33 +117,33 @@ var STAT_WORD = { force: 'Force', vitalite: 'Vitalité', agilite: 'Agilité', es
 var PATHS = {
   baton: [
     { name: 'Bâton de jade', tag: 'contrôle', skills: ['onde', 'balayage', 'garde', 'tempete'], stats: ['vitalite', 'force', 'vitalite'],
-      passives: [['Roseau qui plie', { stunChance: 0.1 }], ['Garde de fer', { dmgReduce: 0.06 }], ['Contre-attaque', { riposte: 0.15 }]] },
+      passives: [['Roseau qui plie', { stunChance: 0.05, hpMult: 0.04 }], ['Garde de fer', { dmgReduce: 0.06 }], ['Contre-attaque', { riposte: 0.15 }]] },
     { name: 'Katana', tag: 'saignement, critiques', skills: ['croix', 'iai', 'danse', 'lune'], stats: ['force', 'agilite', 'force'],
       passives: [['Fil du sabre', { crit: 0.05, bleedMult: 0.25 }], ['Lame affûtée', { critDmg: 0.3 }], ['Coup de grâce', { execute: 0.4 }]] },
     { name: 'Colosse', tag: 'masse, force brute', skills: ['fracas', 'cri', 'moulinet', 'seisme'], stats: ['vitalite', 'force', 'vitalite'],
       passives: [['Croissance', { size: 0.05, hpMult: 0.06 }], ['Peau de pierre', { shield: 0.12 }], ['Colosse', { size: 0.08, hpMult: 0.08, dmgMult: 0.06 }]] }
   ],
   kunai: [
-    { name: 'Kunaï', tag: 'rafales, précision', skills: ['double', 'eventail', 'marque', 'pluie'], stats: ['agilite', 'force', 'agilite'],
+    { name: 'Kunaï', tag: 'rafales, précision', skills: ['double', 'eventail', 'marque', 'pluie'], stats: ['agilite', 'vitalite', 'agilite'],
       passives: [['Œil du héron', { crit: 0.06 }], ['Lancer parfait', { multiHit: 0.2 }], ['Rafale', { critDmg: 0.3 }]] },
-    { name: 'Shuriken d’eau', tag: 'eau, contrôle', skills: ['mizu', 'prison', 'fuma', 'tourbillon'], stats: ['esprit', 'agilite', 'esprit'],
-      passives: [['Eau vive', { spellMult: 0.1 }], ['Marée montante', { regenHp: 0.03 }], ['Courant rapide', { flow: 0.25 }]] },
+    { name: 'Shuriken d’eau', tag: 'eau, contrôle', skills: ['mizu', 'prison', 'fuma', 'tourbillon'], stats: ['agilite', 'vitalite', 'esprit'],
+      passives: [['Eau vive', { spellMult: 0.1 }], ['Marée montante', { regenHp: 0.02 }], ['Courant rapide', { flow: 0.25 }]] },
     { name: 'Ombre', tag: 'poison, esquive', skills: ['aiguille', 'ombre', 'nuage', 'clone'], stats: ['agilite', 'vitalite', 'agilite'],
       passives: [['Pas de loup', { dodge: 0.04 }], ['Venin des marais', { poisonMult: 0.5 }], ['Insaisissable', { dodge: 0.05, crit: 0.03 }]] }
   ],
   ermite: [
-    { name: 'Paume', tag: 'énergie', skills: ['paume', 'coassement', 'grande_paume', 'orbe'], stats: ['esprit', 'force', 'esprit'],
+    { name: 'Paume', tag: 'énergie', skills: ['paume', 'coassement', 'grande_paume', 'orbe'], stats: ['esprit', 'vitalite', 'esprit'],
       passives: [['Paume chargée', { spellMult: 0.1 }], ['Énergie naturelle', { flow: 0.2 }], ['Sagesse', { spellMult: 0.15 }]] },
-    { name: 'Pieds et tête', tag: 'coups de pied, coups de boule', skills: ['pied', 'boule', 'retourne', 'chute'], stats: ['force', 'vitalite', 'force'],
-      passives: [['Front de pierre', { stunChance: 0.1 }], ['Enchaînement', { multiHit: 0.2 }], ['Corps d’acier', { dmgReduce: 0.06, riposte: 0.1 }]] },
+    { name: 'Pieds et tête', tag: 'coups de pied, coups de boule', skills: ['pied', 'boule', 'retourne', 'chute'], stats: ['esprit', 'vitalite', 'force'],
+      passives: [['Front de pierre', { stunChance: 0.05, hpMult: 0.04 }], ['Enchaînement', { multiHit: 0.2 }], ['Corps d’acier', { dmgReduce: 0.06, riposte: 0.1 }]] },
     { name: 'Crapaud sage', tag: 'soins, vol de vie', skills: ['langue', 'respiration', 'peau', 'huile'], stats: ['vitalite', 'esprit', 'vitalite'],
-      passives: [['Peau épaisse', { dmgReduce: 0.05 }], ['Sang du crapaud', { lifesteal: 0.08 }], ['Croissance du sage', { size: 0.08, hpMult: 0.1 }]] }
+      passives: [['Peau épaisse', { dmgReduce: 0.05 }], ['Sang du crapaud', { lifesteal: 0.06 }], ['Croissance du sage', { size: 0.08, hpMult: 0.1 }]] }
   ]
 };
 var SUMMITS = {
-  baton: { name: 'Maître d’armes', skill: 'acier', passive: { dmgMult: 0.12, crit: 0.05 } },
+  baton: { name: 'Maître d’armes', skill: 'acier', passive: { dmgMult: 0.2, crit: 0.08 } },
   kunai: { name: 'Œil du tireur', skill: 'deluge', passive: { crit: 0.08, critDmg: 0.2 } },
-  ermite: { name: 'Mode Sage', skill: 'kumite', passive: { dmgMult: 0.12, hpMult: 0.1, regenHp: 0.03 } }
+  ermite: { name: 'Mode Sage', skill: 'kumite', passive: { dmgMult: 0.12, hpMult: 0.1, regenHp: 0.02 } }
 };
 
 var PASSIVE_TEXT = {
@@ -248,5 +249,12 @@ function deckSkills(save, weapon) {
   return [baseSkill(weapon)].concat(save.deck.filter(function (id) { return known.indexOf(id) >= 0; }).slice(0, DECK_SIZE).map(skillById)
     .filter(function (s) { return skillUsable(s, weapon); }));
 }
-// Le temps de relance réel d'un sort, raccourci par l'Esprit (cdr), jamais sous 1 tour
-function skillCd(s, cdr) { return s.cd ? Math.max(1, s.cd - (cdr || 0)) : 0; }
+// Les meilleurs sorts d'une liste, pour une grenouille jouée par l'ordinateur (les sages de la tour) : les dégâts par
+// tour d'abord (étourdissement, saignement, poison, marque compris), puis un soin, un renfort ou une garde
+function skillValue(s) {
+  return s.power * s.hits * (1 + (s.stun || 0) * 0.4 + (s.bleed || s.poison ? 0.3 : 0) + (s.mark ? 0.4 : 0) + (s.weaken ? 0.25 : 0)) / Math.max(1, s.cd) * 3 +
+    (s.heal ? 1.6 : 0) + (s.buff ? 1.2 : 0) + (s.guard ? 0.8 : 0) + (s.shadow ? 0.5 : 0);
+}
+function bestDeck(ids) { return ids.map(skillById).sort(function (a, b) { return skillValue(b) - skillValue(a); }).slice(0, DECK_SIZE).map(function (s) { return s.id; }); }
+// Le temps de relance réel d'un sort, raccourci par l'Esprit (cdr), jamais sous 1 tour ; un soin ne gagne qu'un tour au plus
+function skillCd(s, cdr) { return s.cd ? Math.max(s.heal ? s.cd - 1 : 1, s.cd - (cdr || 0)) : 0; }
