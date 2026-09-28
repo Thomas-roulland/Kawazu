@@ -94,14 +94,18 @@ Les **lucioles** sont la monnaie du jeu.
   La tour est une **pagode dessinée en pixel art** étage par étage (toits de tuiles de jade aux coins relevés, murs
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée
   dans un bassin entre deux falaises d’où tombent des **cascades animées** ; le ciel change tous les dix étages et
-  les étages du haut se perdent dans les nuages. La molette (ou ▲ ▼ ◎) fait monter et descendre la vue ; chaque
-  étage montre son sage devant la porte, et ta grenouille attend sur le balcon de l’étage à conquérir.
+  les étages du haut se perdent dans les nuages. La molette fait monter et descendre la vue ; chaque
+  étage montre son sage devant la porte, et ta grenouille attend sur le balcon de l’étage à conquérir. La fiche de
+  l’étage choisi donne le sage (force comparée à la tienne, sorts, récompense) et tout ce que la tour a déjà rapporté
+  (lucioles, XP, et les dix trésors, obtenus ou à gagner).
   Chaque étage est gardé par un **ancien sage grenouille**, un vrai combattant (niveau, points, voie, dalles du
   temple, sorts, équipement), de plus en plus fort (niveau 3 au 1er étage, 145 au 100e). Tous les 10 étages, un
   **Grand Sage** (Doyenne Hasuno, Maître Iwagama… jusqu’au Premier Sage) garde un **trésor** : 10 objets exclusifs.
   Première victoire sur un étage : lucioles et XP ; on peut rejouer les étages conquis, sans récompense.
 - **Cascade des duels** (avec un compte, sauf l’entraînement) : deux rochers de part et d’autre d’une grande
-  cascade, dans une gorge de jade ; chaque grenouille sur le sien. Deux onglets.
+  cascade, dans une gorge de jade : ta grenouille sur le rocher de gauche, l’adversaire choisi sur celui d’en face,
+  animées, chacune avec sa plaque. En bas, ta fiche et celle de l’adversaire (◀ ▶ pour en changer), avec le
+  face-à-face des stats (PV, dégâts, agilité, critique, esquive) ; le journal est en haut. Deux onglets.
   - **Duels** : trois adversaires proches en réputation, qui sont les grenouilles des autres joueurs, avec leur
     vrai équipement (stats tirées comprises), leurs points, leur voie et leur deck, joués par l’ordinateur. On peut
     aussi affronter **ses propres autres grenouilles, chacune une fois par jour**. Une victoire rapporte de 4 à 30
@@ -112,7 +116,8 @@ Les **lucioles** sont la monnaie du jeu.
     2e et 3e, puis 150 et 100 lucioles. Le classement des duels est dans la page Classement (onglet Duels).
   - **Entraînement** : l’**arbre d’entraînement**, 10 tours pour tester équipement, points et sorts, immobile ou
     qui riposte, puis le bilan (dégâts, par tour, meilleur coup, critiques, dégâts reçus). Sans récompense ni limite.
-- **Album** : un **livre** à feuilleter (flèches, marque-pages Sommaire / Bestiaire / Objets, ou touches ← →).
+- **Album** : un grand **livre** à feuilleter : la page tourne vraiment autour de la reliure (flèches, touches ← →, ou les
+  marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets).
   Le sommaire donne les chapitres et les **récompenses** à réclamer (paliers de découvertes : lucioles, XP, et au
   bout l’Anneau du naturaliste et l’Écharpe du collectionneur). Puis une double page par **famille** : Limons,
   Moustiques, Champis, Chauves-souris, Boss des terres, Grands Sages ; Bâtons, Harpons, Kunaïs, Couvre-chefs,
@@ -136,6 +141,9 @@ Les **lucioles** sont la monnaie du jeu.
   recolorée et entourée d’une aura, plus coriace et bien mieux récompensée.
 
 ## Le combat
+
+L’arène fait 400×225 pixels : la caméra est reculée, on voit tout le décor, et elle recule encore un peu au début
+de chaque combat (effet de dézoom).
 
 Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité décide qui commence.
 

@@ -144,6 +144,7 @@ var Sfx = (function () {
     cricket: function () { var s = S(); for (var i = 0; i < 4; i++) note(s.d, s.t + i * 0.055, 4600, 0.035, 'sine', 0.025, 0.004); },
     drip: function () { var s = S(); note(s.d, s.t, 1500, 0.1, 'sine', 0.08, 0.002, 600); },
     // cinématique de l'accueil
+    page: function () { var s = S(); hiss(s.d, s.t, 0.32, 0.13, 'bandpass', 3400, 1100, 0.9, 0.09); hiss(s.d, s.t + 0.26, 0.07, 0.07, 'highpass', 5200); },
     whoosh: function () { var s = S(); hiss(s.d, s.t, 0.42, 0.2, 'bandpass', 350, 3200, 1.1, 0.3); },
     impact: function () {
       var s = S();

@@ -1258,7 +1258,7 @@
   // Deux onglets : les duels contre les grenouilles des autres joueurs, et ses propres autres grenouilles une fois
   // par jour (réputation, 10 duels par jour, journal ; leur classement est dans la page Classement, onglet Duels),
   // et l'arbre d'entraînement pour essayer équipement et sorts.
-  var dojo = { tab: null, data: null, foes: null, loading: false, error: '', riposte: false, last: null, fighters: {} };
+  var dojo = { tab: null, data: null, foes: null, pick: 0, loading: false, error: '', riposte: false, last: null, fighters: {} };
   var DOJO_TURNS = 10;
   var TREE_IMG = stringsToCanvas(SPECIES.arbre.frames[0], SPECIES.arbre.pal).toDataURL();
   var dojoApi = function (method, path, body) {
@@ -1303,7 +1303,7 @@
   // nos propres chiffres, pour comparer
   function myFight() {
     var cs = combatStats(computeStats(save.equip)), pas = treeBonuses(save).passives;
-    return { maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult), agi: cs.agi };
+    return { maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult), agi: cs.agi, crit: cs.crit + pas.crit, dodge: Math.min(0.5, cs.dodge + pas.dodge) };
   }
   // la réputation en jeu, avant le duel (la même règle que le serveur)
   function repStakes(theirs) {
@@ -1341,83 +1341,121 @@
     }, function (e) { dojo.loading = false; dojo.error = e.message; if (state.page === 'dojo') renderDojo(); });
   }
   function loadFoes() {
-    dojo.foes = null; dojo.fighters = {};
+    dojo.foes = null; dojo.fighters = {}; dojo.pick = 0;
     renderDojo();
     Cloud.flush().then(function () { return dojoApi('GET', '/adversaires'); }).then(function (d) { dojo.foes = d.adversaires; renderDojo(); },
       function (e) { dojo.foes = []; dojo.error = e.message; renderDojo(); });
   }
-  // le décor de la page : la cascade, qui coule
+  // ---------- La scène de la cascade : les deux grenouilles sur leurs rochers ----------
+  // Ta grenouille sur le rocher de gauche, l'adversaire choisi (ou l'arbre d'entraînement) sur celui de droite,
+  // animées dans le décor. Au-dessus de chacune, une plaque à son nom ; en bas, sa fiche. Le journal est en haut.
+  var CZ = { meX: 96, foeX: 304, rock: 161 };
+  var TREE_IMGS = SPECIES.arbre.frames.map(function (f) { return stringsToCanvas(f, SPECIES.arbre.pal); });
+  function currentFoe() {
+    var list = dojo.foes || [];
+    if (!list.length) return null;
+    dojo.pick = ((dojo.pick || 0) % list.length + list.length) % list.length;
+    return list[dojo.pick];
+  }
   function drawCascade(now) {
     var cv = $('dojo-bg'), x2 = cv.getContext('2d');
     if (cv.width !== CascadeScene.W) { cv.width = CascadeScene.W; cv.height = CascadeScene.H; }
+    x2.imageSmoothingEnabled = false;
     x2.drawImage(CascadeScene.backdrop(), 0, 0);
     CascadeScene.fx(x2, now);
+    var f = Math.floor(now / 500) % 2, shadow = function (cx, w) { x2.fillStyle = 'rgba(0, 0, 0, 0.3)'; x2.beginPath(); x2.ellipse(cx, CZ.rock - 1, w, 4, 0, 0, Math.PI * 2); x2.fill(); };
+    if (HERO_IMG) { shadow(CZ.meX, 22); x2.drawImage(HERO_IMG.profil[f], CZ.meX - 32, CZ.rock - 64, 64, 64); }
+    if (dojo.tab === 'arbre') { shadow(CZ.foeX, 30); x2.drawImage(TREE_IMGS[Math.floor(now / 700) % 2], CZ.foeX - 48, CZ.rock - 96, 96, 96); return; }
+    var foe = currentFoe();
+    if (foe) {
+      var fg = dojoFighter(foe), sz = Math.round(64 * fg.size);
+      shadow(CZ.foeX, 22 * fg.size);
+      x2.drawImage(fg.imgs.idle[f], CZ.foeX - sz / 2, CZ.rock - sz, sz, sz);
+    }
   }
+  // d'un point du décor (400×225, affiché « cover ») à la page
+  function cascadeToPage(x, y) {
+    var pg = $('page-dojo'), pw = pg.clientWidth, ph = pg.clientHeight, sc = Math.max(pw / CascadeScene.W, ph / CascadeScene.H);
+    return { x: (pw - CascadeScene.W * sc) / 2 + x * sc, y: (ph - CascadeScene.H * sc) / 2 + y * sc };
+  }
+  function plate(cls, x, y, text) { var p = cascadeToPage(x, y); return '<div class="cz-plate ' + cls + '" style="left:' + Math.round(p.x) + 'px;top:' + Math.round(p.y) + 'px">' + text + '</div>'; }
   function openDojo() {
     drawCascade(performance.now());
     if (!dojo.tab || dojo.tab === 'top') dojo.tab = Cloud.id ? 'duels' : 'arbre';
     renderDojo();
     if (Cloud.id) { loadDojo(); if (!dojo.foes) loadFoes(); }
   }
+  window.addEventListener('resize', function () { if (state.page === 'dojo') renderDojo(); });
   function dojoVoie(e) {
     var v = voieOf(e.voie);
     return v ? '<span class="rk-voie" style="--voie:' + v.color + '"><img src="' + VOIE_ICON[v.id] + '" alt="">' + v.short + '</span>' : '<span class="rk-voie none">Sans voie</span>';
   }
   function needAccount(what) {
-    return '<div class="panel dojo-empty"><h2>JOUE AVEC UN COMPTE</h2><p>' + what + ' se jouent contre les grenouilles des autres joueurs : crée un compte depuis l’accueil pour y participer. L’arbre d’entraînement, lui, t’attend déjà.</p>' +
+    return '<div class="panel cz-center"><h2>JOUE AVEC UN COMPTE</h2><p>' + what + ' se jouent contre les grenouilles des autres joueurs : crée un compte depuis l’accueil pour y participer. L’arbre d’entraînement, lui, t’attend déjà.</p>' +
       '<div class="row"><a class="btn" href="/?connexion">Aller à l’accueil</a><button class="btn btn-ghost" data-dojo-tab="arbre">L’arbre d’entraînement</button></div></div>';
   }
   function renderDojo() {
     var tabs = [['duels', 'Duels'], ['arbre', 'Entraînement']];
     $('dojo-tabs').innerHTML = tabs.map(function (t) { return '<button role="tab" data-dojo-tab="' + t[0] + '" aria-selected="' + (dojo.tab === t[0]) + '">' + t[1] + '</button>'; }).join('');
-    var body = $('dojo-body'), d = dojo.data;
-    if (dojo.tab === 'arbre') { body.innerHTML = renderTraining(); return; }
-    if (!Cloud.id) { body.innerHTML = needAccount('Les duels'); return; }
-    if (!d) { body.innerHTML = '<p class="dojo-wait">' + (dojo.error ? escapeHtml(dojo.error) + ' <button class="btn btn-ghost" data-dojo-reload>Réessayer</button>' : 'On déroule les tatamis…') + '</p>'; return; }
-    body.innerHTML = renderDuels(d);
+    var body = $('dojo-body'), d = dojo.data, html = plate('me', CZ.meX, CZ.rock - 64, escapeHtml(save.hero.name) + ' · niv. ' + save.level);
+    if (dojo.tab === 'arbre') html += plate('foe', CZ.foeX, CZ.rock - 98, 'Arbre d’entraînement') + renderTraining();
+    else if (!Cloud.id) html += needAccount('Les duels');
+    else if (!d) html += '<div class="panel cz-center"><p>' + (dojo.error ? escapeHtml(dojo.error) + ' <button class="btn btn-ghost" data-dojo-reload>Réessayer</button>' : 'Les grenouilles gagnent leurs rochers…') + '</p></div>';
+    else html += renderDuels(d);
+    body.innerHTML = html;
   }
-  // l'onglet Duels : notre carte, trois adversaires et le journal
-  function renderDuels(d) {
-    var me = myFight(), meRank = d.rang ? (d.rang === 1 ? '1re' : d.rang + 'e') + ' sur ' + d.classes : 'pas encore classée';
+  // ta fiche : réputation, place, bilan, duels du jour, cadeaux du lundi
+  function myPanel(d) {
+    var meRank = d.rang ? (d.rang === 1 ? '1re' : d.rang + 'e') + ' sur ' + d.classes : 'pas encore classée';
     var pips = Array.from({ length: d.max }, function (_, i) { return '<i' + (i < d.restants ? ' class="on"' : '') + '></i>'; }).join('');
     var myGift = d.rang && d.rang <= d.recompenses.length ? d.recompenses[d.rang - 1] : null;
-    var html = '<div class="dojo-duels"><section class="panel dojo-me">' +
-      '<div class="dm-head"><img class="px" src="' + $('sb-portrait').toDataURL() + '" alt=""><div><b>' + escapeHtml(save.hero.name) + '</b><span class="muted">Niveau ' + save.level + '</span>' + dojoVoie({ voie: save.voie }) + '</div></div>' +
-      '<div class="dm-rep"><b>' + d.rep + '</b><span>réputation · ' + meRank + '</span></div>' +
+    return '<section class="panel cz-me"><div class="cz-rep"><b>' + d.rep + '</b><span>réputation<br>' + meRank + '</span></div>' +
       '<div class="dm-row"><span>Victoires <b>' + d.victoires + '</b></span><span>Défaites <b>' + d.defaites + '</b></span></div>' +
       '<div class="dm-duels"><span>Duels du jour : <b>' + d.restants + ' / ' + d.max + '</b></span><span class="pips">' + pips + '</span></div>' +
-      '<p class="dm-gift">Cadeaux du lundi dans <b>' + untilMs(d.prochain) + '</b>' + (myGift ? ' · à ta place : ' + giftText(myGift) : ' · pour les 10 premières') + '</p>' +
+      '<p class="dm-gift">Cadeaux du lundi dans <b>' + untilMs(d.prochain) + '</b>' + (myGift ? ' · à ta place : ' + giftText(myGift) : '') + '</p>' +
       '<button class="btn btn-ghost" data-rank-duels>Classement des duels</button></section>';
-    html += '<section class="dojo-foes"><div class="df-head"><h2>ADVERSAIRES</h2><button class="btn btn-ghost" data-dojo-foes' + (dojo.foes ? '' : ' disabled') + '>Nouveaux adversaires</button></div><div class="df-list">';
-    if (!dojo.foes) html += '<p class="dojo-wait">Des grenouilles entrent dans le dojo…</p>';
-    else if (!dojo.foes.length) html += '<p class="dojo-wait">Personne à défier pour l’instant : invite des amis à créer leur grenouille, ou crée-toi une deuxième grenouille pour l’affronter (une fois par jour).</p>';
-    else html += dojo.foes.map(function (card) {
-      var f = dojoFighter(card), st = repStakes(card.rep), cmp = function (a, b) { return a > b * 1.08 ? ' up' : (a < b * 0.92 ? ' down' : ''); };
-      return '<article class="foe' + (card.soeur ? ' sister' : '') + '" style="--voie:' + (voieOf(card.voie) ? voieOf(card.voie).color : '#8a968a') + '">' +
-        (card.soeur ? '<span class="foe-sister">TA GRENOUILLE · 1 DUEL PAR JOUR</span>' : '') +
-        '<img class="px foe-frog" src="' + portraitOf(card) + '" alt="">' +
-        '<b class="foe-name">' + escapeHtml(card.nom) + '</b><span class="muted">' + escapeHtml(card.pseudo) + ' · niv. ' + card.niveau + '</span>' + dojoVoie(card) +
-        '<span class="foe-rep">' + card.rep + ' réputation</span>' +
-        '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(f.maxHp, me.maxHp) + '">' + f.maxHp + '</b></li><li><span>Dégâts</span><b class="' + cmp(f.dmg, me.dmg) + '">' + Math.round(f.dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(f.agi, me.agi) + '">' + f.agi + '</b></li></ul>' +
-        '<span class="foe-stakes">Victoire <b class="up">+' + st.win + '</b> · Défaite <b class="down">−' + st.lose + '</b></span>' +
-        '<button class="btn" data-duel="' + card.id + '"' + (d.restants > 0 ? '' : ' disabled') + '>Défier ▶</button></article>';
-    }).join('');
-    html += '</div><div class="panel dojo-journal"><h2>JOURNAL DE LA CASCADE</h2>' + (d.journal.length ? '<ul>' + d.journal.map(function (j) {
+  }
+  // le face-à-face : une ligne par stat, ta valeur à gauche, la sienne à droite, la barre partagée entre les deux
+  function versus(me, them) {
+    var row = function (label, a, b, fmtV) {
+      var tot = a + b || 1, pa = Math.round(a / tot * 100);
+      return '<div class="vs-row"><b class="' + (a >= b ? 'win' : '') + '">' + fmtV(a) + '</b><span class="vs-bar"><i class="a" style="width:' + pa + '%"></i><i class="b" style="width:' + (100 - pa) + '%"></i><em>' + label + '</em></span><b class="' + (b > a ? 'win' : '') + '">' + fmtV(b) + '</b></div>';
+    };
+    var n = function (v) { return Math.round(v); }, pc = function (v) { return Math.round(v * 100) + ' %'; };
+    return '<div class="cz-vs"><div class="vs-head"><span>TOI</span><span>' + escapeHtml(them.name) + '</span></div>' +
+      row('Points de vie', me.maxHp, them.maxHp, n) + row('Dégâts', me.dmg, them.dmg, n) + row('Agilité', me.agi, them.agi, n) +
+      row('Critique', me.crit, them.crit, pc) + row('Esquive', me.dodge, them.dodge, pc) + '</div>';
+  }
+  function renderDuels(d) {
+    var html = myPanel(d), foe = currentFoe(), n = (dojo.foes || []).length;
+    // le journal, en haut
+    html += '<section class="panel cz-journal"><h2>JOURNAL DE LA CASCADE</h2>' + (d.journal.length ? '<ul>' + d.journal.map(function (j) {
       var who = '<b>' + escapeHtml(j.nom) + '</b> (' + escapeHtml(j.pseudo) + ')';
       var text = j.type === 'attaque' ? (j.victoire ? 'Tu as battu ' + who : 'Tu as perdu contre ' + who) : (j.victoire ? who + ' t’a défiée et a perdu' : who + ' t’a défiée et t’a battue');
       return '<li class="' + (j.delta >= 0 ? 'up' : 'down') + '"><span>' + text + '</span><b>' + (j.delta >= 0 ? '+' : '−') + Math.abs(j.delta) + '</b><small>' + agoMs(j.t) + '</small></li>';
-    }).join('') + '</ul>' : '<p class="muted">Aucun duel pour l’instant. Les défis que tu lances, et ceux que tu reçois, s’afficheront ici.</p>') + '</div></section></div>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun duel pour l’instant : les défis lancés et reçus s’afficheront ici.</p>') + '</section>';
+    // l'adversaire choisi : sa plaque au-dessus de lui, sa fiche en bas à droite
+    if (!dojo.foes) return html + '<section class="panel cz-foe"><p class="muted">Des grenouilles s’approchent de la cascade…</p></section>';
+    if (!foe) return html + '<section class="panel cz-foe"><p class="muted">Personne à défier pour l’instant : invite des amis à créer leur grenouille, ou crée-toi une deuxième grenouille pour l’affronter (une fois par jour).</p><button class="btn btn-ghost" data-dojo-foes>Chercher encore</button></section>';
+    var fg = dojoFighter(foe), st = repStakes(foe.rep), mine = myFight();
+    html += plate('foe', CZ.foeX, CZ.rock - Math.round(64 * fg.size), escapeHtml(foe.nom) + ' · niv. ' + foe.niveau);
+    html += '<section class="panel cz-foe' + (foe.soeur ? ' sister' : '') + '">' +
+      '<div class="cz-nav"><button data-foe-step="-1" aria-label="Adversaire précédent"' + (n > 1 ? '' : ' disabled') + '>◀</button><span>ADVERSAIRE ' + (dojo.pick + 1) + ' / ' + n + '</span><button data-foe-step="1" aria-label="Adversaire suivant"' + (n > 1 ? '' : ' disabled') + '>▶</button><button class="link" data-dojo-foes>Nouveaux</button></div>' +
+      '<div class="cz-who"><div><b>' + escapeHtml(foe.nom) + '</b><span>' + escapeHtml(foe.pseudo) + ' · niveau ' + foe.niveau + '</span></div>' + dojoVoie(foe) + '<span class="cz-foerep">' + foe.rep + ' rép.</span></div>' +
+      (foe.soeur ? '<span class="foe-sister">TA GRENOUILLE · 1 DUEL PAR JOUR</span>' : '') +
+      versus(mine, fg) +
+      '<div class="cz-go"><span>Victoire <b class="up">+' + st.win + '</b> · Défaite <b class="down">−' + st.lose + '</b></span><button class="btn" data-duel="' + foe.id + '"' + (d.restants > 0 ? '' : ' disabled') + '>Défier ▶</button></div></section>';
     return html;
   }
-  // l'onglet Entraînement : l'arbre, ses réglages, le dernier bilan
+  // l'onglet Entraînement : l'arbre sur le rocher d'en face, ses réglages et le dernier bilan
   function renderTraining() {
     var l = dojo.last;
-    return '<div class="dojo-train"><section class="panel dt-tree"><img class="px" src="' + TREE_IMG + '" alt=""><div><h2>L’ARBRE D’ENTRAÎNEMENT</h2>' +
-      '<p>Un vieux tronc cerclé de paille, qui en a vu d’autres. ' + DOJO_TURNS + ' tours pour frapper de toutes tes forces : essaie un équipement, une répartition de points ou un deck de sorts, puis compare le bilan. Pas de récompense, pas de limite.</p>' +
-      '<div class="dt-opts" role="radiogroup" aria-label="L’arbre"><button role="radio" data-riposte="0" aria-checked="' + !dojo.riposte + '"><b>Immobile</b><small>il encaisse, rien de plus</small></button>' +
-      '<button role="radio" data-riposte="1" aria-checked="' + dojo.riposte + '"><b>Il riposte</b><small>ses branches fouettent : teste ta défense et tes soins</small></button></div>' +
-      '<button class="btn" data-train>Commencer l’entraînement ▶</button></div></section>' +
-      (l ? '<section class="panel dt-last"><h2>DERNIER BILAN</h2><ul class="bt-bilan"><li><span>Dégâts en ' + l.turns + ' tours</span><b>' + l.total + '</b></li><li><span>Par tour</span><b>' + Math.round(l.total / Math.max(1, l.turns)) + '</b></li><li><span>Meilleur coup</span><b>' + l.best + '</b></li><li><span>Critiques</span><b>' + l.crits + ' / ' + l.hits + '</b></li>' + (l.riposte ? '<li><span>Dégâts reçus</span><b>' + l.taken + '</b></li>' : '') + '</ul></section>' : '') + '</div>';
+    return '<section class="panel cz-foe cz-train"><h2>L’ARBRE D’ENTRAÎNEMENT</h2>' +
+      '<p>' + DOJO_TURNS + ' tours pour frapper de toutes tes forces : essaie un équipement, une répartition de points ou un deck de sorts, puis compare le bilan. Pas de récompense, pas de limite.</p>' +
+      '<div class="dt-opts" role="radiogroup" aria-label="L’arbre"><button role="radio" data-riposte="0" aria-checked="' + !dojo.riposte + '"><b>Immobile</b><small>il encaisse</small></button>' +
+      '<button role="radio" data-riposte="1" aria-checked="' + dojo.riposte + '"><b>Il riposte</b><small>teste ta défense</small></button></div>' +
+      (l ? '<ul class="bt-bilan"><li><span>Dégâts (' + l.turns + ' tours)</span><b>' + l.total + '</b></li><li><span>Par tour</span><b>' + Math.round(l.total / Math.max(1, l.turns)) + '</b></li><li><span>Meilleur coup</span><b>' + l.best + '</b></li><li><span>Critiques</span><b>' + l.crits + ' / ' + l.hits + '</b></li></ul>' : '') +
+      '<button class="btn" data-train>Commencer l’entraînement ▶</button></section>';
   }
   function trainingFight() {
     return {
@@ -1503,7 +1541,6 @@
         (prize ? '<img class="px tfl-prize" src="' + iconUrls[prize] + '" alt="" title="' + ITEMS[prize].name + '">' : '') +
         (f === next && save.tower < TOWER_FLOORS ? '<img class="px tfl-frog" src="' + me + '" alt="Ta grenouille" style="width:' + 20 * S + 'px;height:' + 20 * S + 'px;top:' + 11 * S + 'px">' : '') + '</button>';
     });
-    html += '<div class="tw-nav"><button data-tower-scroll="2" aria-label="Monter">▲</button><button data-tower-scroll="0" aria-label="Revenir à mon étage" title="Revenir à mon étage">◎</button><button data-tower-scroll="-2" aria-label="Descendre">▼</button></div>';
     $('tower-col').innerHTML = html;
     renderTowerSheet();
   }
@@ -1531,6 +1568,11 @@
           '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + statLine(ITEMS[r.item].stats) + '</small></p>' : '')) + '</div>' +
         '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (boss ? 'Défier le Grand Sage ▶' : 'Affronter ▶')) + '</button></div>';
     }
+    // tout ce que la tour a déjà rapporté : lucioles, XP et les trésors des Grands Sages
+    var won = { gold: 0, xp: 0 };
+    for (var wf = 1; wf <= save.tower; wf++) { var wr = towerRewards(wf); won.gold += wr.gold; won.xp += wr.xp; }
+    var trs = Object.keys(GRAND_SAGES).map(function (k) { var fl = +k, id = towerTreasure(fl), got = save.tower >= fl; return '<div class="tw-tr' + (got ? ' got' : '') + '" title="' + (got ? ITEMS[id].name : 'Étage ' + fl + ' : ' + GRAND_SAGES[fl].nom) + '"><img class="px" src="' + (got ? iconUrls[id] : lockedUrls[id]) + '" alt=""><small>' + fl + '</small></div>'; }).join('');
+    html += '<div class="tw-won"><h2>RÉCOMPENSES OBTENUES</h2><p>' + won.gold + ' lucioles · ' + won.xp + ' XP · ' + Math.floor(save.tower / 10) + ' / 10 trésors</p><div class="tw-trs">' + trs + '</div></div>';
     if (save.tower < TOWER_FLOORS) {
       var tp = towerTreasure(nextBoss);
       html += '<p class="tw-hint">Prochain Grand Sage : étage <b>' + nextBoss + '</b>' + (tp ? ', qui garde <b style="color:' + RARITIES.epique.color + '">' + ITEMS[tp].name + '</b>' : '') + '.</p>';
@@ -1542,7 +1584,8 @@
   // Une double page par famille (ALBUM_CHAPTERS) : la présentation de la famille à gauche, ses cartes à collectionner
   // sur les deux pages. Le sommaire ouvre le livre, avec les chapitres et les récompenses à réclamer. Une carte pas
   // encore trouvée montre son dos, avec un indice pour la trouver.
-  var album = { spread: 0, dir: 0 }, albumImgs = {};
+  var album = { spread: 0, flipping: false }, albumImgs = {};
+  var BOOKMARK_MONSTER = stringsToCanvas(SPECIES.limon.frames[0], SPECIES.limon.pal).toDataURL();
   function monsterImg(m, found) {
     var key = m.id + (found ? '' : '-x');
     if (albumImgs[key]) return albumImgs[key];
@@ -1573,8 +1616,8 @@
   function renderAlbum() {
     var spreads = [null].concat(ALBUM_CHAPTERS), sp = album.spread = Math.max(0, Math.min(spreads.length - 1, album.spread)), ch = spreads[sp];
     var firstObj = 1 + ALBUM_CHAPTERS.map(function (c) { return c.cat; }).indexOf('objets'), ready = ALBUM_MILESTONES.some(function (m) { return milestoneReady(save, m); });
-    $('book-tabs').innerHTML = [['Sommaire', 0, sp === 0], ['Bestiaire', 1, sp >= 1 && sp < firstObj], ['Objets', firstObj, sp >= firstObj]].map(function (t, i) {
-      return '<button data-book-go="' + t[1] + '" aria-selected="' + t[2] + '" class="bt-' + i + '">' + t[0] + (i === 0 && ready ? ' <i class="badge-dot"></i>' : '') + '</button>';
+    $('book-tabs').innerHTML = [['Sommaire', 0, sp === 0, ICON.album], ['Bestiaire', 1, sp >= 1 && sp < firstObj, BOOKMARK_MONSTER], ['Objets', firstObj, sp >= firstObj, iconUrls.lame_jade]].map(function (t, i) {
+      return '<button data-book-go="' + t[1] + '" aria-selected="' + t[2] + '" class="bmark bm-' + i + '" title="' + t[0] + '"><img class="px" src="' + t[3] + '" alt=""><span>' + t[0] + '</span>' + (i === 0 && ready ? '<i class="badge-dot"></i>' : '') + '</button>';
     }).join('');
     var left, right;
     if (!ch) {
@@ -1606,16 +1649,29 @@
     $('book-folio').textContent = sp === 0 ? 'Sommaire' : 'Chapitre ' + sp + ' / ' + ALBUM_CHAPTERS.length;
     $('book-prev').disabled = sp === 0;
     $('book-next').disabled = sp === spreads.length - 1;
-    var book = $('book');
-    book.classList.remove('flip-l', 'flip-r');
-    if (album.dir) { void book.offsetWidth; book.classList.add(album.dir > 0 ? 'flip-r' : 'flip-l'); album.dir = 0; }
   }
   function turnPage(to) {
-    if (to === album.spread) return;
-    album.dir = to > album.spread ? 1 : -1;
+    if (to === album.spread || album.flipping) return;
+    var fwd = to > album.spread, book = $('book'), L = $('book-left'), R = $('book-right');
+    var oldL = L.innerHTML, oldR = R.innerHTML;
     album.spread = to;
-    Sfx.play('cut');
     renderAlbum();
+    var newL = L.innerHTML, newR = R.innerHTML, src = fwd ? R : L;
+    // la page du dessous garde l'ancien contenu tant que la feuille ne s'est pas posée dessus
+    if (fwd) L.innerHTML = oldL; else R.innerHTML = oldR;
+    var b = book.getBoundingClientRect(), p = src.getBoundingClientRect(), leaf = document.createElement('div');
+    leaf.className = 'book-leaf ' + (fwd ? 'to-left' : 'to-right');
+    leaf.style.cssText = 'left:' + (p.left - b.left) + 'px;top:' + (p.top - b.top) + 'px;width:' + p.width + 'px;height:' + p.height + 'px';
+    leaf.innerHTML = '<div class="leaf-face front book-page ' + (fwd ? 'right' : 'left') + '">' + (fwd ? oldR : oldL) + '</div>' +
+      '<div class="leaf-face back book-page ' + (fwd ? 'left' : 'right') + '">' + (fwd ? newL : newR) + '</div>';
+    book.appendChild(leaf);
+    album.flipping = true;
+    Sfx.play('page');
+    setTimeout(function () {
+      if (fwd) L.innerHTML = newL; else R.innerHTML = newR;
+      leaf.remove();
+      album.flipping = false;
+    }, 700);
   }
   window.addEventListener('keydown', function (e) {
     if (state.page !== 'album' || $('app').hidden || !$('battle').hidden) return;
@@ -1722,6 +1778,7 @@
     }
     if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
+    if (t.dataset.foeStep) { dojo.pick += +t.dataset.foeStep; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-foes')) { Sfx.play('click'); loadFoes(); return; }
     if (t.dataset.riposte) { dojo.riposte = t.dataset.riposte === '1'; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-train')) { Sfx.play('click'); startFight(trainingFight()); return; }

@@ -83,6 +83,7 @@ var TowerScene = (function () {
   var cache = {};
 
   function scene(skyIndex, arena) {
+    var W = arena ? 400 : 320, H = arena ? 225 : 180, FLOOR = arena ? 137 : 104; // l'arène a la taille des combats
     var S = SKIES[skyIndex % SKIES.length];
     var c = document.createElement('canvas');
     c.width = W; c.height = H;
@@ -112,11 +113,11 @@ var TowerScene = (function () {
         r(x - w / 2 + 1, top - 3, w - 2, 3, '#3fbf5a'); r(x - w / 2 + 4, top - 5, w - 8, 2, '#6fd07a'); // mousse sur le sommet
       }
     }
-    spires(110, S.far, S.far, 1, 9, 30, 60);
-    spires(118, S.spire, S.spireL, 2, 7, 40, 80);
+    spires(FLOOR + 6, S.far, S.far, 1, 11, 30, 60);
+    spires(FLOOR + 14, S.spire, S.spireL, 2, 9, 40, 80);
     // la cascade d'huile dorée, d'une falaise à droite
-    r(286, 40, 34, 80, '#4a6a4a'); r(286, 40, 34, 3, '#6fd07a');
-    for (var wy = 43; wy < 120; wy++) for (var wx = 292; wx < 304; wx++) r(wx, wy, 1, 1, (wx + wy * 2) % 7 === 0 ? '#fff6c0' : ((wx + wy) % 3 ? '#ffd24a' : '#f0b030'));
+    r(W - 34, 40, 34, FLOOR - 24, '#4a6a4a'); r(W - 34, 40, 34, 3, '#6fd07a');
+    for (var wy = 43; wy < FLOOR - 16; wy++) for (var wx = W - 28; wx < W - 16; wx++) r(wx, wy, 1, 1, (wx + wy * 2) % 7 === 0 ? '#fff6c0' : ((wx + wy) % 3 ? '#ffd24a' : '#f0b030'));
     // une statue de grenouille en pierre sur son rocher, à gauche
     r(8, 72, 44, 40, '#6a7a70'); r(8, 72, 44, 3, '#8a9a90');
     var frog = ['....kkk....kkk....', '...kwwwk..kwwwk...', '...kwkwkkkkwkwk...', '..kssssssssssssk..', '.kssssssssssssssk.', '.ksskkkkkkkkksssk.', '.kssssssssssssssk.', 'kssssssssssssssssk', 'kssssmssssssmssssk', '.kkkkkkkkkkkkkkkk.'];
@@ -126,8 +127,8 @@ var TowerScene = (function () {
       for (var yy = -rh; yy <= rh; yy++) { var hw = Math.round(rw * Math.sqrt(1 - (yy * yy) / (rh * rh))); r(cx - hw, cy + yy, hw * 2, 1, yy > rh / 3 ? colD : col); }
       r(cx - rw + 2, cy, rw * 2 - 4, 1, colD); r(cx, cy - rh + 1, 1, rh * 2 - 2, colD);
     }
-    leaf(18, 118, 26, 7, '#3fbf5a', '#2a8a44'); leaf(300, 112, 24, 6, '#4fd06a', '#2a8a44'); leaf(60, 124, 16, 4, '#6fd07a', '#3a9a54');
-    [[48, 106], [276, 100]].forEach(function (fl) { r(fl[0] - 5, fl[1], 11, 5, '#ff6aa0'); r(fl[0] - 3, fl[1] - 4, 7, 5, '#ff9ac0'); r(fl[0] - 1, fl[1] - 1, 3, 2, '#ffe070'); });
+    leaf(18, FLOOR + 14, 26, 7, '#3fbf5a', '#2a8a44'); leaf(W - 20, FLOOR + 8, 24, 6, '#4fd06a', '#2a8a44'); leaf(60, FLOOR + 20, 16, 4, '#6fd07a', '#3a9a54');
+    [[48, FLOOR + 2], [W - 44, FLOOR - 4]].forEach(function (fl) { r(fl[0] - 5, fl[1], 11, 5, '#ff6aa0'); r(fl[0] - 3, fl[1] - 4, 7, 5, '#ff9ac0'); r(fl[0] - 1, fl[1] - 1, 3, 2, '#ffe070'); });
     if (!arena) { // la page : au pied de la tour, un étang d'huile dorée semé de lotus, entre deux rives d'herbe
       for (var py = FLOOR - 6; py < H; py++) {
         var k2 = (py - FLOOR + 6) / (H - FLOOR + 6);
@@ -153,7 +154,7 @@ var TowerScene = (function () {
     for (var k = 0; k < 90; k++) r(hash(k, 3, 11) * W, FLOOR + hash(k, 4, 11) * (H - FLOOR), 6, 1, 'rgba(90, 40, 15, 0.35)'); // veines du bois
     if (arena) { // le cercle d'épreuve, peint sur la terrasse
       ctx.strokeStyle = 'rgba(255, 240, 180, 0.4)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(W / 2, 136, 120, 16, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(W / 2, FLOOR + 32, 150, 18, 0, 0, Math.PI * 2); ctx.stroke();
     }
     // des lanternes flottantes le soir
     if (skyIndex % 4 >= 2) [[80, 30], [120, 58], [200, 36], [170, 70]].forEach(function (l) { r(l[0], l[1], 5, 7, '#ff9a3a'); r(l[0] + 1, l[1] + 1, 3, 5, '#ffd08a'); });
@@ -340,5 +341,5 @@ var TowerPage = (function () {
 TowerScene.arenaFx = function (ctx, now) {
   var t = now / 1000;
   ctx.fillStyle = 'rgba(255, 250, 200, 0.85)';
-  for (var i = 0; i < 10; i++) ctx.fillRect(292 + Math.round(hash(i, 1, 65) * 11), 43 + Math.round((t * (40 + hash(i, 2, 65) * 30) + hash(i, 3, 65) * 70) % 70), 1, 3);
+  for (var i = 0; i < 12; i++) ctx.fillRect(372 + Math.round(hash(i, 1, 65) * 11), 43 + Math.round((t * (40 + hash(i, 2, 65) * 30) + hash(i, 3, 65) * 76) % 76), 1, 3);
 };

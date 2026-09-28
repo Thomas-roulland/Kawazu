@@ -6,7 +6,9 @@
 // ses sorts, son souffle, ses coups au corps à corps ou au kunaï, choisis par l'ordinateur), ou l'arbre
 // d'entraînement (fight.turns tours, puis le bilan des dégâts). fight.settle(victoire) donne le texte du résultat.
 var BattleScene = (function () {
-  var W = 320, H = 180, GROUND = 132;
+  // L'arène fait 400×225 pixels et les combattants gardent leur taille : la caméra est plus reculée, on voit
+  // plus de décor. Au début du combat, elle recule encore un peu depuis un plan serré (effet de dézoom).
+  var W = 400, H = 225, GROUND = 165, MARGIN = 64, introT = 0;
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $('bt-canvas');
   var ctx = canvas.getContext('2d');
@@ -24,7 +26,7 @@ var BattleScene = (function () {
   // Le décor remplit tout l'écran (quitte à rogner les bords), sans jamais couper les deux combattants
   function resize() {
     var box = $('battle'), bw = box.clientWidth, bh = box.clientHeight;
-    var s = Math.min(Math.max(bw / W, bh / H), bw / 290);
+    var s = Math.min(Math.max(bw / W, bh / H), bw / 360);
     canvas.style.width = W * s + 'px';
     canvas.style.height = H * s + 'px';
     canvas.style.left = Math.round((bw - W * s) / 2) + 'px';
@@ -47,15 +49,15 @@ var BattleScene = (function () {
 
   // ---------- Décor ----------
   function buildBackground(biome) {
-    var w = 20, h = 12, tiles = new Uint8Array(w * h);
+    var w = 25, h = 15, tiles = new Uint8Array(w * h);
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
-        var v = y < 4 ? RT.WALL : RT.FLOOR;
-        if (y >= 4 && hash(x, y, biome.id.length) < 0.08) v = RT.ALT;
+        var v = y < 5 ? RT.WALL : RT.FLOOR;
+        if (y >= 5 && hash(x, y, biome.id.length) < 0.08) v = RT.ALT;
         tiles[y * w + x] = v;
       }
     }
-    [[1, 5, RT.BLOCK], [18, 5, RT.BUSH], [0, 8, RT.BUSH], [19, 9, RT.BLOCK], [2, 10, biome.water ? RT.WATER : RT.BUSH], [3, 10, biome.water ? RT.WATER : RT.ALT], [17, 11, RT.BUSH]]
+    [[1, 6, RT.BLOCK], [23, 6, RT.BUSH], [0, 10, RT.BUSH], [24, 11, RT.BLOCK], [2, 13, biome.water ? RT.WATER : RT.BUSH], [3, 13, biome.water ? RT.WATER : RT.ALT], [22, 14, RT.BUSH], [12, 5, RT.BUSH]]
       .forEach(function (d) { tiles[d[1] * w + d[0]] = d[2]; });
     var map = { biome: biome, w: w, h: h, tiles: tiles, seed: biome.id.length * 97 };
     var c = renderMap(map);
@@ -656,6 +658,8 @@ var BattleScene = (function () {
     var sx = Math.round((Math.random() - 0.5) * shake), sy = Math.round((Math.random() - 0.5) * shake);
     ctx.save();
     ctx.translate(sx, sy);
+    var zi = Math.max(0, 1 - (now - introT) / 800); // le dézoom d'ouverture
+    if (zi > 0) { var zz = 1 + 0.22 * zi * zi; ctx.translate(W / 2, GROUND - 30); ctx.scale(zz, zz); ctx.translate(-W / 2, -(GROUND - 30)); }
     ctx.drawImage(bg, 0, 0, W, H, 0, 0, W, H);
     if (fight.bgFx) fight.bgFx(ctx, now); // un décor animé (l'eau de la cascade)
     if (fight.weather && fight.weather.id !== 'clair') drawWeather(now);
@@ -752,7 +756,7 @@ var BattleScene = (function () {
       for (var b = 0; b < 5; b++) ctx.fillRect(Math.round(((b * 90 + now * 0.01) % (W + 80)) - 60), 60 + b * 18, 110, 14);
     } else if (id === 'lune') {
       ctx.fillStyle = 'rgba(230,232,200,0.9)';
-      ctx.beginPath(); ctx.arc(270, 26, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(W - 50, 26, 10, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(120,130,200,0.08)'; ctx.fillRect(0, 0, W, H);
     } else if (id === 'nuit') {
       ctx.fillStyle = 'rgba(0,0,20,0.35)'; ctx.fillRect(0, 0, W, H);
@@ -770,7 +774,7 @@ var BattleScene = (function () {
     var pas = treeBonuses(save).passives;
     var maxHp = Math.round(cs.maxHp * (1 + pas.hpMult));
     P = {
-      x: 40, homeX: 40, y: 0, frame: 0, fx: 0, palm: 0, hurt: 0, alpha: 1, dead: false,
+      x: MARGIN, homeX: MARGIN, y: 0, frame: 0, fx: 0, palm: 0, hurt: 0, alpha: 1, dead: false,
       hp: maxHp, maxHp: maxHp, dmg: cs.dmg * (1 + pas.dmgMult), crit: cs.crit + pas.crit, dodge: Math.min(0.5, cs.dodge + pas.dodge), agi: cs.agi,
       size: 1 + pas.size, // la Croissance fait grandir la grenouille
       souffle: f.weather && f.weather.noStartSouffle ? 0 : 1, maxSouffle: cs.maxSouffle, regen: cs.regen + pas.regen,
@@ -780,10 +784,10 @@ var BattleScene = (function () {
     };
     var en = f.enemy;
     var size = enemySize(en);
-    E = Object.assign({}, en, { hp: en.maxHp, x: W - 40 - size, homeX: W - 40 - size, flash: 0, turn: 0, stun: 0, poison: 0, poisonDmg: 0, charging: false, enraged: false, dead: false,
+    E = Object.assign({}, en, { hp: en.maxHp, x: W - MARGIN - size, homeX: W - MARGIN - size, flash: 0, turn: 0, stun: 0, poison: 0, poisonDmg: 0, charging: false, enraged: false, dead: false,
       y: 0, frame: 0, fx: 0, palm: 0, alpha: 1, cds: {}, souffle: 1, guard: 0, buff: 0, shadow: false, shadowCrit: false });
     tweens = []; floaters = []; particles = []; shots = []; shake = 0;
-    busy = true; over = false;
+    busy = true; over = false; introT = performance.now();
     bg = f.backdrop || buildBackground(BIOMES[f.biomeIndex]);
     $('battle').style.background = f.backdrop ? '#1a1108' : BIOMES[f.biomeIndex].pal.groundDark;
     buildHero();
