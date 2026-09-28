@@ -143,6 +143,13 @@ var Sfx = (function () {
     peep: function () { var s = S(), f = 2200 + Math.random() * 500; for (var i = 0; i < 2; i++) note(s.d, s.t + i * 0.13, f, 0.07, 'sine', 0.03, 0.01, f * 1.12); },
     cricket: function () { var s = S(); for (var i = 0; i < 4; i++) note(s.d, s.t + i * 0.055, 4600, 0.035, 'sine', 0.025, 0.004); },
     drip: function () { var s = S(); note(s.d, s.t, 1500, 0.1, 'sine', 0.08, 0.002, 600); },
+    // combats : entailles, coups lourds, eau, coups de pied, énergie, coassement
+    slash: function () { var s = S(); hiss(s.d, s.t, 0.16, 0.34, 'bandpass', 4200, 1400, 2.5, 0.01); note(s.d, s.t + 0.02, 3100, 0.18, 'sine', 0.035, 0.002, 2600); },
+    thud: function () { var s = S(); note(s.d, s.t, 120, 0.3, 'triangle', 0.5, 0.002, 45); hiss(s.d, s.t, 0.25, 0.3, 'lowpass', 1800, 200, 0.8); },
+    splash: function () { var s = S(); hiss(s.d, s.t, 0.35, 0.22, 'bandpass', 1800, 700, 1.4, 0.01); [1300, 1700, 1100].forEach(function (f, i) { note(s.d, s.t + 0.03 + i * 0.05, f, 0.08, 'sine', 0.05, 0.002, f * 0.5); }); },
+    kick: function () { var s = S(); hiss(s.d, s.t, 0.12, 0.22, 'bandpass', 600, 2400, 1.2, 0.02); note(s.d, s.t + 0.06, 150, 0.14, 'sine', 0.35, 0.002, 70); },
+    energy: function () { var s = S(); note(s.d, s.t, 300, 0.45, 'sine', 0.08, 0.05, 900); note(s.d, s.t, 450, 0.45, 'triangle', 0.04, 0.05, 1350); hiss(s.d, s.t, 0.45, 0.07, 'bandpass', 800, 4000, 1.5, 0.3); },
+    croak: function () { var s = S(); note(s.d, s.t, 110, 0.3, 'sawtooth', 0.09, 0.01, 80); note(s.d, s.t + 0.14, 95, 0.35, 'sawtooth', 0.08, 0.01, 70); hiss(s.d, s.t, 0.4, 0.08, 'lowpass', 900, 300, 1); },
     // cinématique de l'accueil
     page: function () { var s = S(); hiss(s.d, s.t, 0.32, 0.13, 'bandpass', 3400, 1100, 0.9, 0.09); hiss(s.d, s.t + 0.26, 0.07, 0.07, 'highpass', 5200); },
     whoosh: function () { var s = S(); hiss(s.d, s.t, 0.42, 0.2, 'bandpass', 350, 3200, 1.1, 0.3); },

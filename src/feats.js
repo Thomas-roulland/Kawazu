@@ -20,8 +20,8 @@ var FEATS = [
     test: function (s) { return albumItemsFound(s) >= ALBUM_ITEMS.length; } },
   { id: 'lucioles', name: 'Pluie de lucioles', desc: 'Avoir 300 lucioles en poche.', cat: 'objets', tier: 1, test: function (s) { return s.gold >= 300; } },
   { id: 'eleve', name: 'Élève du temple', desc: 'Prendre 5 dalles au Temple des voies.', cat: 'arbre', tier: 0, test: function (s) { return s.tree.length >= 5; } },
-  { id: 'main', name: 'Main pleine', desc: 'Remplir les 3 emplacements du deck.', cat: 'arbre', tier: 1, test: function (s) { return s.deck.length >= DECK_SIZE; } },
-  { id: 'maitre', name: 'Maître d’un chemin', desc: 'Atteindre la 10e dalle d’un chemin.', cat: 'arbre', tier: 2,
+  { id: 'main', name: 'Main pleine', desc: 'Remplir les ' + DECK_SIZE + ' emplacements du deck.', cat: 'arbre', tier: 1, test: function (s) { return s.deck.length >= DECK_SIZE; } },
+  { id: 'maitre', name: 'Maître d’une branche', desc: 'Atteindre la 10e dalle d’une branche.', cat: 'arbre', tier: 2,
     test: function (s) { return s.tree.some(function (id) { var n = nodeById(id); return n && n.step === STEPS; }); } }
 ]);
 

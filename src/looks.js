@@ -130,7 +130,17 @@ function palmFx(r, filled, rays, dotted) {
   return g;
 }
 
-// look = { hat, belt, charm, ring, hermit, weapon: 'kunai' | 'baton' | 'harpon' | 'mains', fx: { type: 'arc' | 'thrust' | 'palm' | 'none', radii, echo } }
+// Coup de pied : la jambe avant se lève et se tend à hauteur de hanche, le pied en avant (orteils relevés)
+function kickPose(g) {
+  var a = g.map(function (r) { return r.slice(); });
+  for (var y = 29; y < 32; y++) for (var x = 15; x <= 22; x++) a[y][x] = '.';
+  for (var lx = 20; lx <= 28; lx++) { a[23][lx] = 'k'; a[24][lx] = 'l'; a[25][lx] = 'm'; a[26][lx] = 'g'; a[27][lx] = 'k'; }
+  [[21, 29, 'k'], [21, 30, 'k'], [22, 29, 'l'], [22, 30, 'l'], [22, 31, 'k'], [23, 29, 'l'], [23, 30, 'l'], [23, 31, 'k'], [24, 29, 'l'], [24, 30, 'l'], [24, 31, 'k'],
+    [25, 29, 'm'], [25, 30, 'm'], [25, 31, 'k'], [26, 29, 'g'], [26, 30, 'k'], [27, 29, 'k']].forEach(function (p) { a[p[0]][p[1]] = p[2]; });
+  return a;
+}
+
+// look = { hat, belt, charm, ring, hermit, weapon: 'kunai' | 'shuriken' | 'baton' | 'harpon' | 'katana' | 'masse' | 'mains', fx: { type: 'arc' | 'thrust' | 'palm' | 'none', radii, echo } }
 function dressKawazu(sp, look) {
   var c = function (g) { return g.map(function (r) { return r.slice(); }); };
   var out = Object.assign({}, sp);
@@ -201,6 +211,17 @@ function dressKawazu(sp, look) {
     stampPixels(atk, [[20, 28, 'o'], [20, 29, 'o'], [20, 30, 't'], [20, 31, 't'], [19, 30, 't'], [19, 31, 'S'], [21, 30, 't'], [21, 31, 't']]);
   } else if (look.weapon === 'harpon') {
     stampPixels(atk, [[20, 28, 'o'], [20, 29, 'o'], [20, 30, 't'], [20, 31, 'S'], [19, 30, 't'], [21, 30, 't'], [18, 29, 'k'], [22, 29, 'k']]);
+  } else if (look.weapon === 'katana') {
+    // katana : poignée, garde sombre, lame fine qui file vers le haut ; au repos, la poignée dépasse derrière le dos
+    stampPixels(atk, [[20, 28, 'o'], [19, 29, 'k'], [20, 29, 'k'], [21, 29, 'k'], [19, 30, 't'], [18, 30, 't'], [18, 31, 'S'], [17, 31, 't'], [20, 30, 'k'], [20, 31, '.']]);
+    stampPixels(side, [[9, 6, 'k'], [10, 6, 'o'], [10, 7, 'k'], [11, 7, 'o'], [11, 8, 'k'], [12, 7, 'k'], [12, 8, 'o'], [13, 8, 'k']]);
+  } else if (look.weapon === 'masse') {
+    // masse : un manche court et une grosse tête cerclée
+    stampPixels(atk, [[20, 28, 'o'], [20, 29, 'o'], [17, 30, 'k'], [17, 31, 'k'], [18, 29, 'k'], [18, 30, 't'], [18, 31, 't'], [19, 29, 'k'], [19, 30, 'S'], [19, 31, 't'],
+      [20, 30, 't'], [20, 31, 't'], [21, 29, 'k'], [21, 30, 't'], [21, 31, 't'], [22, 29, 'k'], [22, 30, 't'], [22, 31, 't'], [23, 30, 'k'], [23, 31, 'k']]);
+  } else if (look.weapon === 'shuriken') {
+    // shuriken : une étoile entre les doigts
+    stampPixels(atk, [[20, 28, 't'], [20, 29, 'S'], [20, 30, 't'], [20, 31, '.'], [19, 29, 't'], [18, 29, 'k'], [21, 29, 't'], [22, 29, 'k'], [20, 27, 'k']]);
   }
   var sides = [side, atk].concat(hermit || []);
   if (look.hat && HATS[look.hat]) {
@@ -227,6 +248,7 @@ function dressKawazu(sp, look) {
   }
   out.main = main; out.side = side; out.back = back; out.atk = atk; out.ko = ko;
   if (hermit) { out.hermitStance = hermit[0]; out.hermitAtk = hermit; }
+  out.kick = kickPose(hermit ? hermit[0] : side);
   if (look.fx) out.fx = buildFx(look.fx);
   return out;
 }

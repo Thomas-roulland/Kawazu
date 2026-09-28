@@ -235,7 +235,8 @@ function equippedItems(s, equip) {
     const id = equip[slot], it = all[id];
     if (!it || typeof it.base !== 'string' || typeof it.stats !== 'object' || !it.stats) return;
     const stats = {};
-    ['vitalite', 'agilite', 'force', 'souffle'].forEach((k) => { if (typeof it.stats[k] === 'number') stats[k] = clamp(Math.round(it.stats[k]), -99, 999); });
+    // le Souffle d'avant est devenu l'Esprit
+    ['vitalite', 'agilite', 'force', 'esprit', 'souffle'].forEach((k) => { if (typeof it.stats[k] === 'number') { const key = k === 'souffle' ? 'esprit' : k; stats[key] = clamp((stats[key] || 0) + Math.round(it.stats[k]), -99, 999); } });
     out[id] = { base: it.base.slice(0, 32), rar: ['commun', 'rare', 'epique'].indexOf(it.rar) >= 0 ? it.rar : 'commun', stats: stats };
   });
   return out;
@@ -244,7 +245,8 @@ function equippedItems(s, equip) {
 function combatCard(frog, entry, points) {
   const s = frog.save || {}, strs = (a, n) => Array.isArray(a) ? a.filter((x) => typeof x === 'string').slice(0, n).map((x) => x.slice(0, 32)) : [];
   const alloc = {};
-  ['vitalite', 'agilite', 'force', 'souffle'].forEach((k) => { alloc[k] = num(s.alloc && s.alloc[k], 999); });
+  ['vitalite', 'agilite', 'force', 'esprit'].forEach((k) => { alloc[k] = num(s.alloc && s.alloc[k], 999); });
+  if (!alloc.esprit && s.alloc) alloc.esprit = num(s.alloc.souffle, 999); // une partie d'avant l'Esprit
   return {
     id: frog.id, nom: frog.nom, peau: frog.peau, pseudo: entry.pseudo, niveau: num(s.level || 1, 999), rep: points,
     voie: entry.voie, equip: entry.equip, alloc: alloc, tree: strs(s.tree, 80), deck: strs(s.deck, 4), items: equippedItems(s, entry.equip)

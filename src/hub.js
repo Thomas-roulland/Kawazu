@@ -1,5 +1,5 @@
 // Menu et pages du jeu : écran titre (création de la grenouille), Camp, Personnage (fiche façon Shakes & Fidget),
-// Compétences (arbre + deck), Carte du monde, Monde (10 étapes : combat ou mission en temps réel) et Boutique.
+// La Voie (le Temple : arbre + deck), Carte du monde, Monde (10 étapes : combat ou mission en temps réel) et Boutique.
 (function () {
   var sp = buildKawazu();
   var save = loadSave();
@@ -47,6 +47,12 @@
       { k: '#1a1c2c', 3: '#5a6a60', b: '#4fb0d8', w: '#e8fbff' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
+    pied: [['', '......kkkk', '.....kmmmmk', '.....kmmmlk', '.....kmmmlk', '....kmmmmlk', '....kmmmmk', '...kmmmmmk', '..kmmmmmmk', '.kmlmmmmmmkkk', 'kmlmmmmmmmmmmk', 'kmmmlmmmlmmlmk', '.kkkkkkkkkkkkk'],
+      { k: '#1a1c2c', m: '#e07a2a', l: '#f8b060' }],
+    crapaud: [['', '..kkk......kkk', '.kEEEk....kEEEk', '.kEkEkkkkkkEkEk', 'kmmmmmmmmmmmmmmk', 'kmZmmmmmmmmmmZmk', 'kmmmmmmmmmmmmmmk', 'kmkkkkkkkkkkkkmk', '.kmmmmmmmmmmmmk', '..kkkkkkkkkkkk'],
+      { k: '#1a1c2c', m: '#e07a2a', E: '#f3d23a', Z: '#b8321a' }],
+    ombre: [['', '....kkkkkkkk', '...k22222222k', '..k2222222222k', '..k2kkkkkkkk2k', '..k2kwkkkkwk2k', '..k2kkkkkkkk2k', '..k2222222222k', '...k22222222k', '....k222222k', '.....kkkkkk'],
+      { k: '#1a1c2c', 2: '#4a3a6b', w: '#b8e0ff' }],
     the: [['', '', '......k.k', '.......k.k', '...kkkkkkkkk', '..k111111111kk', '..k122222221k.k', '..k122222221k.k', '..k112222211kk', '...k1111111k', '....kkkkkkk', '..kkkkkkkkkkk'],
       { k: '#1a1c2c', 1: '#e8ecf0', 2: '#8fce52' }]
   };
@@ -54,6 +60,12 @@
   Object.keys(ICONS16).forEach(function (k) { ICON[k] = stringsToCanvas(pad(ICONS16[k][0], 16), ICONS16[k][1]).toDataURL(); });
   Array.prototype.forEach.call(document.querySelectorAll('img[data-ico]'), function (img) { img.src = ICON[img.dataset.ico]; });
   var VOIE_ICON = { baton: iconUrls.baton_roseau, kunai: iconUrls.kunai_acier, ermite: ICON.paume };
+  // l'icône de chaque branche : Bâton, Katana, Colosse · Kunaï, Shuriken, Ombre · Paume, Pieds et tête, Crapaud sage
+  var BRANCH_ICON = { baton: [iconUrls.baton_roseau, iconUrls.katana_roseau, iconUrls.masse_fer], kunai: [iconUrls.kunai_acier, iconUrls.shuriken_eau, ICON.ombre], ermite: [ICON.paume, ICON.pied, ICON.crapaud] };
+  var n1 = function (v) { return String(Math.round(v * 10) / 10).replace('.', ','); };
+  var pc = function (v) { return Math.round(v * 100) + ' %'; };
+  // « Force ×2, Vitalité ×1,5 » : ce que vaut un point dans la voie
+  var multText = function (v) { return Object.keys(v.mult).map(function (k) { return STAT_WORD[k] + ' ×' + n1(v.mult[k]); }).join(', '); };
 
   // Portrait d'un monstre
   var portraitCache = {};
@@ -88,7 +100,7 @@
     return {
       face: imgs(anims.idle.frames), profil: imgs(anims.idleRight.frames), dos: imgs(anims.idleUp.frames),
       atk: imgs(anims.attack.frames), fx: imgs(anims.attack.fx),
-      kunai: kunaiProjectileImgs(weaponOf(equip).blade).right
+      kunai: weaponType(weaponOf(equip)) === 'shuriken' ? iconCanvas(weaponOf(equip)) : kunaiProjectileImgs(weaponOf(equip).blade).right
     };
   }
   function buildHero() {
@@ -241,7 +253,7 @@
     if (!attacking) { var set = HERO_IMG[state.view]; pctx.drawImage(set[Math.floor(now / 500) % set.length], heroX, top); return; }
     var step = Math.floor(now / 110) % ATK_SEQ.length, f = ATK_SEQ[step];
     pctx.drawImage(HERO_IMG.atk[f], heroX, top);
-    if (isRanged(weaponOf(save.equip))) { if (step >= 2 && step < 8) pctx.drawImage(HERO_IMG.kunai, heroX + 22 + (step - 2) * 6, top + 14); }
+    if (isRanged(weaponOf(save.equip))) { if (step >= 2 && step < 8) pctx.drawImage(HERO_IMG.kunai, heroX + 22 + (step - 2) * 6, top + 14, HERO_IMG.kunai.width === 16 ? 8 : 12, HERO_IMG.kunai.width === 16 ? 8 : 12); }
     else if (HERO_IMG.fx[f]) pctx.drawImage(HERO_IMG.fx[f], heroX + 24, top);
   }
 
@@ -430,7 +442,7 @@
     p.classList.toggle('has', save.points > 0);
   }
 
-  // Icônes des caractéristiques (16×16) : cœur, patte palmée, impact, bulles
+  // Icônes des caractéristiques (16×16) : cœur, patte palmée, impact, lotus
   var STAT_ICON = {};
   (function () {
     var G = {
@@ -440,38 +452,63 @@
         { k: '#1a1c2c', g: '#6fae3a', l: '#c8f08a' }],
       force: [['.......k', '......kyk', '.k....kyk....k', '.kyk..kyk..kyk', '..kyk.kyk.kyk', '...kykyyykyk', 'kkkkyywwwyykkkk', 'kyyyywwwwwyyyyk', 'kkkkyywwwyykkkk', '...kykyyykyk', '..kyk.kyk.kyk', '.kyk..kyk..kyk', '.k....kyk....k', '......kyk', '.......k'],
         { k: '#1a1c2c', y: '#f0c040', w: '#fff6c0' }],
-      souffle: [['..........kkk', '.........kbbbk', '.........kbwbk', '.........kbbbk', '...kkk....kkk', '..kbbbk', '.kbwbbbk', '.kbbbbbk...kk', '.kbbbbbk..kbwk', '..kbbbk...kbbk', '...kkk.....kk', '......kk', '.....kbwk', '.....kbbk', '......kk'],
-        { k: '#1a1c2c', b: '#7fa0f0', w: '#eef4ff' }]
+      esprit: [['', '.......kk', '......kppk', '.....kpwppk', '.....kpwppk', '.kk..kpwppk..kk', 'kppk.kpppdk.kppk', 'kpwpkkppppkkppdk', '.kpwppkppkppppk', '.kppppkddkpppdk', '..kppppkkppppk', '...kkkkkkkkkk', '..kggggggggggk', '...kkkkkkkkkk'],
+        { k: '#1a1c2c', p: '#c8a0f8', w: '#f4ecff', d: '#8a5ac8', g: '#4e9a45' }]
     };
     Object.keys(G).forEach(function (k) { STAT_ICON[k] = stringsToCanvas(pad(G[k][0], 16), G[k][1]).toDataURL(); });
   })();
-  var STAT_TIP = {
+  var STAT_RULE = {
     vitalite: 'Chaque point : +6 points de vie.',
     agilite: 'Chaque point : +0,8 % de critique, +0,6 % d’esquive, et tu joues plus tôt.',
     force: 'Chaque point : +1,1 dégât à chaque coup.',
-    souffle: 'Une bulle de souffle tous les 4 points ; +1 bulle récupérée par tour à partir de 14.'
+    esprit: 'Chaque point : +2 % de puissance des sorts ; à ' + ESPRIT_STEPS.slice(0, -1).join(', ') + ' et ' + ESPRIT_STEPS[ESPRIT_STEPS.length - 1] + ' points, les sorts se relancent un tour plus tôt.'
   };
   var STAT_FX = {
-    vitalite: function (cs, pas) { return '<b>' + Math.round(cs.maxHp * (1 + pas.hpMult)) + '</b> points de vie'; },
-    agilite: function (cs, pas) { return '<b>' + Math.round((cs.crit + pas.crit) * 100) + ' %</b> critique · <b>' + Math.round(cs.dodge * 100) + ' %</b> esquive'; },
-    force: function (cs) { return '<b>' + Math.round(cs.dmg) + '</b> dégâts par coup'; },
-    souffle: function (cs, pas) { return '<b>' + cs.maxSouffle + '</b> bulles · <b>+' + (cs.regen + pas.regen) + '</b> par tour'; }
+    vitalite: function (pr) { return '→ <b>' + pr.maxHp + '</b> points de vie'; },
+    agilite: function (pr) { return '→ <b>' + pc(pr.crit) + '</b> de critique · <b>' + pc(pr.dodge) + '</b> d’esquive'; },
+    force: function (pr) { return '→ <b>' + Math.round(pr.dmg) + '</b> dégâts par coup'; },
+    esprit: function (pr) { return '→ sorts <b>+' + pc(pr.spell - 1) + '</b>' + (pr.cdr ? ' · relance <b>−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') + '</b>' : ''); }
   };
 
+  // Une carte par caractéristique : sa valeur, d'où elle vient (base de la voie, points × la voie, temple, objets)
+  // et ce qu'elle donne. Dessous, la fiche de combat : tout ce que ces chiffres deviennent, et pourquoi.
   function renderStats() {
-    var s = computeStats(save.equip), cs = combatStats(s), tb = treeBonuses(save), pas = tb.passives, tree = tb.stats;
-    var scale = Math.max(STAT_MAX, Math.ceil(Math.max.apply(null, STATS.map(function (st) { return s[st.id]; })) / 10) * 10 + 10);
+    var parts = statParts(save.equip), pr = combatProfile(save), v = voieDef(chosenVoie(save));
+    var max = Math.max.apply(null, STATS.map(function (st) { return parts[st.id].total; }));
+    var scale = Math.max(STAT_MAX, Math.ceil(max / 10) * 10 + 10);
+    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs.</span>'
+      : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1. Choisis ta voie au Temple : elle change tes caractéristiques de départ et multiplie tes points.</span>';
     $('stats').innerHTML = STATS.map(function (st) {
-      var b = BASE_STATS[st.id], a = save.alloc[st.id] + (tree[st.id] || 0), total = s[st.id], gear = total - b - a;
-      var ownW = Math.min(b + a, total) / scale * 100, gearW = Math.min(Math.abs(gear), Math.max(0, scale - b - a)) / scale * 100;
-      return '<div class="scard" data-card="' + st.id + '" style="--c:' + st.color + '" title="Base ' + b + ' · niveaux et arbre ' + fmt(a) + ' · équipement ' + fmt(gear) + '. ' + STAT_TIP[st.id] + '">' +
+      var p = parts[st.id], seg = function (val, cls) { return val > 0 ? '<span class="' + cls + '" style="width:' + Math.min(100, val / scale * 100) + '%"></span>' : ''; };
+      var bits = ['<span>Base <b>' + p.base + '</b></span>', '<span>Points <b>' + p.pts + (p.mult !== 1 ? ' ×' + n1(p.mult) + ' = ' + p.fromPts : '') + '</b></span>'];
+      if (p.tree) bits.push('<span class="tree">Temple <b>+' + p.tree + '</b></span>');
+      if (p.gear) bits.push('<span class="' + (p.gear < 0 ? 'st-down' : 'gear') + '">Objets <b>' + fmt(p.gear) + '</b></span>');
+      return '<div class="scard" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + STAT_RULE[st.id] + '">' +
         '<span class="scard-ico"><img src="' + STAT_ICON[st.id] + '" alt=""></span>' +
-        '<span class="scard-name">' + st.name.toUpperCase() + '</span>' +
-        '<span class="scard-val">' + total + (gear ? '<em class="' + (gear < 0 ? 'st-down' : 'st-up') + '">' + fmt(gear) + '</em>' : '') + '</span>' +
-        '<button class="scard-plus" data-stat="' + st.id + '"' + (save.points > 0 ? '' : ' hidden') + ' aria-label="Ajouter un point en ' + st.name + '">+</button>' +
-        '<span class="scard-bar"><span class="own" style="width:' + ownW + '%"></span><span class="' + (gear < 0 ? 'malus' : 'gear') + '" style="width:' + gearW + '%"></span></span>' +
-        '<span class="scard-fx">' + STAT_FX[st.id](cs, pas) + '</span></div>';
+        '<span class="scard-name">' + st.name.toUpperCase() + (p.mult !== 1 ? '<i class="scard-mult" title="Un point réparti vaut ' + n1(p.mult) + '">×' + n1(p.mult) + '</i>' : '') + '</span>' +
+        '<span class="scard-val">' + p.total + '</span>' +
+        '<button class="scard-plus" data-stat="' + st.id + '"' + (save.points > 0 ? '' : ' hidden') + ' aria-label="Ajouter un point en ' + st.name + ' (+' + n1(p.mult) + ')">+</button>' +
+        '<span class="scard-bar">' + seg(p.base, 'base') + seg(p.fromPts, 'own') + seg(p.tree, 'tree') + seg(p.gear, 'gear') + '</span>' +
+        '<span class="scard-parts">' + bits.join('') + '</span>' +
+        '<span class="scard-fx"><span>' + STAT_FX[st.id](pr) + '</span><small>' + STAT_RULE[st.id] + '</small></span></div>';
     }).join('');
+    renderCombat(pr);
+  }
+  function renderCombat(pr) {
+    var pas = pr.pas, rows = [];
+    var row = function (ico, name, val, how) { rows.push('<li><img src="' + ico + '" alt=""><span class="cs-name">' + name + '<small>' + how + '</small></span><b>' + val + '</b></li>'); };
+    var temple = function (v, txt) { return v ? ', ' + (txt || '+' + pc(v)) + ' du temple' : ''; };
+    row(STAT_ICON.vitalite, 'Points de vie', pr.maxHp, '20 + 6 par Vitalité' + temple(pas.hpMult));
+    row(STAT_ICON.force, 'Dégâts par coup', Math.round(pr.dmg), '2 + 1,1 par Force' + temple(pas.dmgMult));
+    row(STAT_ICON.agilite, 'Critique', pc(pr.crit), '5 % + 0,8 % par Agilité (40 % au plus)' + temple(pas.crit) + ' · un critique fait ×' + n1(pr.critMult));
+    row(STAT_ICON.agilite, 'Esquive', pc(pr.dodge), '0,6 % par Agilité (30 % au plus)' + temple(pas.dodge, '+' + n1(pas.dodge * 100) + ' %'));
+    row(STAT_ICON.agilite, 'Initiative', pr.agi, 'la grenouille la plus agile joue en premier');
+    row(STAT_ICON.esprit, 'Puissance des sorts', '+' + pc(pr.spell - 1), '2 % par point d’Esprit' + temple(pas.spellMult) + ' ; l’attaque de base n’en profite pas');
+    row(STAT_ICON.esprit, 'Relance des sorts', pr.cdr ? '−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') : 'normale', pr.cdr >= ESPRIT_STEPS.length ? 'le plus court possible (jamais moins d’un tour)' : '−1 tour à ' + ESPRIT_STEPS.join(', ') + ' d’Esprit · prochain palier : ' + ESPRIT_STEPS[pr.cdr]);
+    if (pas.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pas.dmgReduce), 'passifs du temple');
+    var others = ['riposte', 'lifesteal', 'shield', 'regenHp', 'flow', 'multiHit', 'execute', 'stunChance', 'bleedMult', 'poisonMult'].filter(function (k) { return pas[k]; });
+    $('combat-stats').innerHTML = '<h2>EN COMBAT</h2><ul class="cs-list">' + rows.join('') + '</ul>' +
+      (others.length ? '<p class="cs-pas"><b>Passifs :</b> ' + others.map(function (k) { return PASSIVE_TEXT[k](pas[k]); }).join(' · ') + '.</p>' : '');
   }
   // Petit « +1 » qui remonte comme une bulle quand on ajoute un point
   function bumpStat(id) {
@@ -488,7 +525,7 @@
   var medalUrls = {};
   function renderFeats() {
     var feats = FEATS.filter(function (f) { return save.ach && save.ach.indexOf(f.id) >= 0; });
-    var passives = save.tree.map(nodeById).filter(function (n) { return n && n.type === 'passive'; });
+    var passives = save.tree.map(nodeById).filter(function (n) { return n && n.passive; });
     var box = $('feats');
     box.hidden = !feats.length && !passives.length;
     if (box.hidden) return;
@@ -502,7 +539,7 @@
     }
     if (passives.length) {
       html += '<div class="feats-head"><h2>PASSIFS ACTIFS</h2></div><div class="feats">' +
-        passives.map(function (n) { return chip(VOIE_ICON[n.voie], nodeName(n), nodeDesc(n), '--voie:' + voieOf(n.voie).color, ' passive'); }).join('') + '</div>';
+        passives.map(function (n) { return chip(n.summit ? VOIE_ICON[n.voie] : BRANCH_ICON[n.voie][n.path], n.name, n.desc, '--voie:' + voieOf(n.voie).color, ' passive'); }).join('') + '</div>';
     }
     box.innerHTML = html;
   }
@@ -536,7 +573,7 @@
   function renderDetails() {
     var id = state.selected, it = ITEMS[id];
     if (!it) { $('details').innerHTML = '<p class="muted">Choisis un objet pour voir ses effets. Les objets « ??? » se gagnent en combat, en mission ou à la boutique.</p>'; return; }
-    var slotName = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name + (it.kind ? ' · ' + (it.kind === 'kunai' ? 'kunaï' : 'bâton') : '');
+    var slotName = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name + (it.kind ? ' · ' + weaponLabel(it) : '');
     if (!owns(id)) {
       var where = BIOMES[Math.min(BIOMES.length, ITEM_TIER[id] || 1) - 1];
       $('details').innerHTML = '<div class="det-head"><img src="' + lockedUrls[id] + '" alt=""><div><h3>Objet inconnu</h3><span class="muted">' + slotName + '</span></div></div>' +
@@ -553,23 +590,29 @@
     }).join('');
     $('details').innerHTML = '<div class="det-head rar-frame" style="' + rarStyle(id) + '"><img src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span class="muted">' + slotName + '</span>' + rarTag(id) + '</div></div>' +
       '<p class="det-stats">' + statLine(it.stats) + '</p><p>' + it.desc + '</p>' +
-      (it.kind ? '<p class="st-up">Attaque de base : ' + SKILLS.filter(function (s) { return s.base === it.kind; })[0].name + '.</p>' : '') +
+      (it.kind ? '<p class="st-up">Attaque de base : <b>' + baseSkill(it).name + '</b> — ' + baseSkill(it).desc + '</p>' : '') +
       (diffs ? '<ul class="diff">' + diffs + '</ul>' : '') +
       '<div class="modal-actions">' +
       (it.slot === 'arme' && playerHermit ? '<p class="muted">Mode Ermite : pas d’arme, on se bat à mains nues. Quitte le mode Ermite pour reprendre une arme.</p>'
         : equipped && it.slot === 'arme' ? '<p class="muted">Arme en main : équipe-en une autre pour la changer.</p>'
+        : it.slot === 'arme' && !weaponAllowed(save, it) ? '<p class="muted">Réservée à la ' + voieDef(it.kind).name + ' : la ' + voieDef(chosenVoie(save)).name + ' se bat ' + (chosenVoie(save) === 'kunai' ? 'à distance' : 'au corps à corps') + '.</p>'
         : '<button id="equip-btn" class="btn' + (equipped ? ' btn-ghost' : '') + '">' + (equipped ? 'Retirer' : 'Équiper') + '</button>') +
       (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre (' + sellPrice(id) + ' lucioles)</button>') + '</div>';
   }
 
-  // ---------- Compétences : le Temple des voies ----------
+  // « katana (corps à corps) », « shuriken (distance) »
+  function weaponLabel(it) { return WEAPON_TYPES[weaponType(it)].name.toLowerCase() + ' (' + (it.kind === 'kunai' ? 'distance' : 'corps à corps') + ')'; }
+
+  // ---------- La Voie : le Temple des voies ----------
   // Un temple en pixel art, plein écran. Tant qu'aucune voie n'est choisie, trois grandes flaques attendent au bout
   // de trois cours d'eau, une par voie : la grenouille plonge dans celle qu'elle choisit, et ressort dans le bassin,
-  // dont l'eau a pris la couleur de sa voie. De là montent cinq cours d'eau : les 5 petits chemins de la voie,
-  // chacun fait de 10 dalles. La grenouille avance de dalle en dalle, et l'eau du chemin appris prend la couleur de la voie.
+  // dont l'eau a pris la couleur de sa voie. De là montent trois cours d'eau : les 3 branches de la voie, chacune faite
+  // de 10 dalles, qui se rejoignent tout en haut sur la dalle-sommet. La grenouille avance de dalle en dalle, et l'eau
+  // de la branche apprise prend la couleur de la voie.
   var TEMPLE_BIOME = BIOMES.filter(function (b) { return b.id === 'temple'; })[0];
   var WATER = { base: '#235a6a', deep: '#1a4452', light: '#3f8a98', dry: '#2c302b', baton: '#5fbf7a', kunai: '#7fc4f0', ermite: '#f0c24a' };
-  var SLAB_R = 8; // demi-largeur d'une dalle, en pixels du décor
+  var SLAB_R = 7; // demi-largeur d'une dalle, en pixels du décor (la dalle-sommet est plus grande)
+  var SUMMIT_R = SLAB_R + 4;
   var tBg = $('temple-bg'), tFx = $('temple-fx'), tfx = tFx.getContext('2d');
   var temple = null, templeFrog = null, templeFrogRaf = 0;
   // blason des passifs, aux couleurs de chaque voie
@@ -582,14 +625,16 @@
   // Mise en page (en px de la page) : la zone du temple laisse la place au titre en haut et au deck à droite
   function templeLayout() {
     var page = $('page-skills'), W = page.clientWidth, H = page.clientHeight;
-    var wide = W > 1000, s = H >= 960 ? 4 : 3;
+    var wide = W > 1000;
     var rect = { l: 160, r: wide ? W - 400 : W - 30, t: 262, b: wide ? H - 18 : Math.round(H * 0.6) };
-    var first = rect.b - 74, rowH = (first - rect.t) / (STEPS - 1);
+    // la dalle-sommet tout en haut (rect.t), puis les 10 rangées des branches
+    var first = rect.b - 74, top = rect.t + Math.max(64, (first - rect.t) * 0.14), rowH = (first - top) / (STEPS - 1);
+    var s = H >= 960 ? 4 : (rowH >= 50 ? 3 : 2);
     var colX = function (i, n) { return rect.l + (rect.r - rect.l) * (i + 0.5) / n; };
     return {
       W: W, H: H, s: s, rect: rect, first: first, rowH: rowH, colX: colX,
       rowY: function (step) { return first - (step - 1) * rowH; },
-      pos: function (n) { return { x: colX(n.path, 5), y: first - (n.step - 1) * rowH }; },
+      pos: function (n) { return n.summit ? { x: colX(1, 3), y: rect.t } : { x: colX(n.path, BRANCHES), y: first - (n.step - 1) * rowH }; },
       pool: function (i) { return { x: colX(i, 3), y: rect.t + 34 }; }, // les trois flaques du choix de la voie
       gate: { x: (rect.l + rect.r) / 2, y: rect.b - 10 }
     };
@@ -613,6 +658,10 @@
       return links;
     }
     TREE.filter(function (n) { return n.voie === voie; }).forEach(function (n) {
+      if (n.summit) { // les trois branches se rejoignent sur la dalle-sommet
+        n.reqAny.forEach(function (id) { var fr = nodeById(id); links.push({ from: fr, to: n, pts: stream(L.pos(fr), L.pos(n)), voie: voie, on: hasNode(save, n.id) && hasNode(save, id) }); });
+        return;
+      }
       var from = n.req.length ? nodeById(n.req[0]) : null;
       links.push({ from: from, to: n, pts: stream(from ? L.pos(from) : L.gate, L.pos(n)), voie: voie, on: hasNode(save, n.id), next: canLearnNode(save, n) });
     });
@@ -674,11 +723,16 @@
       });
       return;
     }
-    // les dalles de la voie choisie
+    // les dalles de la voie choisie ; la dalle-sommet, ronde et plus grande, baigne dans une lueur dorée
     TREE.forEach(function (n) {
       if (n.voie !== voie) return;
       var p = sc(L.pos(n)), known = hasNode(save, n.id), can = canLearnNode(save, n);
-      drawSlab(ctx, R(p.x), R(p.y), n.type, known ? 'known' : (can ? 'can' : 'locked'), voieOf(n.voie).color, SLAB_R);
+      if (n.summit) {
+        var sg = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, 46);
+        sg.addColorStop(0, 'rgba(243, 210, 122, 0.45)'); sg.addColorStop(1, 'rgba(243, 210, 122, 0)');
+        ctx.fillStyle = sg; ctx.fillRect(p.x - 46, p.y - 46, 92, 92);
+      }
+      drawSlab(ctx, R(p.x), R(p.y), n.summit ? 'stat' : n.type, known ? 'known' : (can ? 'can' : 'locked'), voieOf(n.voie).color, n.summit ? SUMMIT_R : SLAB_R);
     });
   }
   // Une dalle en relief : ronde (stats), en losange (passif) ou carrée (sort), gravée d'un anneau
@@ -765,14 +819,14 @@
     tfx.lineWidth = 1;
     TREE.forEach(function (n) { // les dalles qu'on peut prendre respirent en doré
       if (n.voie !== chosenVoie(save) || !canLearnNode(save, n)) return;
-      var p = temple.L.pos(n);
-      tfx.strokeRect(R(p.x / s) - SLAB_R - 3.5, R(p.y / s) - SLAB_R - 3.5, SLAB_R * 2 + 7, SLAB_R * 2 + 7);
+      var p = temple.L.pos(n), rr = n.summit ? SUMMIT_R : SLAB_R;
+      tfx.strokeRect(R(p.x / s) - rr - 3.5, R(p.y / s) - rr - 3.5, rr * 2 + 7, rr * 2 + 7);
     });
   }
 
   function renderTree() {
     var pts = $('skill-points');
-    pts.textContent = save.skillPoints > 0 ? save.skillPoints + (save.skillPoints > 1 ? ' points de compétence' : ' point de compétence') : 'Aucun point : monte de niveau';
+    pts.textContent = save.skillPoints > 0 ? save.skillPoints + (save.skillPoints > 1 ? ' points de voie' : ' point de voie') : 'Aucun point : monte de niveau';
     pts.classList.toggle('has', save.skillPoints > 0);
     renderVoie();
     renderNodeInfo();
@@ -792,20 +846,23 @@
           '<img src="' + VOIE_ICON[v.id] + '" alt=""><b>' + v.name + '</b></button>';
       });
     } else {
-      // en haut de chaque chemin, son nom et l'avancée
+      // à gauche du haut de chaque branche : son nom, ce qu'elle apporte et l'avancée ; au-dessus du sommet, son nom
+      var col = voieOf(voie).color, sm = summitOf(voie), smp = L.pos(sm);
       PATHS[voie].forEach(function (p, i) {
-        var done = save.tree.filter(function (id) { var n = nodeById(id); return n.path === i; }).length;
-        html += '<div class="tpath" style="left:' + L.colX(i, 5) + 'px;top:' + (L.rect.t - 58) + 'px;--voie:' + voieOf(voie).color + '"><b>' + p.name + '</b><small>' + done + ' / ' + STEPS + '</small></div>';
+        var done = save.tree.filter(function (id) { var n = nodeById(id); return n && n.path === i; }).length;
+        html += '<div class="tpath" style="left:' + (L.colX(i, BRANCHES) - (SLAB_R + 6) * L.s) + 'px;top:' + L.rowY(STEPS) + 'px;--voie:' + col + '" title="' + p.name + ' : ' + p.tag + '"><img src="' + BRANCH_ICON[voie][i] + '" alt=""><span><b>' + p.name.toUpperCase() + '</b><small>' + done + ' / ' + STEPS + ' dalles</small></span></div>';
       });
+      html += '<div class="tsummit" style="left:' + smp.x + 'px;top:' + (smp.y - (SUMMIT_R + 3) * L.s) + 'px;--voie:' + col + '"><b>SOMMET · ' + sm.name.toUpperCase() + '</b><small>' + skillById(sm.skill).name + ' et un grand passif</small></div>';
       // à gauche de chaque rangée : le niveau requis et le prix de l'étape
       for (var st = 1; st <= STEPS; st++) {
         html += '<span class="ttier' + (save.level >= STEP_LEVEL[st] ? ' reached' : '') + '" style="left:' + (L.rect.l - 150) + 'px;top:' + L.rowY(st) + 'px">NIV. ' + STEP_LEVEL[st] + ' · ' + st + ' PT' + (st > 1 ? 'S' : '') + '</span>';
       }
+      html += '<span class="ttier' + (save.level >= SUMMIT.level ? ' reached' : '') + '" style="left:' + (L.rect.l - 150) + 'px;top:' + L.rect.t + 'px">NIV. ' + SUMMIT.level + ' · ' + SUMMIT.cost + ' PTS</span>';
       TREE.forEach(function (n) {
         if (n.voie !== voie) return;
         var p = L.pos(n), known = hasNode(save, n.id), can = canLearnNode(save, n);
-        var icon = n.type === 'skill' ? VOIE_ICON[n.voie] : (n.type === 'passive' ? PASSIVE_ICON[n.voie] : STAT_ICON[Object.keys(n.stats)[0]]);
-        var badge = n.type === 'stat' ? '<i class="tbadge">+' + n.stats[Object.keys(n.stats)[0]] + '</i>' : (n.type === 'skill' ? '<i class="tbadge spell">SORT</i>' : '');
+        var icon = n.summit ? VOIE_ICON[n.voie] : (n.type === 'skill' ? BRANCH_ICON[n.voie][n.path] : (n.type === 'passive' ? PASSIVE_ICON[n.voie] : STAT_ICON[Object.keys(n.stats)[0]]));
+        var badge = n.type === 'stat' ? '<i class="tbadge">+' + n.stats[Object.keys(n.stats)[0]] + '</i>' : (n.type === 'skill' ? '<i class="tbadge spell">SORT</i>' : (n.summit ? '<i class="tbadge spell">ULTIME</i>' : ''));
         var cls = 'tslab ' + n.type + (known ? ' known' : (can ? ' can' : ' locked')) + (state.node === n.id ? ' is-selected' : '') + (n.id === save.tree[save.tree.length - 1] ? ' has-frog' : '');
         html += '<button class="' + cls + '" data-node="' + n.id + '" title="' + nodeName(n) + ' — ' + nodeDesc(n) + '" style="left:' + p.x + 'px;top:' + p.y + 'px;--voie:' + voieOf(n.voie).color + '" aria-label="' + nodeName(n) + '">' +
           '<img src="' + icon + '" alt="">' + badge + '</button>';
@@ -814,6 +871,7 @@
     html += '<img id="temple-frog" class="temple-frog" src="' + $('sb-portrait').toDataURL() + '" alt="Ta grenouille">';
     $('tree-nodes').innerHTML = html;
     $('tree-nodes').style.setProperty('--slab', ((SLAB_R * 2 + 3) * L.s) + 'px');
+    $('tree-nodes').style.setProperty('--summit', ((SUMMIT_R * 2 + 3) * L.s) + 'px');
     placeTempleFrog(L, links);
   }
 
@@ -838,6 +896,7 @@
       Sfx.play('drip'); Sfx.play('cut');
       setTimeout(function () {
         save.voie = voieId; state.node = null;
+        ensureWeapon(save); // la Voie des Armes au corps à corps, la Voie du Lancer à distance
         setPlayer(save); persist(); buildHero(); renderAll();
         diving = false;
         var f2 = $('temple-frog');
@@ -845,7 +904,7 @@
         temple.splash = { x: temple.L.gate.x, y: temple.L.gate.y, t0: performance.now(), color: voieOf(voieId).color };
         Sfx.play('levelup');
         notice(voieId === 'ermite' ? 'La grenouille ressort de la flaque dorée : mode Ermite ! Peau orange, yeux de crapaud, plus d’arme, elle frappe à mains nues avec l’onde de paume.'
-          : 'Tu as plongé dans la ' + voieOf(voieId).name + ' : cinq chemins s’ouvrent devant toi.');
+          : 'Tu as plongé dans la ' + voieOf(voieId).name + ' : trois branches s’ouvrent devant toi, et se rejoignent au sommet. Tu te bats désormais ' + (voieId === 'kunai' ? 'à distance.' : 'au corps à corps.'));
       }, 750);
     })(t0);
   }
@@ -874,17 +933,18 @@
   function renderNodeInfo() {
     var n = nodeById(state.node);
     if (!n || n.voie !== chosenVoie(save)) {
-      $('node-info').innerHTML = '<p class="muted">' + (chosenVoie(save) ? 'Clique sur une dalle pour voir ce qu’elle apporte. Ronds : caractéristiques · losanges : passifs · carrés : sorts. Chaque étape coûte plus cher que la précédente.' : 'Plonge dans l’une des trois flaques pour choisir ta voie : ce choix est définitif.') + '</p>';
+      $('node-info').innerHTML = '<p class="muted">' + (chosenVoie(save) ? 'Clique sur une dalle pour voir ce qu’elle apporte. Carrés : sorts · ronds : caractéristiques · losanges : passifs. Chaque étape coûte plus cher que la précédente, et les trois branches se rejoignent sur la dalle-sommet.' : 'Plonge dans l’une des trois flaques pour choisir ta voie : ce choix est définitif.') + '</p>';
       return;
     }
     var known = hasNode(save, n.id), block = learnBlock(save, n), v = voieOf(n.voie);
-    var types = { stat: 'CARACTÉRISTIQUE', passive: 'PASSIF', skill: 'SORT' };
-    var extra = n.type === 'skill' ? (function (s) { return (s.cost ? s.cost + ' souffle' : 'gratuit') + (s.cd ? ' · recharge ' + s.cd + ' tours' : ''); })(skillById(n.skill)) : '';
+    var types = { stat: 'CARACTÉRISTIQUE', passive: 'PASSIF', skill: 'SORT', summit: 'DALLE-SOMMET' };
+    var cdr = combatProfile(save).cdr, sk = n.skill && skillById(n.skill);
+    var extra = sk ? 'Relance : ' + skillCd(sk, cdr) + ' tour' + (skillCd(sk, cdr) > 1 ? 's' : '') + (cdr && sk.cd > 1 ? ' (' + sk.cd + ', moins ' + Math.min(cdr, sk.cd - 1) + ' grâce à l’Esprit)' : '') : '';
     $('node-info').style.setProperty('--voie', v.color);
-    $('node-info').innerHTML = '<span class="ni-type">' + types[n.type] + ' · ' + pathName(n.voie, n.path).toUpperCase() + ' · ÉTAPE ' + n.step + ' / ' + STEPS + '</span><h3>' + nodeName(n) + '</h3><span>' + nodeDesc(n) + '</span>' +
+    $('node-info').innerHTML = '<span class="ni-type">' + types[n.type] + ' · ' + (n.summit ? 'OÙ SE REJOIGNENT LES TROIS BRANCHES' : pathName(n.voie, n.path).toUpperCase() + ' · ÉTAPE ' + n.step + ' / ' + STEPS) + '</span><h3>' + nodeName(n) + '</h3><span>' + nodeDesc(n) + '</span>' +
       (extra ? '<span class="muted">' + extra + '</span>' : '') +
       '<span class="ni-cost">Coût : <b>' + n.cost + ' point' + (n.cost > 1 ? 's' : '') + '</b> · niveau <b>' + n.level + '</b></span>' +
-      (block ? '<span class="muted">' + block + '</span>' : '<button class="btn" data-learn="' + n.id + '">Apprendre (' + n.cost + ' point' + (n.cost > 1 ? 's' : '') + ')</button>');
+      (known ? '<span class="ni-known">Appris.</span>' : (block ? '<span class="muted">' + block + '</span>' : '<button class="btn" data-learn="' + n.id + '">Apprendre (' + n.cost + ' point' + (n.cost > 1 ? 's' : '') + ')</button>'));
   }
 
   // La voie sélectionnée dans le temple (avant le choix) : par défaut, celle de l'arme qu'on tient
@@ -898,8 +958,7 @@
     var voie = chosenVoie(save), box = $('voie-pick');
     box.hidden = !!voie; $('deck-side').hidden = !voie;
     if (voie) return;
-    var v = pickedVoie(), tech = PATHS[v.id].filter(function (p) { return p.skills; })[0].skills;
-    var pathIcon = function (p) { return p.stat ? STAT_ICON[p.stat] : (p.skills ? VOIE_ICON[v.id] : PASSIVE_ICON[v.id]); };
+    var v = pickedVoie(), sm = summitOf(v.id);
     box.style.setProperty('--voie', v.color);
     box.innerHTML = '<div class="vp-tabs" role="tablist" aria-label="Les trois voies">' + VOIES.map(function (o) {
       return '<button role="tab" data-pick-voie="' + o.id + '" aria-selected="' + (o.id === v.id) + '" style="--voie:' + o.color + '"><img src="' + VOIE_ICON[o.id] + '" alt="">' + o.short.toUpperCase() + '</button>';
@@ -907,11 +966,17 @@
       '<div class="vp-head"><img src="' + VOIE_ICON[v.id] + '" alt=""><h2>' + v.name.toUpperCase() + '</h2></div>' +
       '<p class="vp-desc">' + v.desc + '</p>' +
       (v.id === 'ermite' ? '<p class="ni-warn">Mode Ermite : peau orange, yeux de crapaud et plus d’arme. Tu te bats à mains nues.</p>' : '') +
-      '<h3>SES 6 SORTS</h3><ul class="vp-spells">' + Object.keys(tech).map(function (st) {
-        var s = skillById(tech[st]);
-        return '<li><b>' + s.name + '</b><small>NIV. ' + STEP_LEVEL[st] + '</small><span>' + s.desc + '</span></li>';
-      }).join('') + '</ul>' +
-      '<h3>SES 5 CHEMINS</h3><ul class="vp-paths">' + PATHS[v.id].map(function (p) { return '<li><img src="' + pathIcon(p) + '" alt="">' + p.name + '</li>'; }).join('') + '</ul>' +
+      '<h3>TES CARACTÉRISTIQUES DE DÉPART</h3><div class="vp-stats">' + STATS.map(function (st) {
+        return '<span style="--c:' + st.color + '"><img src="' + STAT_ICON[st.id] + '" alt=""><b>' + v.base[st.id] + '</b><small>' + st.name + '</small>' + (v.mult[st.id] ? '<i>1 pt = ' + n1(v.mult[st.id]) + '</i>' : '') + '</span>';
+      }).join('') + '</div>' +
+      '<p class="vp-desc small">Chaque point de caractéristique réparti vaut ' + multText(v) + ' (×1 ailleurs).' + (v.id === 'ermite' ? ' Sans arme : tu te bats à mains nues.' : ' Tu te bats ' + (v.id === 'kunai' ? 'à distance' : 'au corps à corps') + '.') + '</p>' +
+      '<h3>TROIS BRANCHES, UN SOMMET</h3>' + PATHS[v.id].map(function (p, i) {
+        return '<div class="vp-branch"><div class="vp-bhead"><img src="' + BRANCH_ICON[v.id][i] + '" alt=""><b>' + p.name + '</b><small>' + p.tag + '</small></div><ul class="vp-spells">' + p.skills.map(function (id, j) {
+          var s = skillById(id);
+          return '<li><b>' + s.name + '</b><small>NIV. ' + STEP_LEVEL[1 + j * 3] + '</small><span>' + s.desc + '</span></li>';
+        }).join('') + '</ul><p class="vp-pas">Passifs : ' + p.passives.map(function (ps) { return ps[0]; }).join(', ') + '</p></div>';
+      }).join('') +
+      '<div class="vp-branch summit"><div class="vp-bhead"><img src="' + VOIE_ICON[v.id] + '" alt=""><b>Sommet : ' + sm.name + '</b><small>NIV. ' + SUMMIT.level + '</small></div><p class="vp-pas">' + nodeDesc(sm) + '</p></div>' +
       '<button class="btn vp-dive" data-choose-voie="' + v.id + '"' + (diving ? ' disabled' : '') + '>Plonger dans cette voie ▶</button>' +
       '<p class="muted vp-note">Choix définitif. Plus tard, le ' + TEA.name + ' (' + TEA.price + ' lucioles) permet de tout recommencer.</p>';
   }
@@ -919,7 +984,8 @@
   function renderDeck() {
     var weapon = weaponOf(save.equip);
     var deck = deckSkills(save, weapon);
-    var meta = function (s) { return s.base ? 'attaque de base · ' + ({ kunai: 'kunaï', baton: 'bâton', mains: 'mains nues' })[weapon.kind] : (s.cost ? s.cost + ' souffle' : 'gratuit') + (s.cd ? ' · recharge ' + s.cd : ''); };
+    var cdr = combatProfile(save).cdr;
+    var meta = function (s) { var cd = skillCd(s, cdr); return s.base ? 'attaque de base · ' + WEAPON_TYPES[weaponType(weapon)].name.toLowerCase() : 'relance ' + cd + ' tour' + (cd > 1 ? 's' : ''); };
     var card = function (s, removable) {
       var v = voieOf(s.voie);
       return '<div class="dcard2" style="--voie:' + v.color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + meta(s) + '</span></span>' +
@@ -932,13 +998,13 @@
       var s = chosen[i];
       if (!s) { html += '<div class="dcard2 empty">Emplacement libre</div>'; continue; }
       html += skillUsable(s, weapon) ? card(s, true)
-        : '<div class="dcard2 off" style="--voie:' + voieOf(s.voie).color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">Inutilisable en mode Ermite</span></span><button data-undeck="' + s.id + '">Retirer</button></div>';
+        : '<div class="dcard2 off" style="--voie:' + voieOf(s.voie).color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">Inutilisable avec cette arme</span></span><button data-undeck="' + s.id + '">Retirer</button></div>';
     }
     var lhtml = learned.length ? learned.map(function (s) {
       var inDeck = save.deck.indexOf(s.id) >= 0, v = voieOf(s.voie);
       return '<div class="dcard2' + (inDeck ? ' in-deck' : '') + '" style="--voie:' + v.color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + s.desc + ' · ' + meta(s) + '</span></span>' +
         (inDeck ? '<button data-undeck="' + s.id + '">Retirer</button>' : '<button data-deck="' + s.id + '"' + (save.deck.length >= DECK_SIZE ? ' disabled' : '') + '>Ajouter</button>') + '</div>';
-    }).join('') : '<p class="muted">Aucun sort appris. Les 6 sorts de ta voie sont sur le chemin des Techniques.</p>';
+    }).join('') : '<p class="muted">Aucun sort appris. Chaque branche de ta voie commence par un sort : prends la première dalle d’une branche.</p>';
     $('deck').innerHTML = html;
     $('learned').innerHTML = lhtml;
   }
@@ -947,7 +1013,7 @@
   var resetArmed = 0;
   function renderVoie() {
     var v = voieOf(chosenVoie(save)), st = $('voie-status'), btn = $('tree-reset');
-    st.innerHTML = v ? 'Voie choisie : <b style="color:' + v.color + '">' + v.short + '</b>' + (v.id === 'ermite' ? ' · mode Ermite' : '') + ' · ' + save.tree.length + ' / ' + (STEPS * 5) + ' dalles' : 'Choisis ta voie : ce choix est définitif';
+    st.innerHTML = v ? 'Voie choisie : <b style="color:' + v.color + '">' + v.short + '</b>' + (v.id === 'ermite' ? ' · mode Ermite' : '') + ' · ' + save.tree.length + ' / ' + (STEPS * BRANCHES + 1) + ' dalles' : 'Choisis ta voie : ce choix est définitif';
     btn.hidden = !v;
     btn.disabled = save.gold < TEA.price;
     btn.textContent = resetArmed ? 'Confirmer : tout oublier (' + TEA.price + ' lucioles)' : 'Changer de voie (' + TEA.price + ' lucioles)';
@@ -1101,7 +1167,7 @@
     if (id === TEA_ID) {
       var canTea = !!chosenVoie(save), refund = treeCost(save);
       card.innerHTML = head(ICON.the, TEA.name, 'Consommable') +
-        '<div class="sc-body"><p>' + TEA.desc + '</p>' + (canTea ? '<span class="sc-cur">Ta voie redevient libre et tu récupères ' + refund + ' point' + (refund > 1 ? 's' : '') + ' de compétence.</span>' : '<span class="sc-miss">Tu n’as encore choisi aucune voie.</span>') + '</div>' +
+        '<div class="sc-body"><p>' + TEA.desc + '</p>' + (canTea ? '<span class="sc-cur">Ta voie redevient libre et tu récupères ' + refund + ' point' + (refund > 1 ? 's' : '') + ' de voie.</span>' : '<span class="sc-miss">Tu n’as encore choisi aucune voie.</span>') + '</div>' +
         buyButton(id, TEA.price, canTea);
       return;
     }
@@ -1114,8 +1180,9 @@
       if (!own && !d) return '';
       return '<li>' + st.name + ' ' + fmt(own) + (d ? ' <b class="' + (d > 0 ? 'sc-up' : 'sc-down') + '">' + (d > 0 ? '▲' : '▼') + fmt(d) + '</b>' : ' <b>=</b>') + '</li>';
     }).join('');
-    card.innerHTML = head(iconUrls[id], it.name, slot.name + (it.kind ? ' · ' + (it.kind === 'kunai' ? 'kunaï' : 'bâton') : '') + ' · ' + RARITIES[rarityOf(id)].name) +
+    card.innerHTML = head(iconUrls[id], it.name, slot.name + (it.kind ? ' · ' + weaponLabel(it) : '') + ' · ' + RARITIES[rarityOf(id)].name) +
       '<div class="sc-body"><p>' + it.desc + '</p>' + (rows ? '<ul class="sc-stats">' + rows + '</ul>' : '') +
+      (it.slot === 'arme' && !weaponAllowed(save, it) ? '<span class="sc-miss">Réservée à la ' + voieDef(it.kind).name + '.</span>' : '') +
       '<span class="sc-cur">' + (worn ? 'Remplace : ' + ITEMS[worn].name : 'Emplacement ' + slot.name.toLowerCase() + ' libre') + '</span></div>' +
       buyButton(id, price, true);
   }
@@ -1189,7 +1256,7 @@
     if (!v) return '<div class="rc-voie none"><b>PAS ENCORE DE VOIE</b><span>Elle n’a pas encore plongé dans une flaque du temple.</span></div>';
     var spells = (e.sorts || []).map(skillById).filter(Boolean);
     return '<div class="rc-voie" style="--voie:' + v.color + '"><img class="px" src="' + VOIE_ICON[v.id] + '" alt=""><div><b>' + v.name.toUpperCase() + '</b>' +
-      '<span>' + (e.dalles || 0) + ' / ' + (STEPS * 5) + ' dalles du temple' + (v.id === 'ermite' ? ' · mode Ermite' : '') + '</span>' +
+      '<span>' + (e.dalles || 0) + ' / ' + (STEPS * BRANCHES + 1) + ' dalles du temple' + (v.id === 'ermite' ? ' · mode Ermite' : '') + '</span>' +
       (spells.length ? '<span class="rc-spells">' + spells.map(function (s) { return '<i title="' + s.desc + '">' + s.name + '</i>'; }).join('') + '</span>' : '<span class="muted">Aucun sort équipé</span>') + '</div></div>';
   }
   // la fiche dépliée sous une ligne
@@ -1260,33 +1327,27 @@
     var equip = cleanEquip(card.equip);
     var ps = {
       level: card.niveau, voie: card.voie, deck: card.deck || [], equip: equip, hero: { name: card.nom, skin: card.peau },
-      alloc: Object.assign({ vitalite: 0, agilite: 0, force: 0, souffle: 0 }, card.alloc),
+      alloc: Object.assign({ vitalite: 0, agilite: 0, force: 0, esprit: 0 }, card.alloc),
       tree: (card.tree || []).filter(function (id) { var n = nodeById(id); return n && n.voie === card.voie; })
     };
+    if (card.alloc && card.alloc.souffle && !card.alloc.esprit) ps.alloc.esprit = card.alloc.souffle; // une partie d'avant l'Esprit
     setPlayer(ps);
     try {
-      var weapon = weaponOf(equip), cs = combatStats(computeStats(equip)), pas = treeBonuses(ps).passives;
+      var weapon = weaponOf(equip), pr = combatProfile(ps);
       var anims = buildKawazuAnims(dressKawazu(sp, lookFor(equip))), pal = paletteFor(sp.PAL, equip);
       var imgs = function (frames) { return frames.map(function (g) { return g ? gridToCanvas(g, pal, true) : null; }); };
-      var maxHp = Math.round(cs.maxHp * (1 + pas.hpMult));
       return (dojo.fighters[card.id] = {
         frog: true, name: card.nom, pseudo: card.pseudo, level: card.niveau, rank: 'duel',
-        maxHp: maxHp, dmg: cs.dmg * (1 + pas.dmgMult), crit: cs.crit + pas.crit, dodge: Math.min(0.5, cs.dodge + pas.dodge), agi: cs.agi,
-        size: 1 + pas.size, maxSouffle: cs.maxSouffle, regen: cs.regen + pas.regen, dmgReduce: pas.dmgReduce, poisonMult: pas.poisonMult,
-        skills: deckSkills(ps, weapon), weaponKind: weapon.kind,
-        imgs: {
-          idle: imgs(anims.idleRight.frames), atk: imgs(anims.attack.frames), hurt: imgs(anims.hurt.frames),
-          fx: imgs(buildFx(weapon.kind === 'kunai' ? { type: 'arc', radii: [5, 9, 13] } : weapon.attack.fx)),
-          kunai: kunaiProjectileImgs(weapon.kind === 'kunai' ? weapon.blade : ITEMS.kunai_acier.blade).left
-        }
+        maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi, spell: pr.spell, cdr: pr.cdr,
+        size: pr.size, pas: pr.pas, dmgReduce: pr.pas.dmgReduce,
+        skills: deckSkills(ps, weapon), kind: weapon.kind, wtype: weaponType(weapon), weaponId: baseOf(equip.arme || ''),
+        blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave,
+        imgs: { idle: imgs(anims.idleRight.frames), atk: imgs(anims.attack.frames), hurt: imgs(anims.hurt.frames), kick: imgs(anims.kick.frames), fx: imgs(buildFx(weaponFx(weapon))) }
       });
     } finally { setPlayer(save); }
   }
   // nos propres chiffres, pour comparer
-  function myFight() {
-    var cs = combatStats(computeStats(save.equip)), pas = treeBonuses(save).passives;
-    return { maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult), agi: cs.agi, crit: cs.crit + pas.crit, dodge: Math.min(0.5, cs.dodge + pas.dodge) };
-  }
+  function myFight() { return combatProfile(save); }
   // la réputation en jeu, avant le duel (la même règle que le serveur)
   function repStakes(theirs) {
     var mine = dojo.data ? dojo.data.rep : 0, diff = theirs - mine, clampN = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
@@ -1742,7 +1803,7 @@
       var n = nodeById(t.dataset.learn);
       if (canLearnNode(save, n)) {
         save.tree.push(n.id); save.skillPoints -= n.cost;
-        if (n.type === 'skill' && save.deck.length < DECK_SIZE) save.deck.push(n.skill); // rangé tout seul dans le deck s'il reste de la place
+        if (n.skill && save.deck.length < DECK_SIZE) save.deck.push(n.skill); // rangé tout seul dans le deck s'il reste de la place
         setPlayer(save); persist(); Sfx.play('levelup'); buildHero(); renderAll();
       }
       return;
@@ -1794,7 +1855,7 @@
       clearTimeout(resetArmed); resetArmed = 0;
       if (save.gold < TEA.price) return;
       save.gold -= TEA.price; forgetTree(); state.node = null; renderAll();
-      notice('Tout est oublié : tes points de compétence sont rendus. Choisis une nouvelle voie.');
+      notice('Tout est oublié : tes points de voie sont rendus. Choisis une nouvelle voie.');
       return;
     }
     if (t.dataset.node) { state.node = t.dataset.node; renderTree(); return; }
@@ -1840,6 +1901,7 @@
     }
     if (t.id === 'equip-btn') {
       var it = ITEMS[state.selected];
+      if (it.slot === 'arme' && !weaponAllowed(save, it)) return;
       save.equip[it.slot] = save.equip[it.slot] === state.selected ? null : state.selected;
       persist(); buildHero();
       if (it.slot === 'arme') state.view = 'attaque'; else if (state.view === 'attaque') state.view = 'face';

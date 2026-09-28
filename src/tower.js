@@ -38,18 +38,17 @@ function towerCard(f) {
   var voie = boss ? boss.voie : VOIES[Math.floor(r(1) * 3)].id, lvl = towerLevel(f);
   // ses points, répartis comme un joueur de sa voie le ferait
   var pts = Math.round((lvl - 1) * POINTS_PER_LEVEL * (boss ? 1 : 0.9)), share = {
-    baton: { force: 0.4, vitalite: 0.35, agilite: 0.15, souffle: 0.1 },
-    kunai: { agilite: 0.4, force: 0.35, vitalite: 0.15, souffle: 0.1 },
-    ermite: { souffle: 0.3, vitalite: 0.35, force: 0.25, agilite: 0.1 }
+    baton: { force: 0.4, vitalite: 0.35, agilite: 0.15, esprit: 0.1 },
+    kunai: { agilite: 0.4, force: 0.35, vitalite: 0.15, esprit: 0.1 },
+    ermite: { esprit: 0.35, vitalite: 0.35, force: 0.2, agilite: 0.1 }
   }[voie], alloc = {};
   Object.keys(share).forEach(function (k) { alloc[k] = Math.floor(pts * share[k]); });
-  // ses dalles du temple : étape par étape, les Techniques d'abord, tant que ses points de compétence le permettent
-  var left = lvl - 1, tree = [];
-  for (var st = 1; st <= STEPS; st++) [3, 0, 1, 2, 4].forEach(function (p) {
-    var n = TREE.filter(function (x) { return x.voie === voie && x.path === p && x.step === st; })[0];
-    if (n && n.level <= lvl && n.cost <= left && n.req.every(function (q) { return tree.indexOf(q) >= 0; })) { tree.push(n.id); left -= n.cost; }
-  });
-  var deck = tree.map(nodeById).filter(function (n) { return n.type === 'skill'; }).map(function (n) { return n.skill; }).slice(-DECK_SIZE);
+  // ses dalles du temple : étape par étape dans ses trois branches (sa préférée d'abord), puis le sommet
+  var left = lvl - 1, tree = [], fav = Math.floor(r(5) * BRANCHES), order = [fav, (fav + 1) % BRANCHES, (fav + 2) % BRANCHES];
+  var take = function (n) { if (n && n.level <= lvl && n.cost <= left && n.req.every(function (q) { return tree.indexOf(q) >= 0; }) && (!n.reqAny || n.reqAny.some(function (q) { return tree.indexOf(q) >= 0; }))) { tree.push(n.id); left -= n.cost; } };
+  for (var st = 1; st <= STEPS; st++) order.forEach(function (p) { take(TREE.filter(function (x) { return x.voie === voie && x.path === p && x.step === st; })[0]); });
+  take(summitOf(voie));
+  var deck = tree.map(nodeById).filter(function (n) { return n.skill; }).map(function (n) { return n.skill; }).slice(-DECK_SIZE);
   // son équipement : ce qu'on trouve à cette hauteur (les objets de rang plus élevé en montant)
   var maxTier = 1 + Math.floor(f / 20), equip = {};
   SLOTS.forEach(function (s, i) {

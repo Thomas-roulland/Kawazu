@@ -52,7 +52,7 @@
     <nav class="sb-menu" aria-label="Menu">
       <button class="menu-btn is-active" data-page="camp"><img data-ico="camp" alt=""><span>Camp</span></button>
       <button class="menu-btn" data-page="perso"><img data-ico="perso" alt=""><span>Personnage</span><i class="badge" id="badge-perso" hidden></i></button>
-      <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>Compétences</span><i class="badge" id="badge-skills" hidden></i></button>
+      <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>La Voie</span><i class="badge" id="badge-skills" hidden></i></button>
       <button class="menu-btn" data-page="shop"><img data-ico="shop" alt=""><span>Boutique</span></button>
       <span class="menu-sep" aria-hidden="true"></span>
       <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
@@ -123,7 +123,9 @@
             <h2>CARACTÉRISTIQUES</h2>
             <span id="points" class="points"></span>
           </div>
+          <p id="stat-voie" class="stat-voie"></p>
           <div id="stats" class="stat-grid"></div>
+          <section id="combat-stats" class="combat-stats"></section>
         </section>
         <div class="perso-side">
           <section id="feats" class="panel feats-panel" hidden></section>
@@ -131,8 +133,8 @@
             <h2>INVENTAIRE</h2>
             <div id="filters" class="tabs">
               <button class="tab" data-filter="tout">Tout</button>
-              <button class="tab" data-filter="baton">Bâtons</button>
-              <button class="tab" data-filter="kunai">Kunaïs</button>
+              <button class="tab" data-filter="baton">Corps à corps</button>
+              <button class="tab" data-filter="kunai">Distance</button>
               <button class="tab" data-filter="tete">Tête</button>
               <button class="tab" data-filter="echarpe">Écharpes</button>
               <button class="tab" data-filter="ceinture">Ceintures</button>
@@ -145,21 +147,21 @@
       </div>
     </section>
 
-    <!-- Compétences : l'arbre et le deck -->
-    <section id="page-skills" class="page" aria-label="Compétences" hidden>
+    <!-- La Voie : le Temple (l'arbre) et le deck -->
+    <section id="page-skills" class="page" aria-label="La Voie" hidden>
       <canvas id="temple-bg" aria-hidden="true"></canvas>
       <canvas id="temple-fx" aria-hidden="true"></canvas>
       <div id="tree-nodes" class="temple-nodes"></div>
       <header class="temple-head">
         <h1>TEMPLE DES VOIES</h1>
-        <p>Suis le cours de l’eau : chaque point de compétence te fait avancer d’une dalle.</p>
+        <p>Trois branches de sorts, de caractéristiques et de passifs, qui se rejoignent au sommet. Chaque niveau te donne un point de voie.</p>
         <div class="head-actions"><span id="voie-status" class="voie-status"></span><button id="tree-reset" class="btn btn-ghost" hidden></button><span id="skill-points" class="points"></span></div>
       </header>
       <aside class="panel deck-panel temple-side">
         <div id="voie-pick" class="voie-pick" hidden></div>
         <div id="deck-side" class="deck-side">
           <h2>TON DECK</h2>
-          <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 3 sorts appris.</p>
+          <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 4 sorts appris : chacun a son temps de relance.</p>
           <div id="deck" class="deck"></div>
           <h2>SORTS APPRIS</h2>
           <div id="learned" class="learned"></div>
@@ -271,7 +273,7 @@
     <div class="bt-card">
       <div class="bt-name" id="bt-hero-name">Kawazu</div>
       <div class="bt-hp"><span id="bt-hero-hp"></span></div>
-      <div class="bt-sub"><span id="bt-hero-hptext"></span><span class="souffle" id="bt-souffle" title="Souffle"></span></div>
+      <div class="bt-sub"><span id="bt-hero-hptext"></span></div>
       <div class="bt-status" id="bt-hero-status"></div>
     </div>
     <div class="bt-vs">VS</div>

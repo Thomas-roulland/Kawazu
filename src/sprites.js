@@ -183,7 +183,9 @@ function buildKawazuAnims(sp) {
       fx: [null, sp.fx[0], sp.fx[1], sp.fx[2]],
       durations: [0.09, 0.07, 0.07, 0.14]
     },
-    hurt: { fps: 8, frames: [flash(sp.main), move(sp.ko, 0, 31, 0, 31, -1, 0)] }
+    hurt: { fps: 8, frames: [flash(sp.main), move(sp.ko, 0, 31, 0, 31, -1, 0)] },
+    // coup de pied (Voie de l'Ermite) : la jambe tendue
+    kick: { frames: [sp.kick || sp.atk] }
   };
 }
 

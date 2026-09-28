@@ -36,9 +36,9 @@ var WEATHERS = [
   { id: 'clair', name: 'Temps clair', desc: 'Aucun effet.', xp: 1 },
   { id: 'lune', name: 'Pleine lune', desc: 'Ennemi +25 % de dégâts, XP ×1,5.', enemyDmg: 1.25, xp: 1.5 },
   { id: 'brume', name: 'Brume épaisse', desc: 'L’ennemi esquive +15 % (les kunaïs ne ratent jamais).', enemyDodge: 0.15, xp: 1.2 },
-  { id: 'averse', name: 'Averse', desc: 'Récupère +1 Souffle par tour.', regen: 1, xp: 1 },
+  { id: 'averse', name: 'Averse', desc: 'Tes sorts ont 30 % de chances par tour de se relancer un tour plus tôt.', flow: 0.3, xp: 1 },
   { id: 'nuit', name: 'Nuit sans lune', desc: 'Coups critiques +15 % pour tout le monde.', crit: 0.15, xp: 1.2 },
-  { id: 'canicule', name: 'Canicule', desc: 'Commence sans Souffle, mais XP ×1,3.', noStartSouffle: true, xp: 1.3 }
+  { id: 'canicule', name: 'Canicule', desc: 'Tes sorts commencent en relance (1 tour), mais XP ×1,3.', startCd: 1, xp: 1.3 }
 ];
 
 function worldStages(w) {
@@ -137,7 +137,7 @@ function expeditionLeft(save) { return save.expedition ? Math.max(0, save.expedi
 
 // ---------- Boutique de l'Aïeule Gamako ----------
 var TEA_ID = 'the_oubli';
-var TEA = { name: 'Thé de l’oubli', price: 80, desc: 'Une tisane amère : oublie tout l’arbre de compétences et rend les points.' };
+var TEA = { name: 'Thé de l’oubli', price: 80, desc: 'Une tisane amère : oublie ta voie et tout le Temple, et rend les points.' };
 var SHOP_SIZE = 5, SHOP_REROLL = 25;
 
 function refreshShop(save) {

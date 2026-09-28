@@ -56,7 +56,7 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 
 ## Le menu
 
-Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, Compétences, Boutique), **les aventures**
+Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique), **les aventures**
 (Carte du monde, Tour des Sages, Cascade des duels) et **la collection** (Album, Classement). En bas : sauvegarde, son (touche M).
 Les **lucioles** sont la monnaie du jeu.
 
@@ -65,19 +65,32 @@ Les **lucioles** sont la monnaie du jeu.
   et un panneau « Aventure » pour reprendre le monde en cours.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
   (tête, arme, écharpe, **ceinture**, anneau : l'écharpe et la ceinture changent de couleur sur le sprite),
-  les caractéristiques en cartes (effet chiffré, « + » pour répartir les points), les **hauts faits** et les
-  **passifs** débloqués (l'encart n'apparaît que s'il y a quelque chose), et l'inventaire.
-- **Compétences** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
-  flaques (Bâton, Kunaï, Ermite) : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier
-  et rendent les points, contre 80 lucioles). Chaque voie a **5 petits chemins de 10 dalles** qui montent du
-  bassin : deux chemins de caractéristiques, la Croissance (la grenouille grandit, plus de PV), les Techniques
-  (les **6 sorts** de la voie) et un chemin de passifs. L’étape n coûte n points et demande un niveau de plus en
-  plus haut (jusqu’au niveau 130 pour la 10e) : tout prendre coûterait 275 points pour 199 gagnés d’ici le
-  **niveau 200** (le maximum), il faut donc choisir. La grenouille avance de dalle en dalle, et l’eau du chemin
-  appris prend la couleur de la voie. Un **deck** de 3 sorts accompagne l’attaque de base de l’arme.
-  La voie de l’Ermite met la grenouille en **mode Ermite** : peau orange, yeux de crapaud (iris jaune,
-  pupille en barre), plus d’arme — on se bat à mains nues avec une garde paume ouverte et une onde de paume.
-  Seuls les sorts de l’Ermite restent utilisables ; les mains se renforcent avec le niveau.
+  les caractéristiques en cartes détaillées (base de la voie, points répartis × la voie, dalles du Temple, objets ;
+  ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** (PV, dégâts, critique,
+  esquive, initiative, puissance et relance des sorts, passifs : chaque chiffre avec son calcul), les **hauts faits**
+  et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance).
+- **La Voie** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
+  flaques : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier et rendent les points,
+  contre 80 lucioles). Chaque voie a ses **caractéristiques de départ** et **multiplie les points** qu’on répartit :
+  - **Voie des Armes** (corps à corps : bâtons, harpons, **katanas**, **masses**) : Force ×2, Vitalité ×1,5 ;
+  - **Voie du Lancer** (distance : kunaïs, **shurikens**) : Agilité ×2, Force ×1,5 ;
+  - **Voie de l’Ermite** (mains nues) : Esprit ×2, Vitalité ×1,5. Mode Ermite : peau orange, yeux de crapaud,
+    plus d’arme ; paumes, **coups de pied** et **coups de boule**.
+
+  Une voie ne manie que sa famille d’armes. Elle offre **trois branches de 10 dalles** (sorts aux étapes 1, 4, 7, 10 ;
+  caractéristiques aux étapes 2, 5, 8 ; passifs aux étapes 3, 6, 9) qui **se rejoignent sur la dalle-sommet** (niveau 90,
+  15 points : un sort ultime et un grand passif) :
+  - Armes : Bâton de jade (ondes, étourdissements, garde), Katana (entailles, saignement, iaï, critiques), Colosse
+    (fracas, séisme, cri de guerre, croissance, bouclier) → sommet **Maître d’armes** (Tempête d’acier) ;
+  - Lancer : Kunaï (rafales, marque, pluie de kunaïs), Shuriken d’eau (étoile d’eau, prison d’eau, shuriken géant,
+    tourbillon), Ombre (poison, pas de l’ombre, nuage toxique, clone d’ombre) → sommet **Œil du tireur** (Déluge de lames) ;
+  - Ermite : Paume (paumes d’énergie, coassement, paume géante, orbe), Pieds et tête (coup de pied, coup de boule,
+    pied retourné, chute du crapaud), Crapaud sage (langue, soins, peau de rosée, huile du mont Kaeru) → sommet
+    **Mode Sage** (Kumite du Sage).
+
+  L’étape n coûte n points (niveau 1 à 75) ; la grenouille avance de dalle en dalle et l’eau des branches apprises prend
+  la couleur de la voie. Un **deck** de 4 sorts accompagne l’attaque de base de l’arme (Coup de bâton, Estoc,
+  Entaille, Coup de masse, Lancer de kunaï, Lancer de shurikens, Frappe du crapaud).
 - **Carte du monde** : un continent détaillé (arbres, rochers, cristaux, monuments), une région par biome (Marais-Brume, Lagune
   des Lucioles, Forêt des Saules, Grottes Luisantes, Temple Englouti, Sommet du Héron).
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
@@ -89,7 +102,7 @@ Les **lucioles** sont la monnaie du jeu.
   sur l’étal du comptoir ; la fiche de l’objet choisi se pose en bas, sur les planches du comptoir (stats comparées à ton
   équipement). Gamako parle en **animalese**, comme dans Animal Crossing (une petite syllabe chantée par lettre, la bulle
   s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets (nouvel étal pour
-  25 lucioles) et le **Thé de l’oubli**, qui rend tous les points de compétence.
+  25 lucioles) et le **Thé de l’oubli**, qui rend tous les points de voie.
 - **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.
   La tour est une **pagode dessinée en pixel art** étage par étage (toits de tuiles de jade aux coins relevés, murs
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée
@@ -120,7 +133,7 @@ Les **lucioles** sont la monnaie du jeu.
   marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets).
   Le sommaire donne les chapitres et les **récompenses** à réclamer (paliers de découvertes : lucioles, XP, et au
   bout l’Anneau du naturaliste et l’Écharpe du collectionneur). Puis une double page par **famille** : Limons,
-  Moustiques, Champis, Chauves-souris, Boss des terres, Grands Sages ; Bâtons, Harpons, Kunaïs, Couvre-chefs,
+  Moustiques, Champis, Chauves-souris, Boss des terres, Grands Sages ; Bâtons, Harpons, Katanas, Masses, Kunaïs, Shurikens, Couvre-chefs,
   Écharpes, Ceintures, Anneaux, Trésors. Chaque créature (dans ses trois raretés) et chaque objet y est une
   **carte à collectionner** au cadre de sa rareté ; une carte pas encore trouvée montre son dos et un indice.
 - **Classement** : une liste simple et sobre, aux couleurs du jeu : les **50 premières** grenouilles puis « Afficher la suite »
@@ -134,7 +147,7 @@ Les **lucioles** sont la monnaie du jeu.
 - Chaque objet trouvé ou acheté est un **exemplaire unique** : ses stats sont **tirées au hasard** selon sa rareté
   (Rare : environ +35 % et parfois une stat en plus ; Épique : environ +75 % et deux stats en plus). Deux Bâtons de
   jade épiques n’ont donc pas les mêmes jets. On peut en avoir plusieurs, et vendre les autres.
-- **Près de 60 modèles** (bâtons, harpons, kunaïs, chapeaux, écharpes, ceintures, anneaux), rangés par biome :
+- **Près de 80 modèles** (bâtons, harpons, katanas, masses, kunaïs, shurikens, chapeaux, écharpes, ceintures, anneaux), rangés par biome :
   plus on avance, plus les modèles sont forts. Butin : 72 % commun, 24 % rare, 4 % épique (bien mieux sur un boss
   ou un monstre rare). L’étal de l’Aïeule Gamako tire aussi ses objets dans les trois raretés.
 - **Monstres rares et épiques** : un combat normal peut tomber sur une variante rare (16 %) ou épique (4 %),
@@ -147,14 +160,23 @@ flouté. Les combattants paraissent moins gros, les secousses restent douces.
 
 Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité décide qui commence.
 
-- Chaque sort coûte du **Souffle** (réserve qui remonte chaque tour) et peut avoir une **recharge**.
-- Les ennemis ont leurs tactiques : charges préparées, vol de vie, englue (vole du Souffle),
-  rage des boss sous la moitié de leur vie.
-- **Auto** (touche A) ; vitesse **×1 / ×2 / ×4** ; touches 1-4 pour les sorts.
-- **Météo** selon l’étape : Pleine lune, Brume épaisse, Averse, Nuit sans lune, Canicule.
-- Montée de niveau : +3 points de caractéristique, +1 point de compétence.
+- Plus de réserve à gérer : chaque sort a son **temps de relance** en tours (l’attaque de base n’en a pas), que
+  l’**Esprit** raccourcit.
+- Les sorts posent des effets : **saignement**, **poison**, **marque** (+30 % de dégâts reçus), **étourdissement**,
+  **affaiblissement** (−30 % de dégâts), **garde** (et riposte), **ombre** (esquive sûre puis critique), **bouclier**,
+  soins, vol de vie. Les passifs du Temple ajoutent riposte, flux (une relance qui saute), enchaînement, coup de grâce…
+- Chaque sort a son **animation** : entailles et iaï du katana, séisme, moulinet, étoiles d’eau qui éclaboussent, bulle
+  d’eau, tourbillon de shurikens, clone d’ombre, pluie de kunaïs, paume géante, orbe d’énergie, coup de pied sauté,
+  coup de boule, langue fouet…
+- Les ennemis ont leurs tactiques : charges préparées, vol de vie, englue (les sorts en relance prennent un tour de plus),
+  rage des boss sous la moitié de leur vie. Les grenouilles adverses (duels, tour) jouent leurs sorts avec les mêmes règles.
+- **Auto** (touche A) ; vitesse **×1 / ×2 / ×4** ; touches 1-5 pour l’attaque de base et les sorts.
+- **Météo** selon l’étape : Pleine lune, Brume épaisse, Averse (relances plus rapides), Nuit sans lune, Canicule
+  (sorts en relance au départ).
+- Montée de niveau : +3 points de caractéristique, +1 point de voie.
 
-Caractéristiques : Vitalité → PV, Force → dégâts, Agilité → critique / esquive / initiative, Souffle → réserve et récupération.
+Caractéristiques : **Vitalité** → PV (+6 par point) ; **Force** → dégâts (+1,1 par point) ; **Agilité** → critique,
+esquive, initiative ; **Esprit** → puissance des sorts (+2 % par point) et relance (−1 tour à 40, 100 et 180).
 
 ## Structure
 
@@ -168,7 +190,7 @@ Caractéristiques : Vitalité → PV, Force → dégâts, Agilité → critique 
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, ondes de choc, kunaï lancé, espèces de monstres
 - `src/biomes.js` : les 6 biomes (décor, monstres, boss)
-- `src/skills.js` : sorts, arbre de compétences et deck
+- `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde
 - `src/worlds.js` : étapes des mondes, ennemis, météo, expéditions, boutique
