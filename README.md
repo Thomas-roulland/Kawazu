@@ -56,7 +56,7 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 
 ## Le menu
 
-Menu latéral en bois : Camp, Personnage, Compétences, Carte du monde, Boutique, Dojo, Classement (+ sauvegarde, son / touche M).
+Menu latéral en bois : Camp, Personnage, Compétences, Carte du monde, Boutique, Tour des Sages, Dojo, Album, Classement (+ sauvegarde, son / touche M).
 Les **lucioles** sont la monnaie du jeu.
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
@@ -89,6 +89,19 @@ Les **lucioles** sont la monnaie du jeu.
   équipement). Gamako parle en **animalese**, comme dans Animal Crossing (une petite syllabe chantée par lettre, la bulle
   s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets (nouvel étal pour
   25 lucioles) et le **Thé de l’oubli**, qui rend tous les points de compétence.
+- **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.
+  Un monde de couleurs vives (ciel orange et rose qui change tous les dix étages, pics de jade, feuilles géantes,
+  cascade d’huile dorée, statue de grenouille, étang de lotus). La tour se monte étage par étage : chaque étage
+  est gardé par un **ancien sage grenouille**, un vrai combattant (niveau, points, voie, dalles du temple, sorts,
+  équipement), de plus en plus fort (niveau 3 au 1er étage, 145 au 100e). Tous les 10 étages, un **Grand Sage**
+  (Doyenne Hasuno, Maître Iwagama… jusqu’au Premier Sage) garde un **trésor** : 10 objets exclusifs (Anneau des
+  Sages, Écharpe des Sages, Kasa des Sages, Corde sacrée, Bâton des Anciens, Kunaï d’huile sacrée, Anneau du mont
+  Kaeru, Écharpe du crépuscule, Couronne du Crapaud-Roi, Ceinture du Premier Sage). Première victoire sur un étage :
+  lucioles et XP ; on peut rejouer les étages conquis, sans récompense. Victoire → « Étage suivant ▶ ».
+- **Album** : le **bestiaire** (chaque monstre en Commun, Rare et Épique, les boss des biomes, les Grands Sages :
+  58 cases) et les **objets** (tous les modèles, avec où les trouver). Une case se remplit à la première victoire
+  ou au premier exemplaire trouvé ; des **paliers** (5, 10, 20… jusqu’à tout) donnent lucioles, XP et, au bout,
+  l’Anneau du naturaliste et l’Écharpe du collectionneur. Le menu signale un palier à réclamer.
 - **Dojo** (avec un compte, sauf l’entraînement) : un dojo en pixel art, trois onglets.
   - **Duels** : trois adversaires proches en réputation (une plus forte, une plus faible, la plus proche), qui
     sont les grenouilles des autres joueurs, jamais les siennes. On les affronte avec leur vrai équipement, leurs
@@ -104,6 +117,19 @@ Les **lucioles** sont la monnaie du jeu.
 - **Classement** : toutes les grenouilles des joueurs. Un podium de souches pour les trois premières, la liste
   complète triée par **Aventure** (étapes conquises), **Niveau**, **Succès** ou **Dojo** (réputation), un filtre par
   voie, et la fiche de chaque grenouille : sa voie et ses dalles du temple, ses sorts, ses terres, son équipement.
+
+## Objets et raretés
+
+- **3 raretés**, reconnaissables à leur bordure : **Commun** (gris), **Rare** (bleu), **Épique** (violet). Les trésors
+  (tour, dojo, album) ont des stats fixes et comptent comme épiques.
+- Chaque objet trouvé ou acheté est un **exemplaire unique** : ses stats sont **tirées au hasard** selon sa rareté
+  (Rare : environ +35 % et parfois une stat en plus ; Épique : environ +75 % et deux stats en plus). Deux Bâtons de
+  jade épiques n’ont donc pas les mêmes jets. On peut en avoir plusieurs, et vendre les autres.
+- **Près de 60 modèles** (bâtons, harpons, kunaïs, chapeaux, écharpes, ceintures, anneaux), rangés par biome :
+  plus on avance, plus les modèles sont forts. Butin : 72 % commun, 24 % rare, 4 % épique (bien mieux sur un boss
+  ou un monstre rare). L’étal de l’Aïeule Gamako tire aussi ses objets dans les trois raretés.
+- **Monstres rares et épiques** : un combat normal peut tomber sur une variante rare (16 %) ou épique (4 %),
+  recolorée et entourée d’une aura, plus coriace et bien mieux récompensée.
 
 ## Le combat
 
@@ -124,6 +150,7 @@ Caractéristiques : Vitalité → PV, Force → dégâts, Agilité → critique 
 - `jeu.html`, `src/style.css` : le jeu, ses pages et son style (bois, dorures, parchemin)
 - `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
+- `src/tower.js` : la Tour des Cent Sages (les sages, leurs récompenses, le décor du mont Kaeru) ; `src/album.js` : le bestiaire, les objets et les paliers
 - `src/dojo.js` : le décor du dojo (page et arène) ; le dojo lui-même est dans `src/hub.js` et `src/battle.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design

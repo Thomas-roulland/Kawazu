@@ -58,15 +58,56 @@ function worldStages(w) {
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
 
+// ---------- Monstres rares et épiques ----------
+// Un combat normal peut tomber sur une variante rare (16 %) ou épique (4 %) : recolorée, entourée d'une aura,
+// plus coriace, et bien mieux récompensée (meilleur butin). Chacune a sa case dans l'album.
+var MONSTER_RARITY = {
+  commun: { hp: 1, dmg: 1, reward: 1, item: 0, luck: 0, shift: 0 },
+  rare: { hp: 1.35, dmg: 1.2, reward: 1.6, item: 0.3, luck: 1, shift: 150, sat: 1.05 },
+  epique: { hp: 1.8, dmg: 1.45, reward: 2.5, item: 0.7, luck: 2, shift: 250, sat: 1.2 }
+};
+function rollMonsterRarity() { var r = Math.random(); return r < 0.8 ? 'commun' : (r < 0.96 ? 'rare' : 'epique'); }
+function hueShift(hex, deg, sat) {
+  var n = parseInt(hex.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn, h = 0, s = 0;
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    h = mx === r ? ((g - b) / d) % 6 : (mx === g ? (b - r) / d + 2 : (r - g) / d + 4);
+    h /= 6;
+  }
+  h = ((h + deg / 360) % 1 + 1) % 1; s = Math.min(1, s * (sat || 1));
+  var q = (1 - Math.abs(2 * l - 1)) * s, x = q * (1 - Math.abs((h * 6) % 2 - 1)), m = l - q / 2, rgb;
+  var i = Math.floor(h * 6);
+  rgb = [[q, x, 0], [x, q, 0], [0, q, x], [0, x, q], [x, 0, q], [q, 0, x]][i % 6];
+  return '#' + rgb.map(function (v) { return ('0' + Math.round((v + m) * 255).toString(16)).slice(-2); }).join('');
+}
+// La palette d'une variante : les couleurs tournent, le contour et les yeux restent
+function rarityPal(pal, rar) {
+  var R = MONSTER_RARITY[rar];
+  if (!R || !R.shift) return pal;
+  var out = {};
+  Object.keys(pal).forEach(function (k) { out[k] = k === 'k' || k === 'p' || !/^#[0-9a-f]{6}$/i.test(pal[k]) ? pal[k] : hueShift(pal[k], R.shift, R.sat); });
+  return out;
+}
+// L'id de l'album d'un monstre : m-monde-variante(-r|-e), b-monde pour un boss
+function monsterAlbumId(w, st, rank, rar) {
+  if (rank === 'boss') return 'b-' + w;
+  var idx = (st * 7 + w) % BIOMES[w].monsters.length;
+  return 'm-' + w + '-' + idx + (rar === 'rare' ? '-r' : (rar === 'epique' ? '-e' : ''));
+}
+
 function stageFight(save, w, st) {
   var s = worldStages(w)[st - 1], lvl = s.enemy.level;
   var mult = s.rank === 'boss' ? 3 : (s.rank === 'gardien' ? 1.8 : 1);
+  var rar = s.rank === 'normal' ? rollMonsterRarity() : 'commun', R = MONSTER_RARITY[rar];
+  var enemy = Object.assign({}, s.enemy, { rarity: rar, maxHp: Math.round(s.enemy.maxHp * R.hp), dmg: Math.round(s.enemy.dmg * R.dmg), name: s.enemy.name + (rar === 'rare' ? ' rare' : (rar === 'epique' ? ' épique' : '')) });
   return {
-    kind: 'stage', biomeIndex: w, stage: st, enemy: s.enemy, weather: s.weather,
+    kind: 'stage', biomeIndex: w, stage: st, enemy: enemy, weather: s.weather, luck: s.rank === 'normal' ? R.luck : 1,
+    albumId: monsterAlbumId(w, st, s.rank, rar),
     rewards: {
-      xp: Math.round((10 + 5 * lvl) * mult * s.weather.xp),
-      gold: Math.round((6 + 3 * lvl) * mult),
-      itemChance: s.rank === 'boss' ? 1 : (s.rank === 'gardien' ? 0.5 : 0.15)
+      xp: Math.round((10 + 5 * lvl) * mult * s.weather.xp * R.reward),
+      gold: Math.round((6 + 3 * lvl) * mult * R.reward),
+      itemChance: Math.min(1, (s.rank === 'boss' ? 1 : (s.rank === 'gardien' ? 0.5 : 0.15)) + R.item)
     }
   };
 }
@@ -102,8 +143,7 @@ var SHOP_SIZE = 5, SHOP_REROLL = 25;
 function refreshShop(save) {
   var maxTier = 1;
   for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w + 2;
-  var pool = Object.keys(ITEMS).filter(function (id) { return ITEMS[id].drop > 0 && save.owned.indexOf(id) < 0 && (ITEM_TIER[id] || 1) <= maxTier; });
   var stock = [];
-  while (stock.length < SHOP_SIZE && pool.length) stock.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  while (stock.length < SHOP_SIZE) stock.push(rollItem(save, pickBase(Math.min(maxTier, 6)), rollRarity('shop')));
   save.shop = stock.concat([TEA_ID]);
 }

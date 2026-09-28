@@ -15,11 +15,15 @@
   var persist = function () { writeSave(save); };
   var mmss = function (ms) { var s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2); };
 
-  var iconUrls = {}, lockedUrls = {};
-  Object.keys(ITEMS).forEach(function (id) {
-    iconUrls[id] = iconCanvas(ITEMS[id]).toDataURL();
-    lockedUrls[id] = iconCanvas(ITEMS[id], true).toDataURL();
-  });
+  // Icônes des objets, dessinées à la première demande (un exemplaire a l'icône de son modèle)
+  var lazyIcons = function (locked) {
+    var cache = {};
+    return new Proxy(cache, { get: function (t, id) { if (typeof id !== 'string') return undefined; var it = ITEMS[id] || ITEMS[baseOf(id)]; return it ? (t[id] || (t[id] = iconCanvas(it, locked).toDataURL())) : ''; } });
+  };
+  var iconUrls = lazyIcons(false), lockedUrls = lazyIcons(true);
+  var rarStyle = function (id) { return '--rar:' + RARITIES[rarityOf(id)].color; };
+  var rarTag = function (id) { var r = rarityOf(id); return '<span class="rar-tag" style="' + rarStyle(id) + '">' + (ITEMS[id] && ITEMS[id].reward ? 'Trésor' : RARITIES[r].name) + '</span>'; };
+  var statLine = function (stats) { return Object.keys(stats).map(function (k) { return '<span class="' + (stats[k] < 0 ? 'st-down' : 'st-up') + '">' + statName(k) + ' ' + fmt(stats[k]) + '</span>'; }).join(' · '); };
 
   // ---------- Icônes (pixel art 16×16) ----------
   var ICONS16 = {
@@ -35,6 +39,10 @@
       { k: '#1a1c2c', 2: '#7a5634', 3: '#c9412f', 4: '#f3d27a' }],
     paume: [['', '....kk....kk', '...k33k..k33k', '...k33k..k33k', '....kk....kk', '.kk..........kk', 'k33k.kkkkkk.k33k', 'k33kk333333kk33k', '.kkk33333333kkk', '...k33333333k', '...k33333333k', '....k333333k', '.....kkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a' }],
+    tour: [['.......kk.......', '......k33k......', '..kkkkkkkkkkkk..', '.k222222222222k.', '..kkk1kkkk1kkk..', '....k1k44k1k....', '....k1k44k1k....', '.kkkkkkkkkkkkkk.', 'k22222222222222k', '.kkk1kkkkkk1kkk.', '...k1k4444k1k...', '...k1k4444k1k...', '..kkkkkkkkkkkk..'],
+      { k: '#1a1c2c', 2: '#1f9a8a', 1: '#c9412f', 3: '#f3d27a', 4: '#f4e8c8' }],
+    album: [['', '..kkkkkkkkkkk...', '..k2222222221k..', '..k2kkkkkk221k..', '..k2k3333k221k..', '..k2k3kk3k221k..', '..k2k3333k221k..', '..k2kkkkkk221k..', '..k2222222221k..', '..k2222222221k..', '..kkkkkkkkkkkk..', '...k11111111k...', '...kkkkkkkkkk...'],
+      { k: '#1a1c2c', 2: '#7a5634', 1: '#f4e8c8', 3: '#e0b43a' }],
     dojo: [['', 'kkkkkkkkkkkkkkkk', 'k11111111111111k', 'kkkk1kkkkkk1kkkk', '...k1k....k1k...', '.kkk1kkkkkk1kkk.', '.k111111111111k.', '.kkk1kkkkkk1kkk.', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '..k111k..k111k..', '..kkkkk..kkkkk..'],
       { k: '#1a1c2c', 1: '#c9412f' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
@@ -332,7 +340,7 @@
     $('sb-level').textContent = save.level;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
     $('sb-gold').textContent = save.gold;
-    $('sb-items').textContent = save.owned.filter(collectible).length + ' / ' + Object.keys(ITEMS).filter(collectible).length;
+    $('sb-items').textContent = albumItemsFound(save) + ' / ' + ALBUM_ITEMS.length;
     var bp = $('badge-perso'), bs = $('badge-skills');
     bp.hidden = save.points <= 0; bp.textContent = save.points;
     bs.hidden = save.skillPoints <= 0; bs.textContent = save.skillPoints;
@@ -364,14 +372,14 @@
   function claimExpedition() {
     var e = save.expedition;
     if (!e || expeditionLeft(save) > 0) return;
-    var loot = rollLoot(save.owned, e.w + 1, e.item);
+    var loot = rollLoot(save, e.w + 1, e.item);
     if (loot) save.owned.push(loot);
     save.gold += e.gold;
     var levels = gainXp(save, e.xp);
     save.expedition = null;
     persist();
     Sfx.play(levels ? 'levelup' : 'pickup');
-    notice(e.name + ' terminée : +' + e.gold + ' lucioles, +' + e.xp + ' XP' + (loot ? ', objet trouvé : ' + ITEMS[loot].name : '') + (levels ? '. Niveau ' + save.level + ' !' : '.'));
+    notice(e.name + ' terminée : +' + e.gold + ' lucioles, +' + e.xp + ' XP' + (loot ? ', objet trouvé : ' + ITEMS[loot].name + ' (' + RARITIES[rarityOf(loot)].name + ')' : '') + (levels ? '. Niveau ' + save.level + ' !' : '.'));
     renderAll();
   }
 
@@ -403,7 +411,8 @@
         el.innerHTML = '<img src="' + ICON.paume + '" alt=""><span class="dname">Mains nues</span>';
         return;
       }
-      el.className = 'dslot' + (it ? '' : ' is-empty') + (id && state.selected === id ? ' is-selected' : '');
+      el.className = 'dslot' + (it ? ' has-rar' : ' is-empty') + (id && state.selected === id ? ' is-selected' : '');
+      el.style.setProperty('--rar', it ? RARITIES[rarityOf(id)].color : '');
       el.title = it ? it.name + ' — ' + Object.keys(it.stats).map(function (k) { return statName(k) + ' ' + fmt(it.stats[k]); }).join(', ') : sl.name + ' : libre';
       el.innerHTML = it ? '<img src="' + iconUrls[id] + '" alt=""><span class="dname">' + it.name + '</span>' : '<span class="dlabel">' + sl.name.toUpperCase() + '</span>';
     });
@@ -511,13 +520,14 @@
     return it.slot === state.filter;
   }
   function renderInventory() {
-    var ids = Object.keys(ITEMS).filter(function (id) { return matchesFilter(ITEMS[id]); });
-    ids.sort(function (a, b) { return owns(b) - owns(a) || (ITEM_TIER[a] || 0) - (ITEM_TIER[b] || 0); });
-    $('inventory').innerHTML = ids.map(function (id) {
-      var it = ITEMS[id], mine = owns(id), equipped = save.equip[it.slot] === id;
-      return '<button class="item' + (mine ? '' : ' is-locked') + (equipped ? ' is-equipped' : '') + (state.selected === id ? ' is-selected' : '') + '" data-item="' + id + '">' +
-        '<img src="' + (mine ? iconUrls[id] : lockedUrls[id]) + '" alt=""><span>' + (mine ? it.name : '???') + '</span>' + (equipped ? '<b>ÉQUIPÉ</b>' : '') + '</button>';
-    }).join('');
+    var worn = function (id) { return save.equip[ITEMS[id].slot] === id ? 1 : 0; };
+    var ids = save.owned.filter(function (id) { return ITEMS[id] && matchesFilter(ITEMS[id]); });
+    ids.sort(function (a, b) { return worn(b) - worn(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)) || tierOf(b) - tierOf(a) || ITEMS[a].name.localeCompare(ITEMS[b].name); });
+    $('inventory').innerHTML = ids.length ? ids.map(function (id) {
+      var it = ITEMS[id], equipped = worn(id);
+      return '<button class="item rar-' + rarityOf(id) + (equipped ? ' is-equipped' : '') + (state.selected === id ? ' is-selected' : '') + '" style="' + rarStyle(id) + '" data-item="' + id + '" title="' + it.name + ' (' + RARITIES[rarityOf(id)].name + ')">' +
+        '<img src="' + iconUrls[id] + '" alt=""><span>' + it.name + '</span>' + (equipped ? '<b>ÉQUIPÉ</b>' : '') + '</button>';
+    }).join('') : '<p class="muted inv-empty">Rien ici pour l’instant. Le butin tombe en combat et en mission, et l’Aïeule Gamako vend aussi des trésors. L’Album montre tout ce qui reste à découvrir.</p>';
     Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) { b.classList.toggle('is-active', b.dataset.filter === state.filter); });
   }
 
@@ -539,8 +549,8 @@
       var d = after[st.id] - now[st.id];
       return d ? '<li><span>' + st.name + '</span><span class="' + (d > 0 ? 'st-up' : 'st-down') + '">' + fmt(d) + '</span></li>' : '';
     }).join('');
-    $('details').innerHTML = '<div class="det-head"><img src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span class="muted">' + slotName + '</span></div></div>' +
-      '<p>' + it.desc + '</p>' +
+    $('details').innerHTML = '<div class="det-head rar-frame" style="' + rarStyle(id) + '"><img src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span class="muted">' + slotName + '</span>' + rarTag(id) + '</div></div>' +
+      '<p class="det-stats">' + statLine(it.stats) + '</p><p>' + it.desc + '</p>' +
       (it.kind ? '<p class="st-up">Attaque de base : ' + SKILLS.filter(function (s) { return s.base === it.kind; })[0].name + '.</p>' : '') +
       (diffs ? '<ul class="diff">' + diffs + '</ul>' : '') +
       '<div class="modal-actions">' +
@@ -1072,7 +1082,7 @@
     if (items.indexOf(state.ware) < 0) state.ware = items[0] || null;
     $('stock').innerHTML = items.length ? items.map(function (id) {
       var tea = id === TEA_ID, price = tea ? TEA.price : itemPrice(id);
-      return '<button class="ware2' + (state.ware === id ? ' is-selected' : '') + (save.gold < price ? ' is-poor' : '') + '" data-ware="' + id + '">' +
+      return '<button class="ware2' + (tea ? '' : ' rar-' + rarityOf(id)) + (state.ware === id ? ' is-selected' : '') + (save.gold < price ? ' is-poor' : '') + '"' + (tea ? '' : ' style="' + rarStyle(id) + '"') + ' data-ware="' + id + '">' +
         '<span class="ware2-icon"><img src="' + (tea ? ICON.the : iconUrls[id]) + '" alt=""></span>' +
         '<span class="ware2-tag"><b>' + (tea ? TEA.name : ITEMS[id].name) + '</b><span class="price">' + price + ' lucioles</span></span></button>';
     }).join('') : '<p class="empty-stock">L’étal est vide. Paie un nouvel arrivage pour voir d’autres trésors.</p>';
@@ -1102,7 +1112,7 @@
       if (!own && !d) return '';
       return '<li>' + st.name + ' ' + fmt(own) + (d ? ' <b class="' + (d > 0 ? 'sc-up' : 'sc-down') + '">' + (d > 0 ? '▲' : '▼') + fmt(d) + '</b>' : ' <b>=</b>') + '</li>';
     }).join('');
-    card.innerHTML = head(iconUrls[id], it.name, slot.name + (it.kind ? ' · ' + (it.kind === 'kunai' ? 'kunaï' : 'bâton') : '')) +
+    card.innerHTML = head(iconUrls[id], it.name, slot.name + (it.kind ? ' · ' + (it.kind === 'kunai' ? 'kunaï' : 'bâton') : '') + ' · ' + RARITIES[rarityOf(id)].name) +
       '<div class="sc-body"><p>' + it.desc + '</p>' + (rows ? '<ul class="sc-stats">' + rows + '</ul>' : '') +
       '<span class="sc-cur">' + (worn ? 'Remplace : ' + ITEMS[worn].name : 'Emplacement ' + slot.name.toLowerCase() + ' libre') + '</span></div>' +
       buyButton(id, price, true);
@@ -1126,6 +1136,8 @@
       metric: function (e) { return 'Niveau ' + e.niveau; } },
     succes: { name: 'Succès', cmp: function (a, b) { return b.succes - a.succes || b.niveau - a.niveau; },
       metric: function (e) { return e.succes + ' succès'; } },
+    tour: { name: 'Tour', cmp: function (a, b) { return (b.tour || 0) - (a.tour || 0) || b.niveau - a.niveau; },
+      metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + TOWER_FLOORS; } },
     reputation: { name: 'Dojo', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
       metric: function (e) { return (e.rep || 0) + ' réputation'; } }
   };
@@ -1134,11 +1146,11 @@
   // La grenouille d'un autre joueur, avec sa peau et son équipement (et le mode Ermite)
   function portraitOf(e) {
     var equip = Object.assign({}, DEFAULT_EQUIP);
-    Object.keys(e.equip || {}).forEach(function (slot) { var it = ITEMS[e.equip[slot]]; if (it && it.slot === slot) equip[slot] = e.equip[slot]; });
+    Object.keys(e.equip || {}).forEach(function (slot) { var id = baseOf(e.equip[slot]), it = ITEMS[id]; if (it && it.slot === slot) equip[slot] = id; }); // l'apparence ne dépend que du modèle
     var hermit = e.voie === 'ermite', key = e.peau + '|' + hermit + '|' + JSON.stringify(equip);
     if (!portraitCache[key]) {
       var saved = [heroSkin, playerHermit];
-      heroSkin = SKINS[e.peau] || SKINS.marais; playerHermit = hermit;
+      heroSkin = skinOf(e.peau); playerHermit = hermit;
       portraitCache[key] = gridToCanvas(buildKawazuAnims(dressKawazu(sp, lookFor(equip))).idle.frames[0], paletteFor(sp.PAL, equip)).toDataURL();
       heroSkin = saved[0]; playerHermit = saved[1];
     }
@@ -1232,7 +1244,7 @@
       var p = sel.progres[w] || 0, seen = w === 0 || (sel.progres[w - 1] || 0) >= STAGES;
       return '<li class="' + (seen ? '' : 'fog') + '"><span>' + (seen ? b.name : 'Terre inconnue') + '</span><span class="pips">' + Array.from({ length: STAGES }, function (_, k) { return '<i' + (k < p ? ' class="on"' : '') + '></i>'; }).join('') + '</span></li>';
     }).join('');
-    var gear = SLOTS.map(function (s) { var id = sel.equip && sel.equip[s.id], it = ITEMS[id]; return it && it.slot === s.id && !(s.id === 'arme' && sel.voie === 'ermite') ? '<img class="px" src="' + iconUrls[id] + '" alt="' + it.name + '" title="' + s.name + ' : ' + it.name + '">' : ''; }).join('');
+    var gear = SLOTS.map(function (s) { var id = sel.equip && sel.equip[s.id] && baseOf(sel.equip[s.id]), it = ITEMS[id]; return it && it.slot === s.id && !(s.id === 'arme' && sel.voie === 'ermite') ? '<img class="px" src="' + iconUrls[id] + '" alt="' + it.name + '" title="' + s.name + ' : ' + it.name + '">' : ''; }).join('');
     card.innerHTML = '<button class="rank-close" data-rank-close aria-label="Fermer">×</button>' +
       '<div class="rc-head"><img class="px" src="' + portraitOf(sel) + '" alt=""><div><h3>' + escapeHtml(sel.nom) + '</h3><span class="muted">Grenouille de <b>' + escapeHtml(sel.pseudo) + '</b></span>' + voieChip(sel) + '</div>' +
       (pos >= 0 ? '<span class="rc-pos">' + (pos + 1) + '<small>' + (pos ? 'e' : 're') + '</small></span>' : '') + '</div>' +
@@ -1254,13 +1266,14 @@
   };
   function cleanEquip(e) {
     var equip = Object.assign({}, DEFAULT_EQUIP);
-    Object.keys(e || {}).forEach(function (slot) { var it = ITEMS[e[slot]]; if (it && it.slot === slot) equip[slot] = e[slot]; });
+    Object.keys(e || {}).forEach(function (slot) { var id = ITEMS[e[slot]] ? e[slot] : baseOf(e[slot]), it = ITEMS[id]; if (it && it.slot === slot) equip[slot] = id; });
     return equip;
   }
   // Une grenouille d'un autre joueur, prête à combattre : ses stats (niveau, points, équipement, arbre) calculées
   // comme les nôtres, ses sorts, et ses images tournées vers la gauche
   function dojoFighter(card) {
     if (dojo.fighters[card.id]) return dojo.fighters[card.id];
+    Object.keys(card.items || {}).forEach(function (id) { registerItem(id, card.items[id]); }); // ses exemplaires, avec leurs stats
     var equip = cleanEquip(card.equip);
     var ps = {
       level: card.niveau, voie: card.voie, deck: card.deck || [], equip: equip, hero: { name: card.nom, skin: card.peau },
@@ -1439,8 +1452,144 @@
     });
   }
 
+  // ---------- La Tour des Cent Sages ----------
+  // La tour se dresse au milieu du mont Kaeru : un étage par sage, la grenouille sur le prochain à conquérir,
+  // les étages du dessus perdus dans la brume. À droite, la fiche de l'étage choisi : le sage, sa force comparée
+  // à la nôtre, ses sorts, et ce que rapporte la première victoire.
+  var tower = { sel: null };
+  function towerNext() { return Math.min(TOWER_FLOORS, save.tower + 1); }
+  function towerFight(f) {
+    var card = towerCard(f), en = Object.assign({}, dojoFighter(card), { rank: 'sage' });
+    if (card.boss) { en.maxHp = Math.round(en.maxHp * 1.15); en.dmg *= 1.1; }
+    return {
+      kind: 'tour', floor: f, card: card, enemy: en, title: 'Tour des Cent Sages · étage ' + f, backdrop: TowerScene.arena(f),
+      intro: card.boss ? 'Étage ' + f + ' : le Grand Sage ' + card.nom + ', ' + card.titre + ', t’attend (niv. ' + card.niveau + ') !' : 'Étage ' + f + ' : ' + card.nom + ' (niv. ' + card.niveau + ') t’attend pour son épreuve.',
+      settle: function (win) { return Promise.resolve(settleTower(f, card, win)); },
+      next: f < TOWER_FLOORS ? function () { return towerFight(f + 1); } : null,
+      again: function () { return towerFight(f); }
+    };
+  }
+  // La victoire sur un étage : la première fois, ses récompenses (et le trésor d'un Grand Sage)
+  function settleTower(f, card, win) {
+    if (!win) return '<p>' + escapeHtml(card.nom) + ' reste debout. Monte de niveau, change d’équipement ou de sorts, et reviens !</p>';
+    if (f <= save.tower) return '<p>Épreuve réussie à nouveau. L’étage était déjà conquis : pas de nouvelle récompense.</p>';
+    var r = towerRewards(f), levels;
+    save.tower = f;
+    save.gold += r.gold;
+    levels = gainXp(save, r.xp);
+    if (r.item && !owns(r.item)) save.owned.push(r.item);
+    if (card.boss) albumKill(save, 's-' + f);
+    persist();
+    Sfx.play(levels ? 'levelup' : 'pickup');
+    tower.sel = Math.min(TOWER_FLOORS, f + 1);
+    return '<p>Étage ' + f + ' conquis ! +' + r.gold + ' lucioles · +' + r.xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+      (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> Trésor du Grand Sage : <b>' + ITEMS[r.item].name + '</b></p>' : '') +
+      (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline devant toi.</p>' : '');
+  }
+  function openTower() {
+    var cv = $('tower-bg'), img = TowerScene.backdrop(towerNext());
+    cv.width = img.width; cv.height = img.height; cv.getContext('2d').drawImage(img, 0, 0);
+    if (!tower.sel) tower.sel = towerNext();
+    renderTower();
+    var cur = document.querySelector('.tfl.next') || document.querySelector('.tfl.is-selected');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+  }
+  function renderTower() {
+    var next = towerNext(), top = Math.min(TOWER_FLOORS, next + 4), me = $('sb-portrait').toDataURL(), html = '';
+    if (top < TOWER_FLOORS) html += '<div class="tw-mist"><span>' + (TOWER_FLOORS - top) + ' étages se perdent dans la brume…</span></div>';
+    for (var f = top; f >= 1; f--) {
+      var st = f <= save.tower ? 'done' : (f === next ? 'next' : 'locked'), boss = f % 10 === 0, near = f >= next - 6;
+      var card = st !== 'locked' && near ? towerCard(f) : null, prize = boss ? towerTreasure(f) : null;
+      html += '<button class="tfl ' + st + (boss ? ' boss' : '') + (tower.sel === f ? ' is-selected' : '') + '" data-floor="' + f + '" aria-label="Étage ' + f + '">' +
+        '<span class="tfl-roof"></span><span class="tfl-body"><span class="tfl-num">' + f + '</span>' +
+        (card ? '<img class="px tfl-sage" src="' + portraitOf(card) + '" alt="">' : '<span class="tfl-q">' + (st === 'done' ? '✓' : '?') + '</span>') +
+        (prize ? '<img class="px tfl-prize" src="' + iconUrls[prize] + '" alt="" title="' + ITEMS[prize].name + '">' : '') +
+        (f === next && save.tower < TOWER_FLOORS ? '<img class="px tfl-frog" src="' + me + '" alt="Ta grenouille">' : '') + '</span></button>';
+    }
+    html += '<div class="tw-base">MONT KAERU</div>';
+    $('tower-col').innerHTML = html;
+    renderTowerSheet();
+  }
+  function renderTowerSheet() {
+    var f = tower.sel, next = towerNext(), card = towerCard(f), boss = f % 10 === 0, r = towerRewards(f), me = myFight();
+    var fighter = f <= next ? dojoFighter(card) : null, hp = fighter ? Math.round(fighter.maxHp * (boss ? 1.15 : 1)) : 0, dmg = fighter ? fighter.dmg * (boss ? 1.1 : 1) : 0;
+    var cmp = function (a, b) { return a > b * 1.08 ? 'down' : (a < b * 0.92 ? 'up' : ''); }; // plus fort que nous : rouge
+    var nextBoss = Math.min(TOWER_FLOORS, Math.ceil((save.tower + 1) / 10) * 10);
+    var html = '<div class="tw-progress"><b>' + save.tower + '</b><span>étages conquis sur ' + TOWER_FLOORS + '</span></div>';
+    if (f > next) {
+      html += '<div class="tw-sheet locked"><h2>ÉTAGE ' + f + '</h2><p class="muted">Cet étage est encore dans la brume : conquiers d’abord l’étage ' + next + '.</p></div>';
+    } else {
+      html += '<div class="tw-sheet' + (boss ? ' boss' : '') + '"><span class="tw-floor">' + (boss ? 'GRAND SAGE · ' : '') + 'ÉTAGE ' + f + '</span>' +
+        '<div class="tw-sage"><img class="px" src="' + portraitOf(card) + '" alt=""><div><h3>' + escapeHtml(card.nom) + '</h3>' + (card.titre ? '<span class="muted">' + card.titre + '</span>' : '') +
+        '<span class="muted">Niveau ' + card.niveau + '</span>' + dojoVoie(card) + '</div></div>' +
+        '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(hp, me.maxHp) + '">' + hp + '</b></li><li><span>Dégâts</span><b class="' + cmp(dmg, me.dmg) + '">' + Math.round(dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(fighter.agi, me.agi) + '">' + fighter.agi + '</b></li></ul>' +
+        (fighter.skills.length > 1 ? '<p class="tw-spells">Sorts : ' + fighter.skills.slice(1).map(function (s) { return '<i>' + s.name + '</i>'; }).join('') + '</p>' : '') +
+        '<div class="tw-reward"><h2>' + (f <= save.tower ? 'DÉJÀ CONQUIS' : 'RÉCOMPENSE') + '</h2>' + (f <= save.tower ? '<p class="muted">Tu peux rejouer l’épreuve, sans récompense.</p>' :
+          '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + statLine(ITEMS[r.item].stats) + '</small></p>' : '')) + '</div>' +
+        '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (boss ? 'Défier le Grand Sage ▶' : 'Affronter ▶')) + '</button></div>';
+    }
+    if (save.tower < TOWER_FLOORS) {
+      var tp = towerTreasure(nextBoss);
+      html += '<p class="tw-hint">Prochain Grand Sage : étage <b>' + nextBoss + '</b>' + (tp ? ', qui garde <b style="color:' + RARITIES.epique.color + '">' + ITEMS[tp].name + '</b>' : '') + '.</p>';
+    }
+    $('tower-side').innerHTML = html;
+  }
+
+  // ---------- L'Album ----------
+  var album = { tab: 'monstres' }, albumImgs = {};
+  function monsterImg(m, found) {
+    var key = m.id + (found ? '' : '-x');
+    if (albumImgs[key]) return albumImgs[key];
+    if (m.kind === 'sage') return (albumImgs[key] = found ? portraitOf(towerCard(m.floor)) : '');
+    var s = SPECIES[m.species], pal = rarityPal(Object.assign({}, s.pal, m.pal || {}), m.rarity);
+    if (!found) { var dark = {}; Object.keys(pal).forEach(function (k) { dark[k] = '#1a1208'; }); pal = dark; }
+    return (albumImgs[key] = stringsToCanvas(s.frames[0], pal).toDataURL());
+  }
+  function albumProgress(cat) {
+    var total = cat === 'monstres' ? ALBUM_MONSTERS.length : ALBUM_ITEMS.length, found = albumCount(save, cat);
+    var ms = ALBUM_MILESTONES.filter(function (m) { return m.cat === cat; });
+    return '<div class="al-progress"><div class="al-count"><b>' + found + ' / ' + total + '</b><span>' + (cat === 'monstres' ? 'créatures rencontrées et vaincues' : 'modèles d’objets découverts') + '</span>' +
+      '<span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div><div class="al-miles">' + ms.map(function (m) {
+        var done = albumOf(save).paliers.indexOf(m.id) >= 0, ready = milestoneReady(save, m);
+        return '<div class="al-mile' + (done ? ' done' : (ready ? ' ready' : '')) + '"><b>' + m.n + '</b><span>' + m.gold + ' lucioles' + (m.item ? ' + ' + ITEMS[m.item].name : '') + '</span>' +
+          (done ? '<em>Reçu</em>' : (ready ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<em>' + Math.min(found, m.n) + ' / ' + m.n + '</em>')) + '</div>';
+      }).join('') + '</div></div>';
+  }
+  function renderAlbum() {
+    $('album-tabs').innerHTML = [['monstres', 'Bestiaire'], ['objets', 'Objets']].map(function (t) {
+      var ready = ALBUM_MILESTONES.some(function (m) { return m.cat === t[0] && milestoneReady(save, m); });
+      return '<button role="tab" data-album-tab="' + t[0] + '" aria-selected="' + (album.tab === t[0]) + '">' + t[1] + (ready ? ' <i class="badge-dot"></i>' : '') + '</button>';
+    }).join('');
+    var html = albumProgress(album.tab), kills = albumOf(save).monstres;
+    if (album.tab === 'monstres') {
+      var groups = BIOMES.map(function (b, w) { return { name: b.name, list: ALBUM_MONSTERS.filter(function (m) { return m.biome === w; }) }; });
+      groups.push({ name: 'Grands Sages de la tour', list: ALBUM_MONSTERS.filter(function (m) { return m.kind === 'sage'; }) });
+      html += groups.map(function (g) {
+        return '<section class="al-group"><h2>' + g.name.toUpperCase() + '</h2><div class="al-grid">' + g.list.map(function (m) {
+          var n = kills[m.id] || 0, img = monsterImg(m, n > 0);
+          return '<div class="al-card' + (n ? '' : ' locked') + (m.kind !== 'monstre' ? ' ' + m.kind : '') + '" style="--rar:' + RARITIES[m.rarity].color + '" title="' + (n ? m.name : 'Pas encore vaincu') + '">' +
+            (img ? '<img class="px" src="' + img + '" alt="">' : '<span class="al-q">?</span>') + '<b>' + (n ? m.name : '???') + '</b>' +
+            '<small>' + (n ? 'vaincu ×' + n : (m.kind === 'sage' ? 'Tour, étage ' + m.floor : (m.kind === 'boss' ? 'Boss du biome' : RARITIES[m.rarity].name))) + '</small></div>';
+        }).join('') + '</div></section>';
+      }).join('');
+    } else {
+      var found = albumSyncItems(save);
+      html += SLOTS.map(function (s) {
+        var ids = ALBUM_ITEMS.filter(function (id) { return ITEMS[id].slot === s.id; }).sort(function (a, b) { var t = function (id) { return ITEMS[id].reward ? 99 : ITEM_TIER[id] || 0; }; return t(a) - t(b); }); // les trésors en dernier
+        return '<section class="al-group"><h2>' + (s.id === 'arme' ? 'ARMES' : s.name.toUpperCase() + 'S') + '</h2><div class="al-grid">' + ids.map(function (id) {
+          var it = ITEMS[id], ok = found.indexOf(id) >= 0;
+          return '<div class="al-card al-item' + (ok ? '' : ' locked') + (it.reward ? ' treasure' : '') + '" style="--rar:' + (it.reward ? RARITIES.epique.color : RARITIES.commun.color) + '" title="' + (ok ? it.name + ' — ' + it.desc : itemHint(id)) + '">' +
+            '<img class="px" src="' + (ok ? iconUrls[id] : lockedUrls[id]) + '" alt=""><b>' + (ok ? it.name : '???') + '</b><small>' + (ok ? statLine(it.stats) : itemHint(id)) + '</small></div>';
+        }).join('') + '</div></section>';
+      }).join('');
+    }
+    $('album-body').innerHTML = html;
+  }
+
   // ---------- Rendu général ----------
   function renderAll() {
+    albumSyncItems(save);
+    $('badge-album').hidden = !ALBUM_MILESTONES.some(function (m) { return milestoneReady(save, m); });
     checkFeats();
     renderSidebar();
     renderAdventure();
@@ -1454,17 +1603,20 @@
     if (state.page === 'skills') renderTree();
     if (state.page === 'map') renderWorldMap();
     if (state.page === 'shop') renderShop();
+    if (state.page === 'album') renderAlbum();
   }
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'dojo', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
     if (page === 'map') renderWorldMap();
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
+    if (page === 'tower') openTower();
+    if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
     Sfx.ambient(page === 'camp' && visible);
   }
@@ -1496,7 +1648,7 @@
     if (fight.kind === 'duel' && result === 'flee' && !fight.settled) {
       settleDuel(fight.card, false).then(function () { notice('Tu as quitté le duel : il compte comme une défaite.'); if (state.page === 'dojo') renderDojo(); }, function () {});
     }
-    showPage(atDojo ? 'dojo' : 'map');
+    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : 'map'));
     startTick();
   }
 
@@ -1517,6 +1669,18 @@
       return;
     }
     // choisir sa voie : la grenouille plonge dans la flaque (définitif)
+    if (t.dataset.floor) { tower.sel = +t.dataset.floor; Sfx.play('click'); renderTower(); return; }
+    if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
+    if (t.dataset.albumTab) { album.tab = t.dataset.albumTab; Sfx.play('click'); renderAlbum(); return; }
+    if (t.dataset.claim) {
+      var ms = ALBUM_MILESTONES.filter(function (m) { return m.id === t.dataset.claim; })[0], got = ms && albumClaim(save, ms);
+      if (got) {
+        persist(); Sfx.play(got.levels ? 'levelup' : 'pickup');
+        notice('Palier de l’album : +' + ms.gold + ' lucioles' + (ms.xp ? ', +' + ms.xp + ' XP' : '') + (ms.item ? ', et le trésor ' + ITEMS[ms.item].name : '') + (got.levels ? '. Niveau ' + save.level + ' !' : ' !'));
+        renderAll();
+      }
+      return;
+    }
     if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
     if (t.hasAttribute('data-dojo-foes')) { Sfx.play('click'); loadFoes(); return; }

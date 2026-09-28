@@ -55,7 +55,9 @@
       <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>Compétences</span><i class="badge" id="badge-skills" hidden></i></button>
       <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
       <button class="menu-btn" data-page="shop"><img data-ico="shop" alt=""><span>Boutique</span></button>
+      <button class="menu-btn" data-page="tower"><img data-ico="tour" alt=""><span>Tour des Sages</span></button>
       <button class="menu-btn" data-page="dojo"><img data-ico="dojo" alt=""><span>Dojo</span></button>
+      <button class="menu-btn" data-page="album"><img data-ico="album" alt=""><span>Album</span><i class="badge" id="badge-album" hidden>!</i></button>
       <button class="menu-btn" data-page="rank"><img data-ico="rank" alt=""><span>Classement</span></button>
     </nav>
     <button id="sb-expedition" class="sb-expedition" hidden></button>
@@ -182,6 +184,26 @@
       <aside id="shop-card" class="shop-card"></aside>
       <div id="stock" class="shop-wares"></div>
     </section>
+    <!-- La Tour des Cent Sages, au sommet du mont Kaeru -->
+    <section id="page-tower" class="page" aria-label="Tour des Cent Sages" hidden>
+      <canvas id="tower-bg" aria-hidden="true"></canvas>
+      <header class="tower-head">
+        <h1>LA TOUR DES CENT SAGES</h1>
+        <p>Les Épreuves des Anciens Sages, au sommet du mont Kaeru : un sage par étage, un trésor tous les dix.</p>
+      </header>
+      <div id="tower-col" class="tower-col"></div>
+      <aside id="tower-side" class="panel tower-side"></aside>
+    </section>
+
+    <!-- L'Album : bestiaire et objets à découvrir -->
+    <section id="page-album" class="page" aria-label="Album" hidden>
+      <header class="album-head">
+        <div><h1>ALBUM DU MARAIS</h1><p>Chaque créature vaincue et chaque objet trouvé remplit une case. Les paliers donnent des récompenses.</p></div>
+        <div class="dojo-tabs" id="album-tabs" role="tablist" aria-label="Album"></div>
+      </header>
+      <div id="album-body" class="album-body"></div>
+    </section>
+
     <!-- Dojo : duels entre grenouilles, réputation et arbre d'entraînement -->
     <section id="page-dojo" class="page" aria-label="Dojo" hidden>
       <canvas id="dojo-bg" aria-hidden="true"></canvas>
@@ -281,6 +303,8 @@
 <script src="src/items.js"></script>
 <script src="src/tiles.js"></script>
 <script src="src/worlds.js"></script>
+<script src="src/tower.js"></script>
+<script src="src/album.js"></script>
 <script src="src/scene.js"></script>
 <script src="src/map.js"></script>
 <script src="src/shop.js"></script>

@@ -84,7 +84,7 @@ var BattleScene = (function () {
   function buildEnemyImgs(e) {
     if (e.frog) { ENEMY = e.imgs; return; } // une grenouille du dojo : ses images sont prêtes (tournées vers la gauche)
     var s = SPECIES[e.species];
-    var pal = Object.assign({}, s.pal, e.pal || {});
+    var pal = rarityPal(Object.assign({}, s.pal, e.pal || {}), e.rarity);
     ENEMY = {
       frames: s.frames.map(function (f) { return stringsToCanvas(f, pal, false); }),
       flash: s.frames.map(function (f) { return stringsToCanvas(f, pal, false, true); })
@@ -121,12 +121,13 @@ var BattleScene = (function () {
     }).join('');
     $('bt-hero-status').textContent = statusText(P);
     $('bt-enemy-name').textContent = E.name;
+    $('bt-enemy-name').style.color = E.rarity && E.rarity !== 'commun' ? RARITIES[E.rarity].color : '';
     if (fight.kind === 'arbre') {
       $('bt-enemy-lvl').textContent = 'Tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns;
       $('bt-enemy-hp').style.width = '100%';
       $('bt-enemy-hptext').textContent = 'Dégâts : ' + fight.stats.total;
     } else {
-      $('bt-enemy-lvl').textContent = 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? ' · DUEL' : '')));
+      $('bt-enemy-lvl').textContent = 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : ' · DUEL') : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
       $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
       $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
     }
@@ -546,20 +547,22 @@ var BattleScene = (function () {
     showEnd(true, '<ul class="bt-bilan">' + row('Dégâts en ' + turns + ' tours', st.total) + row('Par tour', Math.round(st.total / turns)) +
       row('Meilleur coup', st.best) + row('Critiques', st.crits + ' / ' + st.hits + ' coups') +
       (fight.riposte ? row('Dégâts reçus', st.taken) + row('PV restants', Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp) : '') + '</ul>' +
-      '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', true);
+      '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', [['again', 'Recommencer'], ['back', 'Retour au dojo']]);
   }
   // la fin d'un combat du dojo : le texte vient de fight.settle (réputation, XP…)
   async function settle(win) {
     fight.settled = true;
     var html;
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
-    showEnd(win, html);
+    showEnd(win, html, null, fight.kind === 'tour'
+      ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
+      : [['back', 'Retour au dojo']]);
   }
-  function showEnd(win, html, title, again) {
+  // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
+  function showEnd(win, html, title, buttons) {
     var box = $('bt-result');
     box.innerHTML = '<h2>' + (title || (win ? 'Victoire !' : 'Défaite…')) + '</h2>' + html +
-      '<div class="bt-result-actions">' + (again ? '<button class="btn" data-result="again">Recommencer</button>' : '') +
-      '<button class="btn' + (again ? ' btn-ghost' : '') + '" data-result="back">Retour au dojo</button></div>';
+      '<div class="bt-result-actions">' + buttons.map(function (b, i) { return '<button class="btn' + (i ? ' btn-ghost' : '') + '" data-result="' + b[0] + '">' + b[1] + '</button>'; }).join('') + '</div>';
     box.hidden = false;
     box.dataset.win = win ? '1' : '0';
     box.querySelector('button').focus();
@@ -578,8 +581,9 @@ var BattleScene = (function () {
     // récompenses
     var r = fight.rewards;
     var tier = fight.biomeIndex + 1;
-    var loot = rollLoot(save.owned, tier, r.itemChance);
+    var loot = rollLoot(save, tier, r.itemChance, fight.luck);
     if (loot) save.owned.push(loot);
+    if (fight.albumId) albumKill(save, fight.albumId);
     var levels = gainXp(save, r.xp);
     save.gold += r.gold;
     var unlocked = null;
@@ -609,7 +613,7 @@ var BattleScene = (function () {
     var html = '<h2>' + (win ? 'Victoire !' : 'Défaite…') + '</h2>';
     if (win) {
       html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point de compétence' : '') + '</p>';
-      if (info.loot) html += '<p class="bt-loot"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b></p>';
+      if (info.loot) { var lr = RARITIES[rarityOf(info.loot)]; html += '<p class="bt-loot" style="--rar:' + lr.color + '"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b> <em>' + lr.name + '</em></p>'; }
       if (info.unlocked) html += '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
     } else {
       html += '<p>' + heroName() + ' retourne au camp soigner ses blessures. Répartis tes points ou change d’équipement, puis réessaie !</p>';
@@ -699,6 +703,14 @@ var BattleScene = (function () {
         ctx.beginPath(); ctx.ellipse(E.x + es / 2, GROUND - es / 2, es * 0.47, es * 0.56, 0, 0, Math.PI * 2); ctx.stroke();
       }
     } else if (!E.dead) {
+      if (E.rarity && E.rarity !== 'commun') { // l'aura d'un monstre rare ou épique
+        var ac = RARITIES[E.rarity].color, pulse = 0.25 + 0.12 * Math.sin(now / 250), acx = E.x + es / 2, acy = GROUND - es / 2;
+        var ag = ctx.createRadialGradient(acx, acy, 2, acx, acy, es * 0.75);
+        ag.addColorStop(0, ac + Math.round(pulse * 255).toString(16).padStart(2, '0')); ag.addColorStop(1, ac + '00');
+        ctx.fillStyle = ag; ctx.fillRect(acx - es, acy - es, es * 2, es * 2);
+        ctx.fillStyle = ac;
+        for (var sp2 = 0; sp2 < (E.rarity === 'epique' ? 6 : 3); sp2++) { var an = now / 600 + sp2 * 2.1; ctx.fillRect(Math.round(acx + Math.cos(an) * es * 0.55), Math.round(acy + Math.sin(an * 1.3) * es * 0.45), 2, 2); }
+      }
       var f = Math.floor(now / (E.behavior === 'flyer' ? 90 : 400)) % 2;
       var hover = E.behavior === 'flyer' ? -10 + Math.round(Math.sin(now / 200) * 3) : 0;
       var shakeE = E.charging ? Math.round(Math.sin(now / 25) * 1.5) : 0;
@@ -785,7 +797,10 @@ var BattleScene = (function () {
     resize();
     if (f.kind === 'duel') log('Duel au dojo contre ' + E.name + ', la grenouille de ' + E.pseudo + ' (niv. ' + E.level + ') !', 'danger');
     else if (f.kind === 'arbre') log('L’arbre d’entraînement t’attend : ' + f.turns + ' tours pour tout essayer.', 'hero');
+    else if (f.kind === 'tour') log(f.intro, 'danger');
     else log('Un ' + E.name + ' (niv. ' + E.level + ') barre la route !', 'danger');
+    if (E.rarity === 'rare') log('Une créature rare : plus coriace, et un meilleur butin !', 'hero');
+    if (E.rarity === 'epique') log('Une créature ÉPIQUE ! Rare de la croiser… son butin l’est aussi.', 'hero');
     if (E.rank === 'boss') Sfx.play('boss');
     renderHud();
     last = performance.now();
@@ -824,7 +839,7 @@ var BattleScene = (function () {
       var win = $('bt-result').dataset.win === '1';
       if (t.dataset.result === 'again') { start(save, fight.again(), onEnd); return; }
       if (t.dataset.result === 'next') {
-        var nf = stageFight(save, fight.biomeIndex, fight.stage + 1);
+        var nf = fight.next ? fight.next() : stageFight(save, fight.biomeIndex, fight.stage + 1);
         start(save, nf, onEnd);
       } else close(win ? 'win' : 'lose');
     }

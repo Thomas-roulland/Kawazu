@@ -30,7 +30,7 @@ var playerLevel = 1;
 function setPlayer(save) {
   playerAlloc = save.alloc;
   playerTreeStats = treeBonuses(save).stats;
-  heroSkin = SKINS[save.hero && save.hero.skin] || SKINS.marais;
+  heroSkin = skinOf(save.hero && save.hero.skin);
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
   playerLevel = save.level;
 }
@@ -282,6 +282,16 @@ var SKINS = {
   cendre: { name: 'Gris cendre', g: '#3e434b', m: '#6b7280', l: '#a3abb6', c: '#e6e8c8' }
 };
 var heroSkin = SKINS.marais;
+// Peaux des anciens sages de la tour : la vieille mousse, le jade, l'ocre, la cendre bleue, le corail, la nuit
+var EXTRA_SKINS = {
+  mousse: { name: 'Vieille mousse', g: '#4a5a3a', m: '#7a8a5a', l: '#b3c08a', c: '#e8e4c8' },
+  jade: { name: 'Jade', g: '#1f6a5a', m: '#3fa68a', l: '#8fe0c0', c: '#eaf7ee' },
+  ocre: { name: 'Ocre', g: '#8a4a1a', m: '#c9782a', l: '#f0b060', c: '#fff0d0' },
+  azur: { name: 'Cendre bleue', g: '#3a4a6b', m: '#5f7aa8', l: '#a8c0e8', c: '#eef2fa' },
+  corail: { name: 'Corail', g: '#9a3a4a', m: '#e0607a', l: '#ffa8b8', c: '#fff0f2' },
+  nuit: { name: 'Nuit', g: '#241a3a', m: '#4a3a6b', l: '#8a78c0', c: '#e6e0f7' }
+};
+function skinOf(id) { return SKINS[id] || EXTRA_SKINS[id] || SKINS.marais; }
 
 // Couleurs du héros selon sa peau et son équipement
 function paletteFor(basePal, equip) {
@@ -345,35 +355,241 @@ Object.assign(ITEMS, {
 
 // Rang de chaque objet : un objet n'apparaît qu'à partir de l'environnement correspondant
 // (rang ≤ numéro du donjon dans BIOMES, en partant de 1)
+// ---------- Le grand catalogue : des modèles pour chaque biome ----------
+// Chaque modèle peut tomber Commun, Rare ou Épique (voir rollItem) : ses stats ci-dessous sont celles d'un Commun.
+function mkStaff(name, stats, c, wave, desc, big, look) {
+  return {
+    slot: 'arme', kind: 'baton', name: name, icon: look === 'harpon' ? 'harpon' : 'baton', stats: stats, drop: 2, desc: desc,
+    colors: { 1: c[0], 2: c[1], 3: c[2], 4: c[3] || '#5a3e25', b: c[4] || '#3e2a19' }, blade: c[0], wave: wave, look: { weapon: look || 'baton' },
+    attack: look === 'harpon' ? { fx: { type: 'thrust' }, reach: 36, narrow: true, durations: [0.11, 0.06, 0.06, 0.12] }
+      : { fx: { type: 'arc', radii: big ? [6, 11, 15] : [5, 9, 13], echo: big === 2 }, reach: big ? 26 : 20, durations: [0.1, 0.07, 0.07, 0.15] }
+  };
+}
+function mkKunai(name, stats, c, wave, desc, range, pierce) {
+  return {
+    slot: 'arme', kind: 'kunai', name: name, icon: 'kunai', stats: stats, drop: 2, desc: desc,
+    colors: { 1: c[0], 2: c[1], 3: c[2], 4: '#4a3325', b: '#2e2018' }, blade: c[0], wave: wave, look: { weapon: 'kunai' },
+    attack: { range: range, speed: 200 + range / 2, pierce: !!pierce, durations: [0.07, 0.05, 0.05, 0.1] }
+  };
+}
+function mkScarf(name, stats, c, desc) { return { slot: 'echarpe', name: name, icon: 'echarpe', stats: stats, drop: 2, desc: desc, colors: { 1: c[0], 2: c[1] }, scarf: [c[0], c[1]] }; }
+function mkBelt(name, stats, c, charm, desc) {
+  return { slot: 'ceinture', name: name, icon: 'ceinture', stats: stats, drop: 2, desc: desc, colors: { 1: c[0], 2: c[1], 3: c[2], 4: c[3] }, belt: [c[0], c[3]], charm: charm, look: charm ? { belt: true, charm: true } : { belt: true } };
+}
+function mkRing(name, stats, c, desc) { return { slot: 'anneau', name: name, icon: 'anneau', stats: stats, drop: 2, desc: desc, colors: { 1: c[0], 2: c[1], 3: c[2], 4: c[3] }, look: { ring: true } }; }
+function mkHat(name, stats, hat, c, desc) {
+  return { slot: 'tete', name: name, icon: { kasa: 'kasa', nenuphar: 'nenuphar', ecorce: 'casque' }[hat], stats: stats, drop: 2, desc: desc, colors: { 1: c[0], 2: c[1], 3: c[2], 4: c[3] || c[1] }, look: { hat: hat } };
+}
+Object.assign(ITEMS, {
+  // Marais-Brume
+  baton_bambou: mkStaff('Bâton de bambou', { force: 2, agilite: 1 }, ['#b8c96a', '#7a8a3a', '#e8f0b0'], ['#e0e8c0', '#8a9a5a'], 'Léger et creux : il siffle quand on le fait tourner.'),
+  kunai_bronze: mkKunai('Kunaï de bronze', { force: 2 }, ['#c98a4a', '#8a5a2a', '#f0c08a'], ['#f0d0a8', '#8a6a4a'], 'Un peu mou, mais il ne rouille jamais.', 110),
+  echarpe_algue: mkScarf('Écharpe d’algues', { vitalite: 1, souffle: 1 }, ['#3a8a5a', '#1f5a3a'], 'Encore humide. Elle sent la vase, et c’est rassurant.'),
+  ceinture_lianes: mkBelt('Ceinture de lianes', { vitalite: 1, agilite: 1 }, ['#4e7a2a', '#2f4a1a', '#8fce52', '#8fce52'], null, 'Trois lianes tressées, nouées sur le côté.'),
+  anneau_os: mkRing('Anneau d’os', { force: 1, vitalite: 1 }, ['#e8e0c8', '#a89a7a', '#ffffff', '#6e5a3a'], 'Taillé dans l’os d’un vieux brochet.'),
+  kasa_voyageur: mkHat('Kasa du voyageur', { vitalite: 1, agilite: 1 }, 'kasa', ['#b8a36a', '#7a6a3a', '#e0d0a0'], 'Le chapeau des grenouilles qui partent loin.'),
+  // Lagune des Lucioles
+  kunai_os: mkKunai('Kunaï d’os', { force: 3, agilite: 1 }, ['#e8e0c8', '#a89a7a', '#ffffff'], ['#fff8e8', '#a89a7a'], 'Pointu et léger, il file sans bruit.', 130),
+  baton_saule: mkStaff('Canne de saule', { force: 3, vitalite: 1 }, ['#9ac06a', '#5e8a3a', '#d4f0a0'], ['#d4f0b0', '#5e8a3a'], 'Souple : elle plie, mais ne rompt jamais.'),
+  echarpe_luciole: mkScarf('Écharpe des lucioles', { agilite: 2, souffle: 1 }, ['#c9f07a', '#5a8a2a'], 'Elle brille doucement la nuit.'),
+  ceinture_ecailles: mkBelt('Ceinture d’écailles', { vitalite: 2, souffle: 1 }, ['#2f6a6a', '#1a3a3a', '#5fb3a0', '#5fb3a0'], '#c9f07a', 'Des écailles de carpe, cousues une à une.'),
+  anneau_rosee: mkRing('Anneau de rosée', { souffle: 2, vitalite: 1 }, ['#9cc7e0', '#3a7fc9', '#e8f4ff', '#3a7fc9'], 'Une goutte d’eau figée qui ne sèche jamais.'),
+  feuille_lotus: mkHat('Feuille de lotus', { souffle: 2, agilite: 1 }, 'nenuphar', ['#ff9ac0', '#c95a8a', '#ffd0e0'], 'Rose et parfumée. Les moustiques l’évitent.'),
+  // Forêt des Saules
+  baton_ferre: mkStaff('Bâton ferré', { force: 5, vitalite: 1 }, ['#9aa8b8', '#5a6a7a', '#d9e1e6'], ['#d9e1e6', '#5a6a7a'], 'Cerclé de fer aux deux bouts. Chaque coup résonne.', 1),
+  harpon_corail: mkStaff('Harpon de corail', { force: 4, agilite: 2 }, ['#ff8a7a', '#b84a3a', '#ffd0c8', '#8d6a45', '#5a3e25'], ['#ffd0c8', '#b84a3a'], 'Une pointe de corail rouge, très tranchante.', 0, 'harpon'),
+  kunai_obsidienne: mkKunai('Kunaï d’obsidienne', { force: 5, agilite: 1 }, ['#5a4a6a', '#2a2a3a', '#a89ac0'], ['#a89ac0', '#3a3a4a'], 'Noir et luisant. Il coupe l’air.', 150),
+  echarpe_automne: mkScarf('Écharpe d’automne', { force: 2, vitalite: 2 }, ['#e07a2a', '#9a4a1a'], 'La couleur des saules en octobre.'),
+  ceinture_cuir: mkBelt('Ceinture de cuir clouté', { force: 2, vitalite: 2 }, ['#5a3e25', '#3e2a19', '#8d6a45', '#cfd8dc'], '#cfd8dc', 'Des clous d’argent tout le long. Sérieuse.'),
+  anneau_braise: mkRing('Anneau de braise', { force: 3 }, ['#ff6a3a', '#b8321a', '#ffd08a', '#5a2a12'], 'Il reste chaud, même au fond de l’eau.'),
+  feuille_automne: mkHat('Feuille d’automne', { vitalite: 2, agilite: 1 }, 'nenuphar', ['#e0a03a', '#9a6a1a', '#f8d08a'], 'Une large feuille rousse, tombée d’un vieux saule.'),
+  // Grottes Luisantes
+  kunai_givre: mkKunai('Kunaï de givre', { force: 6, souffle: 1 }, ['#bff0ff', '#5fa3c0', '#ffffff'], ['#e8fbff', '#5fa3c0'], 'Il laisse une traînée de buée derrière lui.', 160),
+  baton_lune: mkStaff('Bâton de lune', { force: 6, souffle: 2 }, ['#d8e0f8', '#8a9ac8', '#ffffff', '#3a4a6b', '#1f2a4a'], ['#f4f6ff', '#8a9ac8'], 'Pâle comme la lune des grottes, avec un écho argenté.', 2),
+  echarpe_nuit: mkScarf('Écharpe de nuit', { agilite: 3, souffle: 1 }, ['#3a3a6b', '#1a1a3a'], 'Noire comme les galeries. On ne te voit pas venir.'),
+  ceinture_cristal: mkBelt('Ceinture de cristal', { souffle: 3, vitalite: 1 }, ['#5fa3c0', '#2c5a73', '#bff0ff', '#e0f7ff'], '#bff0ff', 'Des éclats de cristal qui tintent à chaque pas.'),
+  anneau_lune: mkRing('Anneau de lune', { agilite: 2, souffle: 2 }, ['#d8e0f8', '#8a9ac8', '#ffffff', '#3a4a6b'], 'Il luit faiblement dans le noir.'),
+  heaume_cristal: mkHat('Heaume de cristal', { vitalite: 3, souffle: 1 }, 'ecorce', ['#5fa3c0', '#2c5a73', '#bff0ff', '#ffffff'], 'Taillé d’un seul bloc. Un peu froid aux oreilles.'),
+  // Temple Englouti
+  trident_englouti: mkStaff('Trident englouti', { force: 6, agilite: 2 }, ['#7af0d0', '#3a9a8a', '#d0fff4', '#3e4e54', '#243238'], ['#d0fff4', '#3a9a8a'], 'Remonté des ruines, couvert de runes qui luisent.', 0, 'harpon'),
+  kunai_venin: mkKunai('Kunaï venimeux', { force: 6, agilite: 2 }, ['#8fce52', '#3a7a2a', '#e8f7a0'], ['#c9f07a', '#3a7a2a'], 'Sa lame est enduite d’un poison vert du temple.', 170),
+  baton_corail: mkStaff('Bâton de corail', { force: 7, vitalite: 2 }, ['#ff8a9a', '#c94a6a', '#ffd0d8'], ['#ffe0e6', '#c94a6a'], 'Du corail rose pétrifié. Lourd, mais quelle onde !', 1),
+  echarpe_marees: mkScarf('Écharpe des marées', { vitalite: 3, souffle: 2 }, ['#2f8fa0', '#1a4a5a'], 'Elle ondule même quand il n’y a pas de vent.'),
+  ceinture_coquillages: mkBelt('Ceinture de coquillages', { agilite: 3, vitalite: 2 }, ['#e8d8c8', '#a8988a', '#fff0f4', '#ff9ac0'], '#fff0f4', 'Des coquillages nacrés qui s’entrechoquent doucement.'),
+  anneau_corail: mkRing('Anneau de corail', { vitalite: 3, agilite: 1 }, ['#ff8a9a', '#c94a6a', '#ffd0d8', '#7af0d0'], 'Il sent encore la mer.'),
+  // Sommet du Héron
+  baton_braise: mkStaff('Bâton de braise', { force: 9, souffle: 2 }, ['#ff7a3a', '#c9412f', '#ffd08a', '#3e1a0a', '#1a0a04'], ['#ffd08a', '#e05a2a'], 'Il fume encore. Son onde brûle deux fois.', 2),
+  kunai_tempete: mkKunai('Kunaï de tempête', { force: 9, agilite: 3 }, ['#e8f0ff', '#8aa8d8', '#ffffff'], ['#ffffff', '#8aa8d8'], 'Lancé du sommet, il traverse tout ce qu’il croise.', 200, true),
+  echarpe_givre: mkScarf('Écharpe de givre', { agilite: 3, vitalite: 3 }, ['#e8f7ff', '#8ab8d8'], 'Tissée de neige du sommet. Elle ne fond jamais.'),
+  ceinture_jade: mkBelt('Ceinture de jade', { force: 3, souffle: 3 }, ['#3fa68a', '#1f6a5a', '#8fe0c0', '#e0b43a'], '#8fe0c0', 'Des plaques de jade reliées par un fil d’or.'),
+  anneau_givre: mkRing('Anneau de givre', { souffle: 3, vitalite: 2 }, ['#bff0ff', '#5fa3c0', '#ffffff', '#2c5a73'], 'Il givre les doigts, et l’esprit s’éclaircit.'),
+  kasa_noir: mkHat('Kasa noir', { agilite: 3, force: 2 }, 'kasa', ['#3a3a4a', '#1a1a24', '#6a6a7a'], 'Le chapeau des ninjas du sommet. Personne ne sait qui est dessous.')
+});
+
+// Trésors de la Tour des Cent Sages (un par Grand Sage, tous les 10 étages) et de l'album : jamais en boutique
+// ni en butin. from dit où les trouver (tour : l'étage ; album : le palier).
+Object.assign(ITEMS, {
+  anneau_sages: {
+    slot: 'anneau', name: 'Anneau des Sages', icon: 'anneau', stats: { souffle: 2, agilite: 2 }, drop: 0, reward: true, from: { tour: 10 },
+    desc: 'Un anneau d’ambre chaude, remis par la Doyenne Hasuno à qui atteint le 10e étage.',
+    colors: { 1: '#f07a3a', 2: '#9a4212', 3: '#ffd08a', 4: '#4e9a45' }, look: { ring: true }
+  },
+  echarpe_sages: {
+    slot: 'echarpe', name: 'Écharpe des Sages', icon: 'echarpe', stats: { souffle: 2, force: 2, vitalite: 1 }, drop: 0, reward: true, from: { tour: 20 },
+    desc: 'Orange vif, comme le ciel du mont Kaeru au couchant.',
+    colors: { 1: '#f07a3a', 2: '#9a3a1f' }, scarf: ['#f07a3a', '#9a3a1f']
+  },
+  kasa_sages: {
+    slot: 'tete', name: 'Kasa des Sages', icon: 'kasa', stats: { vitalite: 2, agilite: 2, souffle: 1 }, drop: 0, reward: true, from: { tour: 30 },
+    desc: 'Le grand chapeau laqué des ermites du mont Kaeru. La pluie d’huile glisse dessus.',
+    colors: { 1: '#e05a2a', 2: '#9a3a1f', 3: '#ffb070' }, look: { hat: 'kasa' }
+  },
+  corde_sacree: {
+    slot: 'ceinture', name: 'Corde sacrée', icon: 'ceinture', stats: { vitalite: 3, souffle: 3 }, drop: 0, reward: true, from: { tour: 40 },
+    desc: 'Une corde de paille tressée, comme celles qui ceignent les rochers sacrés, avec ses rubans de papier.',
+    colors: { 1: '#f4ecd8', 2: '#b8a36a', 3: '#ffffff', 4: '#c9412f' }, belt: ['#f4ecd8', '#c9412f'], charm: '#f4f4e8', look: { belt: true, charm: true }
+  },
+  baton_anciens: {
+    slot: 'arme', kind: 'baton', name: 'Bâton des Anciens', icon: 'baton', stats: { force: 6, souffle: 2 }, drop: 0, reward: true, from: { tour: 50 },
+    desc: 'Laqué de vermillon, cerclé d’or. Son onde orange revient en écho, comme un second coup.',
+    colors: { 1: '#e07a2a', 2: '#9a3a1f', 3: '#ffd08a', 4: '#e0b43a', b: '#5a2a12' },
+    blade: '#e07a2a', wave: ['#ffd08a', '#e07a2a'],
+    look: { weapon: 'baton' },
+    attack: { fx: { type: 'arc', radii: [6, 11, 16], echo: true }, reach: 28, durations: [0.1, 0.07, 0.07, 0.15] }
+  },
+  kunai_huile: {
+    slot: 'arme', kind: 'kunai', name: 'Kunaï d’huile sacrée', icon: 'kunai', stats: { force: 7, agilite: 2 }, drop: 0, reward: true, from: { tour: 60 },
+    desc: 'Trempé dans les cascades d’huile du mont Kaeru : il file loin et traverse tout.',
+    colors: { 1: '#f3c23a', 2: '#c98a1a', 3: '#fff0a8', 4: '#5a2a12', b: '#3e1a0a' },
+    blade: '#f3c23a', wave: ['#fff0a8', '#c98a1a'],
+    look: { weapon: 'kunai' },
+    attack: { range: 180, speed: 300, pierce: true, durations: [0.07, 0.05, 0.05, 0.1] }
+  },
+  anneau_mont: {
+    slot: 'anneau', name: 'Anneau du mont Kaeru', icon: 'anneau', stats: { vitalite: 3, force: 3 }, drop: 0, reward: true, from: { tour: 70 },
+    desc: 'Taillé dans le jade des pics sacrés. Il pèse lourd, et c’est rassurant.',
+    colors: { 1: '#3fbf8a', 2: '#1f7a5a', 3: '#bff0cf', 4: '#e0b43a' }, look: { ring: true }
+  },
+  echarpe_crepuscule: {
+    slot: 'echarpe', name: 'Écharpe du crépuscule', icon: 'echarpe', stats: { agilite: 3, souffle: 3, vitalite: 2 }, drop: 0, reward: true, from: { tour: 80 },
+    desc: 'Teinte du violet des soirs de la tour, quand les lanternes s’allument une à une.',
+    colors: { 1: '#b84aa0', 2: '#6a2a6b' }, scarf: ['#b84aa0', '#6a2a6b']
+  },
+  couronne_crapaud: {
+    slot: 'tete', name: 'Couronne du Crapaud-Roi', icon: 'casque', stats: { vitalite: 3, souffle: 3, force: 2 }, drop: 0, reward: true, from: { tour: 90 },
+    desc: 'Une couronne d’écorce dorée, que seuls les ermites les plus anciens ont portée.',
+    colors: { 1: '#e0b43a', 2: '#8a6f1f', 3: '#fff0a8', 4: '#c9412f' }, look: { hat: 'ecorce' }
+  },
+  ceinture_premier_sage: {
+    slot: 'ceinture', name: 'Ceinture du Premier Sage', icon: 'ceinture', stats: { force: 4, vitalite: 4, agilite: 3, souffle: 3 }, drop: 0, reward: true, from: { tour: 100 },
+    desc: 'Au sommet de la tour, le Premier Sage la dénoue et te la tend. Tout le mont Kaeru s’incline.',
+    colors: { 1: '#e07a2a', 2: '#9a3a1f', 3: '#f3d27a', 4: '#fff6b0' }, belt: ['#e07a2a', '#f3d27a'], charm: '#fff6b0', look: { belt: true, charm: true }
+  },
+  anneau_naturaliste: {
+    slot: 'anneau', name: 'Anneau du naturaliste', icon: 'anneau', stats: { agilite: 3, souffle: 2 }, drop: 0, reward: true, from: { album: 'monstres' },
+    desc: 'Pour qui a croisé toutes les bêtes du marais… et tous les Grands Sages de la tour.',
+    colors: { 1: '#8fce52', 2: '#4e9a45', 3: '#e8f7a0', 4: '#7a5634' }, look: { ring: true }
+  },
+  echarpe_collection: {
+    slot: 'echarpe', name: 'Écharpe du collectionneur', icon: 'echarpe', stats: { vitalite: 2, agilite: 2, force: 2, souffle: 2 }, drop: 0, reward: true, from: { album: 'objets' },
+    desc: 'Un patchwork de toutes les étoffes du marais. Unique, forcément.',
+    colors: { 1: '#9cc7e0', 2: '#c9412f' }, scarf: ['#9cc7e0', '#c9412f']
+  }
+});
+ITEMS.ceinture_champion.from = ITEMS.ceinture_dojo.from = { dojo: true };
+
 var ITEM_TIER = {
   echarpe_roseaux: 1, dent_brochet: 1, anneau_vase: 1, chapeau_paille: 1, feuille_nenuphar: 1,
   harpon_pecheur: 2, perle_rosee: 2, anneau_nenuphar: 2, echarpe_brume: 2, couronne_mousse: 2,
   lame_jade: 3, casque_ecorce: 3, lame_cristal: 3,
   plume_heron: 4, echarpe_ancestrale: 4
 };
+Object.assign(ITEM_TIER, {
+  baton_bambou: 1, kunai_bronze: 1, echarpe_algue: 1, ceinture_lianes: 1, anneau_os: 1, kasa_voyageur: 1,
+  kunai_os: 2, baton_saule: 2, echarpe_luciole: 2, ceinture_ecailles: 2, anneau_rosee: 2, feuille_lotus: 2,
+  baton_ferre: 3, harpon_corail: 3, kunai_obsidienne: 3, echarpe_automne: 3, ceinture_cuir: 3, anneau_braise: 3, feuille_automne: 3,
+  kunai_givre: 4, baton_lune: 4, echarpe_nuit: 4, ceinture_cristal: 4, anneau_lune: 4, heaume_cristal: 4,
+  trident_englouti: 5, kunai_venin: 5, baton_corail: 5, echarpe_marees: 5, ceinture_coquillages: 5, anneau_corail: 5,
+  baton_braise: 6, kunai_tempete: 6, echarpe_givre: 6, ceinture_jade: 6, anneau_givre: 6, kasa_noir: 6
+});
+
+// ---------- Raretés : chaque objet trouvé est un exemplaire unique ----------
+// Commun, Rare ou Épique : la bordure change de couleur, et les stats sont tirées au hasard à la création
+// (plus fortes, avec des stats en plus, pour les raretés hautes). Un exemplaire a pour identifiant
+// « modèle#code » ; ses données (modèle, rareté, stats) sont gardées dans save.items, et il est enregistré
+// dans ITEMS comme n'importe quel objet : tout le reste du jeu (équipement, stats, apparence) le traite pareil.
+// Les trésors (tour, dojo, album) ont des stats fixes et comptent comme Épiques.
+var RARITIES = {
+  commun: { name: 'Commun', color: '#b8c0b0', mult: 1, extra: 0, price: 1 },
+  rare: { name: 'Rare', color: '#4f9ae8', mult: 1.35, extra: 1, price: 1.8 },
+  epique: { name: 'Épique', color: '#b86ae8', mult: 1.75, extra: 2, price: 3 }
+};
+var RARITY_IDS = ['commun', 'rare', 'epique'];
+var BASE_IDS = Object.keys(ITEMS); // les modèles (les exemplaires s'ajoutent à ITEMS ensuite)
+function baseOf(id) { return String(id).split('#')[0]; }
+function rarityOf(id) { var it = ITEMS[id]; return !it ? 'commun' : (it.rarity || (it.reward ? 'epique' : 'commun')); }
+function tierOf(id) { return ITEM_TIER[baseOf(id)] || 1; }
+function registerItem(id, inst) {
+  var b = inst && ITEMS[inst.base];
+  if (!b || id.indexOf('#') < 0 || !RARITIES[inst.rar] || !inst.stats || typeof inst.stats !== 'object') return false;
+  var stats = {};
+  Object.keys(inst.stats).forEach(function (k) { if (BASE_STATS[k] !== undefined && typeof inst.stats[k] === 'number') stats[k] = Math.round(inst.stats[k]); });
+  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base });
+  return true;
+}
+// Un nouvel exemplaire d'un modèle : ses stats tirées selon la rareté
+function rollItem(save, base, rar) {
+  var b = ITEMS[base], R = RARITIES[rar], stats = {};
+  Object.keys(b.stats).forEach(function (k) {
+    var v = b.stats[k];
+    stats[k] = v < 0 ? v : Math.max(1, Math.round(v * R.mult * (0.8 + Math.random() * 0.4)));
+  });
+  var others = Object.keys(BASE_STATS).filter(function (k) { return stats[k] === undefined; });
+  for (var i = 0; i < R.extra && others.length; i++) {
+    if (rar === 'rare' && Math.random() < 0.5) break; // un Rare a une chance sur deux d'avoir une stat de plus
+    var k = others.splice(Math.floor(Math.random() * others.length), 1)[0];
+    stats[k] = 1 + Math.floor(Math.random() * (rar === 'epique' ? 3 : 2));
+  }
+  var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
+  save.items[id] = { base: base, rar: rar, stats: stats };
+  registerItem(id, save.items[id]);
+  return id;
+}
+// La rareté d'une trouvaille : luck 0 (normal), 1 (boss, monstre rare), 2 (monstre épique), 'shop' (boutique)
+function rollRarity(luck) {
+  var p = { 0: [0.72, 0.24, 0.04], 1: [0.45, 0.4, 0.15], 2: [0.2, 0.45, 0.35], shop: [0.6, 0.3, 0.1] }[luck || 0], r = Math.random();
+  return r < p[0] ? 'commun' : (r < p[0] + p[1] ? 'rare' : 'epique');
+}
+// Les modèles qu'on peut trouver jusqu'à un rang (ceux du rang atteint un peu plus souvent)
+function lootPool(maxTier) {
+  return BASE_IDS.filter(function (id) { return ITEMS[id].drop > 0 && (ITEM_TIER[id] || 1) <= maxTier; });
+}
+function pickBase(maxTier) {
+  var pool = lootPool(maxTier), weight = function (id) { return ITEMS[id].drop * ((ITEM_TIER[id] || 1) === maxTier ? 2 : 1); };
+  var total = pool.reduce(function (s, id) { return s + weight(id); }, 0), r = Math.random() * total;
+  for (var i = 0; i < pool.length; i++) { r -= weight(pool[i]); if (r <= 0) return pool[i]; }
+  return pool[pool.length - 1];
+}
+// On ne garde dans save.items que les exemplaires qu'on possède, qu'on porte ou qui sont à l'étal
+function pruneItems(save) {
+  var keep = {};
+  save.owned.concat(save.shop || [], Object.keys(save.equip).map(function (k) { return save.equip[k]; })).forEach(function (id) { if (id && save.items[id]) keep[id] = save.items[id]; });
+  save.items = keep;
+}
+
 
 // ---------- Lucioles (monnaie) et prix ----------
 function itemPrice(id) {
-  var it = ITEMS[id], t = ITEM_TIER[id] || 1;
+  var it = ITEMS[id], t = tierOf(id);
   var power = Object.keys(it.stats).reduce(function (s, k) { return s + Math.abs(it.stats[k]); }, 0);
-  return 20 + t * t * 30 + power * 12;
+  return Math.round((20 + t * t * 30 + power * 12) * RARITIES[rarityOf(id)].price);
 }
 function sellPrice(id) { return Math.max(3, Math.floor(itemPrice(id) / 4)); }
 
-// Butin : un objet pas encore trouvé et de rang autorisé (pondéré par « drop »)
-function rollLoot(owned, maxTier, chance) {
+// Butin : un nouvel exemplaire d'un modèle de rang autorisé, de rareté tirée au sort (luck : voir rollRarity)
+function rollLoot(save, maxTier, chance, luck) {
   if (Math.random() > chance) return null;
-  var pool = Object.keys(ITEMS).filter(function (id) {
-    return ITEMS[id].drop > 0 && owned.indexOf(id) < 0 && (ITEM_TIER[id] || 1) <= maxTier;
-  });
-  var total = pool.reduce(function (s, id) { return s + ITEMS[id].drop; }, 0);
-  if (!total) return null;
-  var r = Math.random() * total;
-  for (var i = 0; i < pool.length; i++) {
-    r -= ITEMS[pool[i]].drop;
-    if (r <= 0) return pool[i];
-  }
-  return pool[pool.length - 1];
+  return rollItem(save, pickBase(maxTier), rollRarity(luck));
 }
 
 // ---------- Sauvegarde ----------
@@ -390,7 +606,10 @@ function newSave() {
     skillPoints: 0, voie: null, tree: [], deck: [], gold: 30,
     progress: [0, 0, 0, 0, 0, 0], expedition: null, shop: [],
     ach: [], // hauts faits obtenus (voir feats.js)
+    items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
+    tower: 0, // le plus haut étage vaincu de la Tour des Cent Sages
+    album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 }
   };
 }
@@ -421,6 +640,8 @@ function parseSave(data) {
     save.skillPoints = save.level - 1;
     if (data.v === 3) save.notice = 'Le Temple des voies a été refait : 5 chemins de 10 étapes par voie. Tes ' + save.skillPoints + ' points de compétence te sont rendus : choisis ta voie !';
   }
+  // les exemplaires d'abord, pour que l'inventaire, l'étal et l'équipement les reconnaissent
+  if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
   if (Array.isArray(data.progress)) data.progress.forEach(function (n, i) { if (i < save.progress.length) save.progress[i] = Math.min(10, int(n, 0) || 0); });
@@ -438,6 +659,12 @@ function parseSave(data) {
   // hauts faits : null = partie d'avant les hauts faits, ils seront rangés sans être annoncés
   save.ach = Array.isArray(data.ach) ? data.ach.filter(function (id) { return typeof id === 'string'; }) : null;
   save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
+  save.tower = Math.min(100, int(data.tower, 0) || 0);
+  var al = data.album && typeof data.album === 'object' ? data.album : {};
+  save.album = { monstres: {}, objets: [], paliers: [] };
+  if (al.monstres && typeof al.monstres === 'object') Object.keys(al.monstres).forEach(function (k) { var n = int(al.monstres[k], 1); if (n && k.length < 12) save.album.monstres[k] = n; });
+  if (Array.isArray(al.objets)) save.album.objets = al.objets.filter(function (id) { return ITEMS[id]; });
+  if (Array.isArray(al.paliers)) save.album.paliers = al.paliers.filter(function (id) { return typeof id === 'string'; });
   return save;
 }
 
@@ -456,6 +683,7 @@ function loadSave() {
 }
 
 function writeSave(save) {
+  if (save.items) pruneItems(save);
   try { localStorage.setItem(saveKey(), JSON.stringify(save)); } catch (e) { /* ignoré */ }
   if (window.Cloud && Cloud.id) Cloud.push(save); // partie en ligne : envoyée au serveur
 }

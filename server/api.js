@@ -173,7 +173,7 @@ function rankEntry(frog, pseudo) {
     progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0),
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
-    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0
+    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 100)
   };
 }
 // Met la fiche à jour si elle a changé (compare à l'ancienne version de la grenouille, déjà lue)
@@ -227,6 +227,18 @@ async function dojoRecord(id) { // les duels du jour repartent à zéro chaque j
   if (r.jour !== today) { r.jour = today; r.n = 0; }
   return r;
 }
+// Les exemplaires portés (leurs stats tirées au hasard), pour qu'un adversaire combatte avec son vrai équipement
+function equippedItems(s, equip) {
+  const out = {}, all = s.items && typeof s.items === 'object' ? s.items : {};
+  Object.keys(equip).forEach((slot) => {
+    const id = equip[slot], it = all[id];
+    if (!it || typeof it.base !== 'string' || typeof it.stats !== 'object' || !it.stats) return;
+    const stats = {};
+    ['vitalite', 'agilite', 'force', 'souffle'].forEach((k) => { if (typeof it.stats[k] === 'number') stats[k] = clamp(Math.round(it.stats[k]), -99, 999); });
+    out[id] = { base: it.base.slice(0, 32), rar: ['commun', 'rare', 'epique'].indexOf(it.rar) >= 0 ? it.rar : 'commun', stats: stats };
+  });
+  return out;
+}
 // La fiche de combat d'une grenouille : ce qu'il faut au jeu pour la faire combattre
 function combatCard(frog, entry, points) {
   const s = frog.save || {}, strs = (a, n) => Array.isArray(a) ? a.filter((x) => typeof x === 'string').slice(0, n).map((x) => x.slice(0, 32)) : [];
@@ -234,7 +246,7 @@ function combatCard(frog, entry, points) {
   ['vitalite', 'agilite', 'force', 'souffle'].forEach((k) => { alloc[k] = num(s.alloc && s.alloc[k], 999); });
   return {
     id: frog.id, nom: frog.nom, peau: frog.peau, pseudo: entry.pseudo, niveau: num(s.level || 1, 999), rep: points,
-    voie: entry.voie, equip: entry.equip, alloc: alloc, tree: strs(s.tree, 80), deck: strs(s.deck, 4)
+    voie: entry.voie, equip: entry.equip, alloc: alloc, tree: strs(s.tree, 80), deck: strs(s.deck, 4), items: equippedItems(s, entry.equip)
   };
 }
 async function dojoRoute(req, res, account, id, action, method) {
