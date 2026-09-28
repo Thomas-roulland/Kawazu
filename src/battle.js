@@ -8,8 +8,7 @@
 // autre joueur ou d'un sage (enemy.frog : mêmes règles et mêmes sorts que Kawazu, choisis par l'ordinateur), ou l'arbre
 // d'entraînement (fight.turns tours, puis le bilan des dégâts). fight.settle(victoire) donne le texte du résultat.
 var BattleScene = (function () {
-  // L'arène fait 400×225 pixels ; elle ne remplit pas tout l'écran : elle est cadrée au centre, entourée de son
-  // propre décor flouté. Les combattants paraissent ainsi moins gros, et les secousses restent douces.
+  // L'arène fait 400×225 pixels et remplit tout l'écran ; les secousses restent douces.
   var W = 400, H = 225, GROUND = 165, MARGIN = 64;
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $('bt-canvas');
@@ -24,11 +23,11 @@ var BattleScene = (function () {
   var busy = false, over = false, raf = 0, token = 0;
   var tweens = [], floaters = [], particles = [], shots = [], fxs = [], shake = 0;
 
-  // La scène tient dans l'écran, un peu en retrait, à une échelle arrondie au quart (les pixels restent nets)
+  // Le décor remplit tout l'écran (quitte à rogner les bords), sans jamais couper les deux combattants ;
+  // sur un écran très étroit, le décor flouté comble ce qui reste
   function resize() {
     var box = $('battle'), bw = box.clientWidth, bh = box.clientHeight;
-    var s = Math.max(1, Math.floor(Math.min(bw / W, bh / H) * 0.8 * 4) / 4);
-    if (bw < 900) s = bw / W; // petit écran : toute la largeur
+    var s = Math.min(Math.max(bw / W, bh / H), bw / 360);
     canvas.style.width = W * s + 'px';
     canvas.style.height = H * s + 'px';
     canvas.style.left = Math.round((bw - W * s) / 2) + 'px';

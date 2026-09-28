@@ -161,8 +161,7 @@ Les **lucioles** sont la monnaie du jeu.
 
 ## Le combat
 
-L’arène fait 400×225 pixels et ne remplit pas tout l’écran : elle est cadrée au centre, entourée de son propre décor
-flouté. Les combattants paraissent moins gros, les secousses restent douces.
+L’arène fait 400×225 pixels et remplit tout l’écran (sans jamais couper les deux combattants) ; les secousses restent douces.
 
 Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité donne plus de chances de jouer en premier (la plus agile
 commence plus souvent, pas toujours).
