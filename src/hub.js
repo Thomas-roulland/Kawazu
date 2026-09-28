@@ -163,6 +163,8 @@
       titleRaf = requestAnimationFrame(loop);
     })(performance.now());
   }
+  // Le mot d'accueil d'une grenouille toute neuve : elle commence à mains nues
+  function welcome(name) { return 'Bienvenue, ' + name + ' ! Tu commences à mains nues : choisis ta voie et ton arme à « La Voie », puis ouvre la Carte du monde pour ta première aventure.'; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]; }); }
 
   $('title').addEventListener('click', function (e) {
@@ -181,7 +183,7 @@
     persist();
     Sfx.play('levelup');
     enterGame();
-    notice('Bienvenue, ' + name + ' ! Ouvre la Carte du monde pour commencer ta première aventure.');
+    notice(welcome(name));
   });
 
   function enterGame() {
@@ -462,7 +464,7 @@
     $('sheet-name').textContent = heroName().toUpperCase();
     SLOTS.forEach(function (sl) {
       var el = $('slot-' + sl.id), id = save.equip[sl.id], it = ITEMS[id];
-      if (sl.id === 'arme' && playerHermit) {
+      if (sl.id === 'arme' && (playerHermit || !it)) {
         var hands = weaponOf(save.equip);
         el.className = 'dslot hermit-hands';
         el.title = hands.name + ' — ' + Object.keys(hands.stats).map(function (k) { return statName(k) + ' ' + fmt(hands.stats[k]); }).join(', ');
@@ -1422,7 +1424,7 @@
         maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi, spell: pr.spell, cdr: pr.cdr,
         size: pr.size, pas: pr.pas, dmgReduce: pr.dmgReduce,
         skills: deckSkills(ps, weapon), kind: weapon.kind, wtype: weaponType(weapon), weaponId: baseOf(equip.arme || ''),
-        blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave,
+        blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, hilt: weapon.colors && weapon.colors[4],
         imgs: { idle: imgs(anims.idleRight.frames), atk: imgs(anims.attack.frames), hurt: imgs(anims.hurt.frames), kick: imgs(anims.kick.frames), fx: imgs(buildFx(weaponFx(weapon))) }
       });
     } finally { setPlayer(save); }
@@ -2072,7 +2074,7 @@
     $('save-online').hidden = false;
     Cloud.load().then(function (frog) {
       if (frog.save) save = parseSave(frog.save);
-      else { save = newSave(); save.hero = { name: frog.nom, skin: frog.peau }; refreshShop(save); } // grenouille toute neuve
+      else { save = newSave(); save.hero = { name: frog.nom, skin: frog.peau }; refreshShop(save); save.notice = welcome(frog.nom); } // grenouille toute neuve
       setPlayer(save); persist(); enterGame();
       loadDojo(); // les cadeaux du lundi, s'il y en a
     }, function (e) { location.href = e.message === 'connexion' ? '/?connexion' : '/?grenouilles'; });

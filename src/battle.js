@@ -221,15 +221,24 @@ var BattleScene = (function () {
   function alpha(col, a) { ctx.globalAlpha = Math.max(0, Math.min(1, a)); return col; }
 
   // L'entaille d'un sabre : un croissant qui se dessine d'un coup puis s'efface (ang : sa direction)
+  // Un croissant plein qui passe par (x, y) et s'y bombe dans la direction ang ; il ne couvre que les angles a0 → a1
+  // du cercle (pour qu'il se dessine d'un coup) ; thick : son épaisseur au milieu
+  function crescent(x, y, r, ang, a0, a1, thick, col, alpha) {
+    var cx = x - Math.cos(ang) * r, cy = y - Math.sin(ang) * r;
+    ctx.globalAlpha = Math.max(0, alpha); ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.arc(cx - Math.cos(ang) * thick, cy - Math.sin(ang) * thick, r, a1, a0, true); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  // L'entaille d'une lame : un grand croissant qui se dessine d'un trait (lueur de la lame, cœur blanc), puis s'efface
   function slashFx(x, y, r, ang, col, dur) {
-    addFx(dur || 0.28, function (k) {
-      var grow = Math.min(1, k / 0.35), fade = k < 0.5 ? 1 : 1 - (k - 0.5) / 0.5, a0 = ang - 1.2, a1 = a0 + 2.4 * grow;
-      ctx.globalAlpha = fade;
-      pxArc(x, y, r + 1, a0, a1, 2, '#ffffff');
-      pxArc(x, y, r - 1.5, a0 + 0.2, a1 - 0.1, 2, col);
-      ctx.globalAlpha = 1;
+    addFx(dur || 0.42, function (k) {
+      var grow = Math.min(1, k / 0.18), fade = k < 0.35 ? 1 : 1 - (k - 0.35) / 0.65, h = 1.05, a0 = ang - h, a1 = ang - h + 2 * h * grow;
+      crescent(x, y, r + 6, ang, a0, a1, 16, col, 0.22 * fade);   // le halo
+      crescent(x, y, r, ang, a0, a1, 10, col, 0.7 * fade);        // la lueur de la lame
+      crescent(x, y, r, ang, a0, a1, 4, '#ffffff', fade);         // le cœur blanc
     });
-    sparks(x + Math.cos(ang) * r, y + Math.sin(ang) * r, '#ffffff', 4, 50);
+    sparks(x, y, '#ffffff', 10, 90);
+    sparks(x, y, col, 6, 60);
   }
   // Une onde de choc au sol, qui s'élargit
   function shockFx(x, big, col) {
@@ -342,7 +351,7 @@ var BattleScene = (function () {
     tell(def, nameOf(def) + ' riposte !');
     var d = def.dir, x0 = def.x;
     def.frame = 2; def.x += d * 10;
-    slashFx(midX(att), chestY(att), 12, d > 0 ? 0 : Math.PI, (def.wave && def.wave[0]) || '#f3d27a', 0.22);
+    slashFx(midX(att), chestY(att), 20, d > 0 ? 0 : Math.PI, (def.wave && def.wave[0]) || '#f3d27a', 0.28);
     sfx('slash');
     await strike(def, att, def.counter > 0 ? 0.8 : 0.5, { sure: true, noRiposte: true });
     await wait(120);
@@ -374,6 +383,48 @@ var BattleScene = (function () {
     };
   }
 
+  // ---------- L'arme en main ----------
+  // Katana, bâton, masse, harpon : l'arme est dessinée dans la main de la grenouille et balaie un arc pendant le coup
+  // (a : son angle, 0 = pointée devant, −2 = levée derrière la tête, +1 = baissée devant), avec une traînée de lumière.
+  var HELD = { katana: 30, baton: 34, masse: 24, harpon: 36 };
+  function holds(f) { return !!HELD[f.wtype]; }
+  function raise(f, a) { if (holds(f)) f.sword = { a: a, trail: [] }; }
+  function swingTo(f, a, ms) { return f.sword ? tween(f.sword, 'a', a, ms, true) : wait(ms); }
+  function sheathe(f) { f.sword = null; }
+  function drawSword(f) {
+    var sw = f.sword;
+    if (!sw) return;
+    var s = fsz(f) / 64, d = f.dir, hx = midX(f) + d * 20 * s, hy = chestY(f) + 3 * s;
+    var th = (d > 0 ? sw.a : Math.PI - sw.a) + f.rot, c = Math.cos(th), sn = Math.sin(th), len = HELD[f.wtype] * s;
+    var at = function (k) { return { x: hx + c * k, y: hy + sn * k }; }, ln = function (p, q, t, col) { pxLine(p.x, p.y, q.x, q.y, t, col); };
+    var tip = at(len), blade = f.blade || '#d9e1e6', glow = f.wtype === 'katana' ? '#ffffff' : ((f.wave && f.wave[0]) || '#ffffff');
+    sw.trail.push(tip);
+    if (sw.trail.length > 6) sw.trail.shift();
+    if (sw.trail.length > 2 && Math.hypot(sw.trail[0].x - tip.x, sw.trail[0].y - tip.y) > 6) { // la traînée : un éventail de lumière
+      ctx.globalAlpha = 0.45; ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.moveTo(hx, hy); sw.trail.forEach(function (p) { ctx.lineTo(p.x, p.y); }); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    if (f.wtype === 'katana') {
+      ln(at(-7 * s), at(1 * s), 3, f.hilt || '#3e1a12');  // la poignée tressée
+      ln({ x: hx + c * 2 * s - sn * 4 * s, y: hy + sn * 2 * s + c * 4 * s }, { x: hx + c * 2 * s + sn * 4 * s, y: hy + sn * 2 * s - c * 4 * s }, 2, '#e0b43a'); // la garde
+      ln(at(3 * s), tip, 3, blade);                        // la lame
+      ln(at(4 * s), at(len - 1), 1, '#ffffff');            // son fil, qui brille
+    } else if (f.wtype === 'baton') {
+      ln(at(-10 * s), tip, 3, '#8d6a45');
+      ln(at(len - 4 * s), at(len + 2 * s), 5, blade);      // la pierre au bout
+    } else if (f.wtype === 'masse') {
+      ln(at(-5 * s), at(len - 8 * s), 3, '#6e4a2a');
+      ln(at(len - 9 * s), at(len), 8, blade);              // la grosse tête
+      ln(at(len - 8 * s), at(len - 1), 2, '#ffffff');
+    } else {                                               // le harpon et ses dents
+      ln(at(-12 * s), at(len - 6 * s), 2, '#8d6a45');
+      ln(at(len - 7 * s), tip, 3, blade);
+      var b0 = at(len - 6 * s);
+      ln({ x: b0.x - sn * 4 * s, y: b0.y + c * 4 * s }, { x: b0.x + sn * 4 * s, y: b0.y - c * 4 * s }, 2, blade);
+    }
+  }
+
   // ---------- Les animations des sorts ----------
   // Chacune déplace l'attaquant, dessine ses effets et appelle hit(k) au moment de chaque coup.
   async function goTo(att, x, ms) { await tween(att, 'x', x, ms || 220); }
@@ -381,12 +432,13 @@ var BattleScene = (function () {
   function waveCol(f) { return (f.wave && f.wave[0]) || '#e8e0c8'; }
   // le coup d'arme de base : recul, coup, onde de l'arme (bâton, harpon, paume)
   async function swing(att, hit, k, palm) {
-    att.frame = 1; await wait(60);
+    att.frame = 1; raise(att, k % 2 ? 1.2 : -2.1); await wait(70);
     att.frame = 2; att.fx = att.imgs && att.imgs.fx[1] ? 1 : 0; if (palm) att.palm = 0.25;
     sfx(palm ? 'kick' : 'swing');
+    await swingTo(att, k % 2 ? -1.2 : 0.9, 90);
     await hit(k);
-    await wait(110);
-    att.fx = 0; att.frame = 3; await wait(80);
+    await wait(100);
+    att.fx = 0; att.frame = 3; await wait(70); sheathe(att);
   }
   var ANIMS = {
     // bâton, harpon, mains nues : l'onde de l'arme au contact
@@ -399,7 +451,8 @@ var BattleScene = (function () {
     wave: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 120), 200);
       for (var k = 0; k < s.hits && alive(def); k++) {
-        att.frame = 1; await wait(70); att.frame = 2; att.fx = att.imgs && att.imgs.fx[1] ? 1 : 0; sfx('swing');
+        att.frame = 1; raise(att, -2.1); await wait(70); att.frame = 2; att.fx = att.imgs && att.imgs.fx[1] ? 1 : 0; sfx('swing');
+        swingTo(att, 0.5, 90);
         var col = waveCol(att), col2 = (att.wave && att.wave[1]) || '#7d8694', d = att.dir;
         await fly(from(att), to(def), 190, function (sh, x, y) {
           pxArc(x - d * 10, y + 2, 16, d > 0 ? -1.2 : Math.PI - 1.2, d > 0 ? 1.2 : Math.PI + 1.2, 2, col);
@@ -407,49 +460,54 @@ var BattleScene = (function () {
         });
         att.fx = 0;
         await hit(k);
-        await wait(90); att.frame = 0;
+        await wait(90); att.frame = 0; sheathe(att);
       }
       await goHome(att);
     },
     // balayage : un coup au ras du sol, et la poussière vole
     sweep: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 62));
-      att.frame = 1; att.y = 3; await wait(80);
-      att.frame = 2; sfx('swing');
+      att.frame = 1; att.y = 3; raise(att, 2.3); await wait(80);
+      att.frame = 2; sfx('swing'); swingTo(att, 0.5, 100);
       var x = midX(def), d = att.dir;
       addFx(0.3, function (k) { ctx.globalAlpha = 1 - k; pxArc(x - d * 18, GROUND - 4, 22, d > 0 ? -0.5 : Math.PI - 0.5, d > 0 ? 0.35 : Math.PI + 0.35, 2, '#ffffff'); ctx.globalAlpha = 1; });
       burst(x, GROUND - 3, '#b3a07a', 10, 160);
       await hit(0);
-      await wait(150); att.y = 0;
+      await wait(150); att.y = 0; sheathe(att);
       await goHome(att);
     },
-    // katana : une entaille en diagonale
+    // katana : on lève la lame derrière la tête, elle s'abat en diagonale (et remonte au coup suivant)
     slash: async function (att, def, s, hit) {
-      await goTo(att, near(att, def, 58));
+      await goTo(att, near(att, def, 56));
       for (var k = 0; k < s.hits && alive(def); k++) {
-        att.frame = 1; await wait(50); att.frame = 2; sfx('slash');
-        slashFx(midX(def), chestY(def), 15, (att.dir > 0 ? -0.6 : Math.PI + 0.6) + (k % 2 ? 1.2 * att.dir : 0), att.blade || '#d9e1e6');
+        var up = k % 2 === 1, base = att.dir > 0 ? 0 : Math.PI;
+        att.frame = 1; raise(att, up ? 1.3 : -2.2); await wait(90);
+        att.frame = 2; sfx('slash');
+        await swingTo(att, up ? -1.5 : 1.0, 80);
+        slashFx(midX(def), chestY(def), 26, base + (up ? 0.35 : -0.35) * att.dir, att.blade || '#d9e1e6');
         await hit(k);
-        await wait(120); att.frame = 3; await wait(60);
+        await wait(150); att.frame = 3; await wait(60); sheathe(att);
       }
       await goHome(att);
     },
-    // deux entailles en croix
+    // deux entailles en croix : une qui descend, une qui remonte
     xslash: async function (att, def, s, hit) {
-      await goTo(att, near(att, def, 56));
-      var angs = [-0.75, 0.75];
+      await goTo(att, near(att, def, 54));
+      var base = att.dir > 0 ? 0 : Math.PI;
       for (var k = 0; k < s.hits && alive(def); k++) {
-        att.frame = 1; await wait(60); att.frame = 2; sfx('slash');
-        slashFx(midX(def), chestY(def), 16, (att.dir > 0 ? 0 : Math.PI) + angs[k % 2] * att.dir, att.blade || '#d9e1e6', 0.4);
+        att.frame = 1; raise(att, k % 2 ? 1.4 : -2.3); await wait(70);
+        att.frame = 2; sfx('slash');
+        await swingTo(att, k % 2 ? -1.6 : 1.1, 70);
+        slashFx(midX(def), chestY(def), 26, base + (k % 2 ? -0.75 : 0.75) * att.dir, att.blade || '#d9e1e6', 0.45);
         await hit(k);
         await wait(90);
       }
-      att.frame = 3; await wait(80);
+      att.frame = 3; await wait(100); sheathe(att);
       await goHome(att);
     },
-    // iaï : l'attaquant traverse l'ennemi en un éclair, puis la coupure apparaît
+    // iaï : la lame au fourreau, l'attaquant traverse l'ennemi en un éclair, puis la coupure apparaît
     dash: async function (att, def, s, hit) {
-      att.frame = 1; sfx('glint'); sparks(frontX(att), chestY(att), '#ffffff', 6, 30);
+      att.frame = 1; raise(att, 2.6); sfx('glint'); sparks(frontX(att), chestY(att), '#ffffff', 6, 30);
       await wait(260);
       var x0 = att.x, x1 = att.x + att.dir * (Math.abs(homeMid(def) - homeMid(att)) + 44), trail = [];
       var img = attImg(att);
@@ -459,15 +517,17 @@ var BattleScene = (function () {
       });
       att.frame = 2; sfx('whoosh');
       for (var i = 1; i <= 5; i++) trail.push(x0 + (x1 - x0) * i / 6 + (att === P ? 32 : enemySize(E) / 2));
+      swingTo(att, 0.05, 90);
       await tween(att, 'x', x1, 90, true);
       var ly = chestY(def), lx0 = homeMid(att) - 30, lx1 = midX(att);
-      addFx(0.35, function (k) { ctx.globalAlpha = 1 - k; pxLine(Math.min(lx0, lx1), ly, Math.max(lx0, lx1), ly, 1, '#ffffff'); ctx.globalAlpha = 1; });
-      await wait(220);
-      slashFx(midX(def), chestY(def), 18, att.dir > 0 ? 0.3 : Math.PI - 0.3, att.blade || '#d9e1e6', 0.35);
-      sfx('slash');
+      addFx(0.45, function (k) { ctx.globalAlpha = 1 - k; pxLine(Math.min(lx0, lx1), ly, Math.max(lx0, lx1), ly, 3, att.blade || '#d9e1e6'); pxLine(Math.min(lx0, lx1), ly, Math.max(lx0, lx1), ly, 1, '#ffffff'); ctx.globalAlpha = 1; });
+      await wait(240);
+      slashFx(midX(def), chestY(def), 32, att.dir > 0 ? 0.15 : Math.PI - 0.15, att.blade || '#d9e1e6', 0.45);
+      sfx('slash'); shake = 5;
       await hit(0, 1, true);
       ghosts.t = ghosts.dur;
-      await wait(200);
+      await swingTo(att, 0.9, 120);
+      await wait(120); sheathe(att);
       att.alpha = 0.3; att.x = x0 - att.dir * 20; att.frame = 0;
       await tween(att, 'alpha', 1, 180);
       await goHome(att, 140);
@@ -475,24 +535,30 @@ var BattleScene = (function () {
     // danse des lames : des entailles dans tous les sens, en sautillant
     slashes: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 54));
+      var base = att.dir > 0 ? 0 : Math.PI;
       for (var k = 0; k < s.hits && alive(def); k++) {
-        att.frame = k % 2 ? 3 : 2; att.y = k % 2 ? -6 : 0; sfx('slash');
-        slashFx(midX(def) + (Math.random() - 0.5) * 8, chestY(def) + (Math.random() - 0.5) * 10, 13 + Math.random() * 5, Math.random() * Math.PI * 2, att.blade || '#d9e1e6', 0.24);
+        var up = k % 2 === 1;
+        att.frame = up ? 3 : 2; att.y = up ? -6 : 0; raise(att, up ? 1.3 : -2.2); sfx('slash');
+        await swingTo(att, up ? -1.5 : 1.0, 60);
+        slashFx(midX(def) + (Math.random() - 0.5) * 8, chestY(def) + (Math.random() - 0.5) * 10, 22 + Math.random() * 6, base + (Math.random() - 0.5) * 1.6, att.blade || '#d9e1e6', 0.3);
         await hit(k);
-        await wait(110);
+        await wait(90);
       }
-      att.y = 0;
+      att.y = 0; sheathe(att);
       await goHome(att);
     },
     // lune tranchante : un grand croissant qui file jusqu'à l'ennemi
     crescent: async function (att, def, s, hit) {
-      att.frame = 1; sfx('glint'); await wait(240);
+      att.frame = 1; raise(att, -2.3); sfx('glint'); await wait(240);
       att.frame = 2; sfx('whoosh');
-      var d = att.dir, col = att.blade || '#d9e1e6';
+      swingTo(att, 1.1, 90);
+      var d = att.dir, col = att.blade || '#d9e1e6', ang = d > 0 ? 0 : Math.PI;
       await fly(from(att), to(def), 300, function (sh, x, y) {
-        for (var t = 3; t >= 0; t--) { ctx.globalAlpha = 1 - t * 0.22; pxArc(x - d * (6 + t * 6), y, 22, d > 0 ? -1.3 : Math.PI - 1.3, d > 0 ? 1.3 : Math.PI + 1.3, t ? 1 : 3, t ? col : '#ffffff'); }
-        ctx.globalAlpha = 1;
+        for (var t = 3; t >= 1; t--) crescent(x - d * t * 7, y, 30, ang, ang - 1.1, ang + 1.1, 7, col, 0.35 - t * 0.08);
+        crescent(x, y, 30, ang, ang - 1.1, ang + 1.1, 9, col, 0.7);
+        crescent(x, y, 30, ang, ang - 1.1, ang + 1.1, 3, '#ffffff', 1);
       });
+      sheathe(att);
       sparks(midX(def), chestY(def), '#ffffff', 16, 90);
       await hit(0, 1, true);
       await wait(150); att.frame = 0;
@@ -500,25 +566,25 @@ var BattleScene = (function () {
     // fracas, masse : un petit bond, l'arme s'abat, le sol tremble
     slam: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 60));
-      att.frame = 1;
-      await tween(att, 'y', -18, 130); await tween(att, 'y', 0, 90, true);
+      att.frame = 1; raise(att, -2.4);
+      await tween(att, 'y', -18, 130); swingTo(att, 1.3, 90); await tween(att, 'y', 0, 90, true);
       att.frame = 2; att.fx = att.imgs && att.imgs.fx[1] ? 1 : 0; sfx('thud');
       shockFx(midX(def), false); rocks(midX(def), 6);
       await hit(0, 1, true);
-      await wait(150); att.fx = 0;
+      await wait(150); att.fx = 0; sheathe(att);
       await goHome(att);
     },
     // séisme : un saut immense, et la terre se fend
     quake: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 66));
-      att.frame = 1;
+      att.frame = 1; raise(att, -2.6);
       await tween(att, 'y', -72, 230); await wait(90);
-      await tween(att, 'y', 0, 110, true);
+      swingTo(att, 1.4, 110); await tween(att, 'y', 0, 110, true);
       att.frame = 2; sfx('thud'); sfx('boss');
       shockFx(midX(def), true); shockFx(midX(att), false); rocks(midX(def), 16);
       await hit(0, 1, true);
       shake = 9;
-      await wait(250);
+      await wait(250); sheathe(att);
       await goHome(att);
     },
     // cri, coassement : des anneaux qui font trembler l'air
@@ -535,23 +601,23 @@ var BattleScene = (function () {
       await goTo(att, near(att, def, 56));
       var col = waveCol(att), f = att;
       var whirl = addFx(s.hits * 0.16 + 0.1, function (k) { ctx.globalAlpha = 0.8; pxRing(midX(f), chestY(f), 26, 10, 2, col, true); pxArc(midX(f), chestY(f), 24, k * 30, k * 30 + 1.4, 2, '#ffffff'); ctx.globalAlpha = 1; });
-      att.frame = 2;
+      att.frame = 2; raise(att, 0.1);
       var spin = tween(att, 'rot', att.dir * Math.PI * 2 * Math.ceil(s.hits / 2), s.hits * 160, true);
       for (var k = 0; k < s.hits && alive(def); k++) { sfx('swing'); await wait(140); await hit(k); }
-      await spin; att.rot = 0; whirl.t = whirl.dur;
+      await spin; att.rot = 0; whirl.t = whirl.dur; sheathe(att);
       await goHome(att);
     },
     // tempête d'acier : la grenouille tourbillonne, les lames pleuvent autour de l'ennemi
     storm: async function (att, def, s, hit) {
       await goTo(att, near(att, def, 56));
-      att.frame = 2;
+      att.frame = 2; raise(att, 0.1);
       var spin = tween(att, 'rot', att.dir * Math.PI * 2 * 3, s.hits * 120, true);
       for (var k = 0; k < s.hits && alive(def); k++) {
         sfx(k % 2 ? 'slash' : 'swing');
-        slashFx(midX(def) + (Math.random() - 0.5) * 16, chestY(def) + (Math.random() - 0.5) * 16, 12 + Math.random() * 8, Math.random() * Math.PI * 2, k % 2 ? '#ffffff' : (att.blade || '#d9e1e6'), 0.22);
+        slashFx(midX(def) + (Math.random() - 0.5) * 16, chestY(def) + (Math.random() - 0.5) * 16, 20 + Math.random() * 8, Math.random() * Math.PI * 2, att.blade || '#d9e1e6', 0.3);
         await wait(100); await hit(k);
       }
-      await spin; att.rot = 0;
+      await spin; att.rot = 0; sheathe(att);
       await goHome(att);
     },
     // kunaïs : lancés un par un
@@ -698,7 +764,7 @@ var BattleScene = (function () {
       await wait(250);
       for (var k = 0; k < s.hits && alive(def); k++) {
         if (k % 2 === 0) { att.frame = 1; sfx('throw'); await fly(from(att), to(def), 170, knifeDraw(att)); att.frame = 0; }
-        else { sfx('slash'); slashFx(midX(def) + att.dir * 4, chestY(def), 14, att.dir > 0 ? Math.PI + 0.5 : 0.5, '#8a78c0', 0.25); await wait(60); }
+        else { sfx('slash'); slashFx(midX(def) + att.dir * 4, chestY(def), 22, att.dir > 0 ? Math.PI : 0, '#8a78c0', 0.3); await wait(60); }
         await hit(k);
         await wait(80);
       }
@@ -1222,6 +1288,7 @@ var BattleScene = (function () {
     ctx.globalAlpha = f.alpha == null ? 1 : f.alpha;
     drawSprite(f, attImg(f), cx);
     ctx.globalAlpha = 1;
+    drawSword(f);
     // l'onde de l'arme (bâton, harpon, paume)
     if (f.fx && f.imgs.fx[1]) {
       var fi = f.imgs.fx[f.frame] || f.imgs.fx[1];
@@ -1336,7 +1403,7 @@ var BattleScene = (function () {
       hp: pr.maxHp, maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi,
       spell: pr.spell, cdr: pr.cdr, size: pr.size, pas: pr.pas, dmgReduce: pr.dmgReduce,
       skills: deckSkills(save, weapon), kind: weapon.kind, wtype: weaponType(weapon), weapon: weapon, weaponId: baseOf(save.equip.arme || ''),
-      blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, imgs: heroImgs()
+      blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, hilt: weapon.colors && weapon.colors[4], imgs: heroImgs()
     }, 1, MARGIN);
     var en = f.enemy, size = enemySize(en);
     E = arm(Object.assign({}, en, { hp: en.maxHp, turn: 0, charging: false, enraged: false, monster: en.frog ? null : monsterImgs(en) }), -1, W - MARGIN - size);

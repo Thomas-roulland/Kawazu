@@ -152,7 +152,7 @@ var ITEMS = {
     attack: { range: 90, speed: 200, durations: [0.06, 0.05, 0.05, 0.08] }
   },
   kunai_acier: {
-    slot: 'arme', kind: 'kunai', name: 'Kunaï d’acier', icon: 'kunai', stats: { force: 3 }, drop: 0,
+    slot: 'arme', kind: 'kunai', name: 'Kunaï d’acier', icon: 'kunai', stats: { force: 3 }, drop: 1,
     desc: 'Le kunaï fidèle de Kawazu, lancé droit et loin.',
     colors: { 1: '#d9e1e6', 2: '#a9b3bf', 3: '#ffffff', 4: '#4a3325', b: '#2e2018' },
     blade: '#d9e1e6', wave: ['#c3c9d1', '#7d8694'],
@@ -243,8 +243,9 @@ var ITEMS = {
   }
 };
 
-var STARTER_ITEMS = ['baton_roseau', 'kunai_rouille', 'kunai_acier', 'echarpe_rouge', 'ceinture_corde'];
-var DEFAULT_EQUIP = { tete: null, arme: 'baton_roseau', echarpe: 'echarpe_rouge', ceinture: 'ceinture_corde', anneau: null };
+// On commence sans arme : elle vient quand on choisit sa voie et son arme au Temple
+var STARTER_ITEMS = ['echarpe_rouge', 'ceinture_corde'];
+var DEFAULT_EQUIP = { tete: null, arme: null, echarpe: 'echarpe_rouge', ceinture: 'ceinture_corde', anneau: null };
 
 // Les objets à collectionner (sans les récompenses du dojo, réservées au podium)
 function collectible(id) { return ITEMS[id] && !ITEMS[id].reward; }
@@ -282,9 +283,18 @@ function hermitHands() {
     attack: { fx: { type: 'palm' }, reach: 20, durations: [0.1, 0.06, 0.06, 0.14] }
   };
 }
+// Sans arme (au tout début, avant de choisir sa voie et son arme) : les poings, avec une petite onde de paume
+function bareHands() {
+  return {
+    slot: 'arme', kind: 'mains', wtype: 'mains', name: 'Mains nues', icon: 'baton', drop: 0, stats: {},
+    desc: 'Pas encore d’arme : on se bat à mains nues. Choisis ta voie et ton arme au Temple pour en recevoir une.',
+    blade: '#d9e1e6', wave: ['#fff0c8', '#c9a24a'], look: { weapon: 'mains' },
+    attack: { fx: { type: 'palm' }, reach: 20, durations: [0.1, 0.06, 0.06, 0.14] }
+  };
+}
 function weaponOf(equip) {
   if (playerHermit) return hermitHands();
-  return ITEMS[equip.arme] || ITEMS.baton_roseau;
+  return ITEMS[equip.arme] || bareHands();
 }
 function isRanged(weapon) { return weapon.kind === 'kunai'; }
 // L'onde dessinée au bout de l'arme (un kunaï, qu'on lance, reçoit celle d'un bâton pour ses coups au contact)
@@ -306,7 +316,10 @@ function ensureWeapon(save) {
   var cur = ITEMS[save.equip.arme];
   if (cur && weaponAllowed(save, cur)) return;
   var mine = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].slot === 'arme' && weaponAllowed(save, ITEMS[id]); });
-  if (!mine.length) { var starter = STARTER_WEAPON[save.arme || v]; if (save.owned.indexOf(starter) < 0) save.owned.push(starter); mine = [starter]; }
+  if (!mine.length) {
+    if (!save.arme) { save.equip.arme = null; return; } // l'arme viendra avec le choix, au Temple
+    var starter = STARTER_WEAPON[save.arme]; if (save.owned.indexOf(starter) < 0) save.owned.push(starter); mine = [starter];
+  }
   mine.sort(function (a, b) { return tierOf(b) - tierOf(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)); });
   save.equip.arme = mine[0];
 }
@@ -809,7 +822,6 @@ function parseSave(data) {
     var id = data.equip && data.equip[sl.id];
     if (id === null || (ITEMS[id] && ITEMS[id].slot === sl.id && save.owned.indexOf(id) >= 0)) save.equip[sl.id] = id;
   });
-  if (!save.equip.arme) save.equip.arme = DEFAULT_EQUIP.arme; // toujours une arme en main
   if (typeof data.arme === 'string' && WEAPON_TYPES[data.arme] && WEAPON_TYPES[data.arme].kind === save.voie) save.arme = data.arme;
   ensureWeapon(save); // et une arme de sa voie
   // hauts faits : null = partie d'avant les hauts faits, ils seront rangés sans être annoncés

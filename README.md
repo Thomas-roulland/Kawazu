@@ -83,6 +83,7 @@ Les **lucioles** sont la monnaie du jeu.
   - **Voie de l’Ermite** (mains nues, qui donnent de l’Esprit) : Esprit ; sorts plus puissants qui reviennent plus vite,
     une petite armure. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et **coups de boule**.
 
+  On commence **à mains nues** : l’arme de départ vient avec le choix de la voie et de l’arme.
   Une voie ne manie que sa famille d’armes, et on y **choisit son arme** au Temple (Armes : bâton, harpon, katana ou masse ;
   Lancer : kunaï ou shuriken ; changer coûte 40 lucioles) : ensuite, on ne manie, ne trouve (butin, boutique) et ne voit
   (inventaire) plus que celle-là. L’Ermite ne trouve plus d’armes du tout. L’album ne compte que les objets qu’on peut
@@ -174,6 +175,8 @@ commence plus souvent, pas toujours).
 - Les sorts posent des effets : **saignement**, **poison**, **marque** (+30 % de dégâts reçus), **étourdissement**,
   **affaiblissement** (−30 % de dégâts), **garde** (et riposte), **ombre** (esquive sûre puis critique), **bouclier**,
   soins, vol de vie. Les passifs du Temple ajoutent riposte, flux (une relance qui saute), enchaînement, coup de grâce…
+- Au corps à corps, l’arme est **dessinée dans la main** (katana, bâton, masse, harpon) : elle se lève, s’abat et laisse
+  une traînée de lumière ; les entailles sont de grands croissants lumineux.
 - Chaque sort a son **animation** : entailles et iaï du katana, séisme, moulinet, étoiles d’eau qui éclaboussent, bulle
   d’eau, tourbillon de shurikens, clone d’ombre, pluie de kunaïs, paume géante, orbe d’énergie, coup de pied sauté,
   coup de boule, langue fouet…

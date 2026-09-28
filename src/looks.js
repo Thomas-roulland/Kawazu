@@ -211,6 +211,10 @@ function dressKawazu(sp, look) {
     stampPixels(atk, [[20, 28, 'o'], [20, 29, 'o'], [20, 30, 't'], [20, 31, 't'], [19, 30, 't'], [19, 31, 'S'], [21, 30, 't'], [21, 31, 't']]);
   } else if (look.weapon === 'harpon') {
     stampPixels(atk, [[20, 28, 'o'], [20, 29, 'o'], [20, 30, 't'], [20, 31, 'S'], [19, 30, 't'], [21, 30, 't'], [18, 29, 'k'], [22, 29, 'k']]);
+  } else if (look.weapon === 'mains' && !look.hermit) {
+    // à mains nues : le poing fermé au bout du bras, sans le kunaï
+    stampPixels(atk, [[19, 29, '.'], [19, 30, '.'], [19, 31, '.'], [20, 29, '.'], [20, 30, '.'], [20, 31, '.'], [21, 29, '.'], [21, 30, '.'], [21, 31, '.'],
+      [20, 28, 'l'], [19, 28, 'k'], [21, 28, 'k'], [20, 29, 'k']]);
   } else if (look.weapon === 'katana') {
     // katana : poignée, garde sombre, lame fine qui file vers le haut ; au repos, la poignée dépasse derrière le dos
     stampPixels(atk, [[20, 28, 'o'], [19, 29, 'k'], [20, 29, 'k'], [21, 29, 'k'], [19, 30, 't'], [18, 30, 't'], [18, 31, 'S'], [17, 31, 't'], [20, 30, 'k'], [20, 31, '.']]);

@@ -69,6 +69,7 @@ function itemHint(id) {
   if (f.tour) return 'Tour des Cent Sages, étage ' + f.tour;
   if (f.dojo) return 'Cascade des duels : podium du lundi';
   if (f.album) return 'Album : tout découvrir';
+  if (Object.keys(STARTER_WEAPON).some(function (k) { return STARTER_WEAPON[k] === id; })) return 'Donnée en choisissant cette arme au Temple';
   if (!it.drop) return 'Équipement de départ';
   return 'Butin ou boutique, dès ' + BIOMES[Math.min(BIOMES.length, ITEM_TIER[id] || 1) - 1].name;
 }
