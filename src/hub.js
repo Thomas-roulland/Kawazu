@@ -47,6 +47,8 @@
       { k: '#1a1c2c', 3: '#5a6a60', b: '#4fb0d8', w: '#e8fbff' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
+    onde: [['....kkk', '...k333kk', '...kk1133k', '.....kk113k', '.......kk13k', '........k13k', '.........k13k', '.........k13k', '.........k13k', '........k13k', '.......kk13k', '.....kk113k', '...kk1133k', '...k333kk', '....kkk'],
+      { k: '#1a1c2c', 1: '#3fbf8a', 3: '#c8f0d8' }],
     pied: [['', '......kkkk', '.....kmmmmk', '.....kmmmlk', '.....kmmmlk', '....kmmmmlk', '....kmmmmk', '...kmmmmmk', '..kmmmmmmk', '.kmlmmmmmmkkk', 'kmlmmmmmmmmmmk', 'kmmmlmmmlmmlmk', '.kkkkkkkkkkkkk'],
       { k: '#1a1c2c', m: '#e07a2a', l: '#f8b060' }],
     crapaud: [['', '..kkk......kkk', '.kEEEk....kEEEk', '.kEkEkkkkkkEkEk', 'kmmmmmmmmmmmmmmk', 'kmZmmmmmmmmmmZmk', 'kmmmmmmmmmmmmmmk', 'kmkkkkkkkkkkkkmk', '.kmmmmmmmmmmmmk', '..kkkkkkkkkkkk'],
@@ -61,7 +63,14 @@
   Array.prototype.forEach.call(document.querySelectorAll('img[data-ico]'), function (img) { img.src = ICON[img.dataset.ico]; });
   var VOIE_ICON = { baton: iconUrls.baton_roseau, kunai: iconUrls.kunai_acier, ermite: ICON.paume };
   // l'icône de chaque branche : Bâton, Katana, Colosse · Kunaï, Shuriken, Ombre · Paume, Pieds et tête, Crapaud sage
-  var BRANCH_ICON = { baton: [iconUrls.baton_roseau, iconUrls.katana_roseau, iconUrls.masse_fer], kunai: [iconUrls.kunai_acier, iconUrls.shuriken_eau, ICON.ombre], ermite: [ICON.paume, ICON.pied, ICON.crapaud] };
+  var BRANCH_ICON = { baton: [ICON.onde, iconUrls.katana_roseau, iconUrls.masse_fer], kunai: [iconUrls.kunai_acier, iconUrls.shuriken_eau, ICON.ombre], ermite: [ICON.paume, ICON.pied, ICON.crapaud] };
+  // L'icône d'une voie : celle de l'arme choisie, pour sa propre voie (un katana, pas un bâton, si on a pris le katana)
+  var ARME_ICON = { baton: 'baton_roseau', harpon: 'harpon_pecheur', katana: 'katana_roseau', masse: 'masse_fer', kunai: 'kunai_acier', shuriken: 'shuriken_eau' };
+  function armeIcon(voie) { return voie === chosenVoie(save) && save.arme ? iconUrls[ARME_ICON[save.arme]] : VOIE_ICON[voie]; }
+  // l'icône d'une branche (les rafales du Lancer lancent l'arme choisie)
+  function branchIcon(voie, i) { return voie === 'kunai' && i === 0 ? armeIcon('kunai') : BRANCH_ICON[voie][i]; }
+  // l'icône d'un sort : l'arme choisie (Armes, Lancer), ou sa branche (Ermite)
+  function spellIcon(s) { if (s.base) return baseIcon(); var n = TREE.filter(function (x) { return x.skill === s.id; })[0]; return s.voie !== 'ermite' && save.arme && s.voie === chosenVoie(save) ? armeIcon(s.voie) : (n && !n.summit ? branchIcon(s.voie, n.path) : armeIcon(s.voie)); }
   var n1 = function (v) { return String(Math.round(v * 10) / 10).replace('.', ','); };
   var pc = function (v) { return Math.round(v * 100) + ' %'; };
   // L'endurance et l'armure d'une voie, s'il y en a : « , endurance ×1,1, armure 6 % (+0,04 % par niveau) »
@@ -526,7 +535,7 @@
     var max = Math.max.apply(null, STATS.map(function (st) { return parts[st.id].total; }));
     var scale = Math.max(STAT_MAX, Math.ceil(max / 10) * 10 + 10);
     var main = mainStat(chosenVoie(save));
-    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.' + (VOIE_ARMES[v.id].length && !save.arme ? ' <b class="need-arme">Choisis ton arme au Temple !</b>' : '') + '</span>'
+    $('stat-voie').innerHTML = v ? '<img src="' + armeIcon(v.id) + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.' + (VOIE_ARMES[v.id].length && !save.arme ? ' <b class="need-arme">Choisis ton arme au Temple !</b>' : '') + '</span>'
       : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1 et la Force fait tes dégâts. Choisis ta voie au Temple : elle te donne un attribut principal et multiplie tes points.</span>';
     $('stats').innerHTML = STATS.map(function (st) {
       var p = parts[st.id], seg = function (val, cls) { return val > 0 ? '<span class="' + cls + '" style="width:' + Math.min(100, val / scale * 100) + '%"></span>' : ''; };
@@ -590,7 +599,7 @@
     }
     if (passives.length) {
       html += '<div class="feats-head"><h2>PASSIFS ACTIFS</h2></div><div class="feats">' +
-        passives.map(function (n) { return chip(n.summit ? VOIE_ICON[n.voie] : BRANCH_ICON[n.voie][n.path], n.name, n.desc, '--voie:' + voieOf(n.voie).color, ' passive'); }).join('') + '</div>';
+        passives.map(function (n) { return chip(n.summit ? armeIcon(n.voie) : branchIcon(n.voie, n.path), n.name, n.desc, '--voie:' + voieOf(n.voie).color, ' passive'); }).join('') + '</div>';
     }
     box.innerHTML = html;
   }
@@ -906,7 +915,7 @@
       var col = voieOf(voie).color, sm = summitOf(voie), smp = L.pos(sm);
       PATHS[voie].forEach(function (p, i) {
         var done = save.tree.filter(function (id) { var n = nodeById(id); return n && n.path === i; }).length;
-        html += '<div class="tpath" style="left:' + (L.colX(i, BRANCHES) - (SLAB_R + 6) * L.s) + 'px;top:' + L.rowY(STEPS) + 'px;--voie:' + col + '" title="' + p.name + ' : ' + p.tag + '"><img src="' + BRANCH_ICON[voie][i] + '" alt=""><span><b>' + p.name.toUpperCase() + '</b><small>' + done + ' / ' + STEPS + ' dalles</small></span></div>';
+        html += '<div class="tpath" style="left:' + (L.colX(i, BRANCHES) - (SLAB_R + 6) * L.s) + 'px;top:' + L.rowY(STEPS) + 'px;--voie:' + col + '" title="' + p.name + ' : ' + p.tag + '"><img src="' + branchIcon(voie, i) + '" alt=""><span><b>' + p.name.toUpperCase() + '</b><small>' + done + ' / ' + STEPS + ' dalles</small></span></div>';
       });
       html += '<div class="tsummit" style="left:' + smp.x + 'px;top:' + (smp.y - (SUMMIT_R + 3) * L.s) + 'px;--voie:' + col + '"><b>SOMMET · ' + sm.name.toUpperCase() + '</b><small>' + skillById(sm.skill).name + ' et un grand passif</small></div>';
       // à gauche de chaque rangée : le niveau requis et le prix de l'étape
@@ -917,7 +926,7 @@
       TREE.forEach(function (n) {
         if (n.voie !== voie) return;
         var p = L.pos(n), known = hasNode(save, n.id), can = canLearnNode(save, n);
-        var icon = n.summit ? VOIE_ICON[n.voie] : (n.type === 'skill' ? BRANCH_ICON[n.voie][n.path] : (n.type === 'passive' ? PASSIVE_ICON[n.voie] : STAT_ICON[Object.keys(n.stats)[0]]));
+        var icon = n.summit ? armeIcon(n.voie) : (n.type === 'skill' ? spellIcon(skillById(n.skill)) : (n.type === 'passive' ? PASSIVE_ICON[n.voie] : STAT_ICON[Object.keys(n.stats)[0]]));
         var badge = n.type === 'stat' ? '<i class="tbadge">+' + n.stats[Object.keys(n.stats)[0]] + '</i>' : (n.type === 'skill' ? '<i class="tbadge spell">SORT</i>' : (n.summit ? '<i class="tbadge spell">ULTIME</i>' : ''));
         var cls = 'tslab ' + n.type + (known ? ' known' : (can ? ' can' : ' locked')) + (state.node === n.id ? ' is-selected' : '') + (n.id === save.tree[save.tree.length - 1] ? ' has-frog' : '');
         html += '<button class="' + cls + '" data-node="' + n.id + '" title="' + nodeName(n) + ' — ' + nodeDesc(n) + '" style="left:' + p.x + 'px;top:' + p.y + 'px;--voie:' + voieOf(n.voie).color + '" aria-label="' + nodeName(n) + '">' +
@@ -1027,9 +1036,9 @@
       }).join('') + '</div>' +
       '<p class="vp-desc small">Attribut principal : <b>' + STAT_NAME[v.main] + '</b>, qui fait tes dégâts. Chaque point de caractéristique réparti vaut ' + multText(v) + ' (×1 ailleurs)' + voieTraits(v) + '.' + (v.id === 'ermite' ? ' Sans arme : tu te bats à mains nues.' : ' Tu te bats ' + (v.id === 'kunai' ? 'à distance' : 'au corps à corps') + '.') + '</p>' +
       '<h3>TROIS BRANCHES, UN SOMMET</h3>' + PATHS[v.id].map(function (p, i) {
-        return '<div class="vp-branch"><div class="vp-bhead"><img src="' + BRANCH_ICON[v.id][i] + '" alt=""><b>' + p.name + '</b><small>' + p.tag + '</small></div><ul class="vp-spells">' + p.skills.map(function (id, j) {
+        return '<div class="vp-branch"><div class="vp-bhead"><img src="' + branchIcon(v.id, i) + '" alt=""><b>' + p.name + '</b><small>' + p.tag + '</small></div><ul class="vp-spells">' + p.skills.map(function (id, j) {
           var s = skillById(id);
-          return '<li><b>' + s.name + '</b><small>NIV. ' + STEP_LEVEL[1 + j * 3] + '</small><span>' + s.desc + '</span></li>';
+          return '<li title="' + s.desc + '"><b>' + s.name + '</b><small>NIV. ' + STEP_LEVEL[1 + j * 3] + '</small><span>' + s.desc + '</span></li>';
         }).join('') + '</ul><p class="vp-pas">Passifs : ' + p.passives.map(function (ps) { return ps[0]; }).join(', ') + '</p></div>';
       }).join('') +
       '<div class="vp-branch summit"><div class="vp-bhead"><img src="' + VOIE_ICON[v.id] + '" alt=""><b>Sommet : ' + sm.name + '</b><small>NIV. ' + SUMMIT.level + '</small></div><p class="vp-pas">' + nodeDesc(sm) + '</p></div>' +
@@ -1038,7 +1047,6 @@
   }
 
   // L'arme de la voie (Armes, Lancer) : à choisir une fois ; ensuite on ne manie, ne trouve et ne voit qu'elle
-  var ARME_ICON = { baton: 'baton_roseau', harpon: 'harpon_pecheur', katana: 'katana_roseau', masse: 'masse_fer', kunai: 'kunai_acier', shuriken: 'shuriken_eau' };
   function renderArmePick() {
     var voie = chosenVoie(save), box = $('arme-pick');
     box.hidden = !VOIE_ARMES[voie] || !VOIE_ARMES[voie].length;
@@ -1046,13 +1054,13 @@
     if (save.arme) {
       var t = WEAPON_TYPES[save.arme];
       box.innerHTML = '<h2>TON ARME</h2><div class="ap-cur"><img class="px" src="' + iconUrls[ARME_ICON[save.arme]] + '" alt=""><span><b>' + t.plural + '</b><small>Tu ne manies, ne trouves et ne vois plus que des ' + t.plural.toLowerCase() + '.</small></span></div>' +
-        '<button class="btn btn-ghost" id="arme-change"' + (save.gold < ARME_PRICE ? ' disabled' : '') + '>Changer d’arme (' + ARME_PRICE + ' lucioles)</button>';
+        '<button class="btn btn-ghost ap-change" id="arme-change"' + (save.gold < ARME_PRICE ? ' disabled' : '') + '>Changer · ' + ARME_PRICE + ' lucioles</button>';
       return;
     }
     box.innerHTML = '<h2>CHOISIS TON ARME</h2><p class="muted ap-help">Ensuite, tu ne manieras, ne trouveras et ne verras plus qu’elle : butin, boutique et inventaire.</p><div class="ap-list">' +
       VOIE_ARMES[voie].map(function (id) {
         var b = SKILLS.filter(function (s) { return s.base === id; })[0];
-        return '<button class="ap-opt" data-arme="' + id + '"><img class="px" src="' + iconUrls[ARME_ICON[id]] + '" alt=""><span><b>' + WEAPON_TYPES[id].plural + '</b><small>' + b.name + ' : ' + b.desc + '</small></span></button>';
+        return '<button class="ap-opt" data-arme="' + id + '" title="' + b.name + ' : ' + b.desc + '"><img class="px" src="' + iconUrls[ARME_ICON[id]] + '" alt=""><b>' + WEAPON_TYPES[id].plural + '</b><small>' + WEAPON_TYPES[id].blurb + '</small></button>';
       }).join('') + '</div>';
   }
   function chooseArme(id) {
@@ -1063,6 +1071,8 @@
     notice('Ton arme : les ' + WEAPON_TYPES[id].plural.toLowerCase() + '. En main : ' + ITEMS[save.equip.arme].name + '. Tu ne trouveras plus que cette arme-là.');
   }
 
+  // l'icône de l'attaque de base : l'arme en main (ou les mains nues)
+  function baseIcon() { var w = weaponOf(save.equip); return w.kind === 'mains' ? ICON.paume : iconUrls[save.equip.arme]; }
   function renderDeck() {
     renderArmePick();
     var weapon = weaponOf(save.equip);
@@ -1071,7 +1081,7 @@
     var meta = function (s) { var cd = skillCd(s, cdr); return s.base ? 'attaque de base · ' + WEAPON_TYPES[weaponType(weapon)].name.toLowerCase() : 'relance ' + cd + ' tour' + (cd > 1 ? 's' : ''); };
     var card = function (s, removable) {
       var v = voieOf(s.voie);
-      return '<div class="dcard2" style="--voie:' + v.color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + meta(s) + '</span></span>' +
+      return '<div class="dcard2" style="--voie:' + v.color + '"><img class="dc-ico" src="' + spellIcon(s) + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + meta(s) + '</span></span>' +
         (removable ? '<button data-undeck="' + s.id + '">Retirer</button>' : '') + '</div>';
     };
     var learned = learnedSkills(save);
@@ -1081,11 +1091,11 @@
       var s = chosen[i];
       if (!s) { html += '<div class="dcard2 empty">Emplacement libre</div>'; continue; }
       html += skillUsable(s, weapon) ? card(s, true)
-        : '<div class="dcard2 off" style="--voie:' + voieOf(s.voie).color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">Inutilisable avec cette arme</span></span><button data-undeck="' + s.id + '">Retirer</button></div>';
+        : '<div class="dcard2 off" style="--voie:' + voieOf(s.voie).color + '"><img class="dc-ico" src="' + spellIcon(s) + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">Inutilisable avec cette arme</span></span><button data-undeck="' + s.id + '">Retirer</button></div>';
     }
     var lhtml = learned.length ? learned.map(function (s) {
       var inDeck = save.deck.indexOf(s.id) >= 0, v = voieOf(s.voie);
-      return '<div class="dcard2' + (inDeck ? ' in-deck' : '') + '" style="--voie:' + v.color + '"><img class="dc-ico" src="' + VOIE_ICON[s.voie] + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + s.desc + ' · ' + meta(s) + '</span></span>' +
+      return '<div class="dcard2' + (inDeck ? ' in-deck' : '') + '" style="--voie:' + v.color + '"><img class="dc-ico" src="' + spellIcon(s) + '" alt=""><span class="dc-name">' + s.name + '<br><span class="dc-meta">' + s.desc + ' · ' + meta(s) + '</span></span>' +
         (inDeck ? '<button data-undeck="' + s.id + '">Retirer</button>' : '<button data-deck="' + s.id + '"' + (save.deck.length >= DECK_SIZE ? ' disabled' : '') + '>Ajouter</button>') + '</div>';
     }).join('') : '<p class="muted">Aucun sort appris. Chaque branche de ta voie commence par un sort : prends la première dalle d’une branche.</p>';
     $('deck').innerHTML = html;

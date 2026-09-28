@@ -86,13 +86,13 @@ Les **lucioles** sont la monnaie du jeu.
   On commence **à mains nues** : l’arme de départ vient avec le choix de la voie et de l’arme.
   Une voie ne manie que sa famille d’armes, et on y **choisit son arme** au Temple (Armes : bâton, harpon, katana ou masse ;
   Lancer : kunaï ou shuriken ; changer coûte 40 lucioles) : ensuite, on ne manie, ne trouve (butin, boutique) et ne voit
-  (inventaire) plus que celle-là. L’Ermite ne trouve plus d’armes du tout. L’album ne compte que les objets qu’on peut
+  (inventaire) plus que celle-là ; les icônes des sorts et les lancers (kunaïs ou shurikens) suivent l’arme choisie. L’Ermite ne trouve plus d’armes du tout. L’album ne compte que les objets qu’on peut
   avoir, et un trésor de la tour qui n’est pas ton arme est remplacé par sa valeur en lucioles. Elle offre **trois branches de 10 dalles** (sorts aux étapes 1, 4, 7, 10 ;
   caractéristiques aux étapes 2, 5, 8 ; passifs aux étapes 3, 6, 9) qui **se rejoignent sur la dalle-sommet** (niveau 90,
   15 points : un sort ultime et un grand passif) :
-  - Armes : Bâton de jade (ondes, étourdissements, garde), Katana (entailles, saignement, iaï, critiques), Colosse
+  - Armes : Onde de jade (ondes, étourdissements, garde), Lames (entailles, saignement, iaï, critiques), Colosse
     (fracas, séisme, cri de guerre, croissance, bouclier) → sommet **Maître d’armes** (Tempête d’acier) ;
-  - Lancer : Kunaï (rafales, marque, pluie de kunaïs), Shuriken d’eau (étoile d’eau, prison d’eau, shuriken géant,
+  - Lancer : Rafales (lancers en rafale, marque, pluie de lames), Shuriken d’eau (étoile d’eau, prison d’eau, shuriken géant,
     tourbillon), Ombre (poison, pas de l’ombre, nuage toxique, clone d’ombre) → sommet **Œil du tireur** (Déluge de lames) ;
   - Ermite : Paume (paumes d’énergie, coassement, paume géante, orbe), Pieds et tête (coup de pied, coup de boule,
     pied retourné, chute du crapaud), Crapaud sage (langue, soins, peau de rosée, huile du mont Kaeru) → sommet

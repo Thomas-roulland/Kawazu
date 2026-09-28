@@ -27,9 +27,9 @@ function allocMult(voie, stat) { var v = voieDef(voie); return (v && v.mult[stat
 
 // Les types d'armes : leur famille (kind : 'baton' = corps à corps, 'kunai' = distance) et leur attaque de base
 var WEAPON_TYPES = {
-  baton: { name: 'Bâton', plural: 'Bâtons', kind: 'baton' }, harpon: { name: 'Harpon', plural: 'Harpons', kind: 'baton' },
-  katana: { name: 'Katana', plural: 'Katanas', kind: 'baton' }, masse: { name: 'Masse', plural: 'Masses', kind: 'baton' },
-  kunai: { name: 'Kunaï', plural: 'Kunaïs', kind: 'kunai' }, shuriken: { name: 'Shuriken', plural: 'Shurikens', kind: 'kunai' },
+  baton: { name: 'Bâton', plural: 'Bâtons', kind: 'baton', blurb: 'Onde de choc · 100 %' }, harpon: { name: 'Harpon', plural: 'Harpons', kind: 'baton', blurb: 'Estoc · 105 %' },
+  katana: { name: 'Katana', plural: 'Katanas', kind: 'baton', blurb: 'Entaille · 90 %, critique +10 %' }, masse: { name: 'Masse', plural: 'Masses', kind: 'baton', blurb: 'Coup lourd · 110 %' },
+  kunai: { name: 'Kunaï', plural: 'Kunaïs', kind: 'kunai', blurb: 'Un lancer sûr · 95 %' }, shuriken: { name: 'Shuriken', plural: 'Shurikens', kind: 'kunai', blurb: 'Deux étoiles · 2 × 50 %' },
   mains: { name: 'Mains nues', plural: 'Mains nues', kind: 'mains' }
 };
 // Les armes qu'une voie peut choisir (save.arme) : une fois choisie, on ne manie, ne trouve et ne voit qu'elle
@@ -69,10 +69,10 @@ var SKILLS = [
 
   // ----- Voie du Lancer -----
   // Kunaï
-  { id: 'double', voie: 'kunai', name: 'Double lancer', cd: 1, power: 0.75, hits: 2, anim: 'kunai', desc: 'Deux kunaïs qui ne ratent jamais : 2 × 75 % des dégâts.' },
-  { id: 'eventail', voie: 'kunai', name: 'Éventail de kunaïs', cd: 3, power: 0.75, hits: 3, anim: 'fan', desc: 'Trois kunaïs en éventail : 3 × 75 % des dégâts.' },
-  { id: 'marque', voie: 'kunai', name: 'Kunaï marqueur', cd: 4, power: 0.8, hits: 1, mark: 3, anim: 'marker', desc: '80 % des dégâts, et le parchemin marque l’ennemi : il subit +30 % de dégâts pendant 3 tours.' },
-  { id: 'pluie', voie: 'kunai', name: 'Pluie de kunaïs', cd: 5, power: 0.6, hits: 6, anim: 'rain', desc: 'Six kunaïs tombés du ciel : 6 × 60 % des dégâts.' },
+  { id: 'double', voie: 'kunai', name: 'Double lancer', cd: 1, power: 0.75, hits: 2, anim: 'kunai', desc: 'Deux lancers qui ne ratent jamais : 2 × 75 % des dégâts.' },
+  { id: 'eventail', voie: 'kunai', name: 'Éventail', cd: 3, power: 0.75, hits: 3, anim: 'fan', desc: 'Trois lancers en éventail : 3 × 75 % des dégâts.' },
+  { id: 'marque', voie: 'kunai', name: 'Lancer marqueur', cd: 4, power: 0.8, hits: 1, mark: 3, anim: 'marker', desc: '80 % des dégâts, et le parchemin marque l’ennemi : il subit +30 % de dégâts pendant 3 tours.' },
+  { id: 'pluie', voie: 'kunai', name: 'Pluie de lames', cd: 5, power: 0.6, hits: 6, anim: 'rain', desc: 'Six lames tombées du ciel : 6 × 60 % des dégâts.' },
   // Shuriken d'eau
   { id: 'mizu', voie: 'kunai', name: 'Shuriken d’eau', cd: 2, power: 1.5, hits: 1, pierce: true, anim: 'water', desc: 'Une étoile d’eau tournoyante : 150 % des dégâts, traverse la garde et l’armure.' },
   { id: 'prison', voie: 'kunai', name: 'Prison d’eau', cd: 4, power: 0.8, hits: 1, stun: 0.6, anim: 'bubble', desc: 'Enferme l’ennemi dans une bulle : 80 % des dégâts, 60 % de chances de l’étourdir.' },
@@ -84,7 +84,7 @@ var SKILLS = [
   { id: 'nuage', voie: 'kunai', name: 'Nuage toxique', cd: 4, power: 0.3, hits: 1, poison: 5, weaken: 2, anim: 'cloud', desc: '30 % des dégâts, poison pendant 5 tours, et l’ennemi étouffé fait 30 % de dégâts en moins 2 tours.' },
   { id: 'clone', voie: 'kunai', name: 'Clone d’ombre', cd: 5, power: 0.75, hits: 4, shadowAfter: true, anim: 'clone', desc: 'Ton ombre surgit derrière l’ennemi : 4 × 75 % des dégâts, puis tu esquives la prochaine attaque.' },
   // la dalle-sommet
-  { id: 'deluge', voie: 'kunai', name: 'Déluge de lames', cd: 6, power: 0.45, hits: 8, mark: 2, anim: 'deluge', desc: 'Kunaïs et shurikens pleuvent : 8 × 45 % des dégâts, et l’ennemi est marqué.' },
+  { id: 'deluge', voie: 'kunai', name: 'Déluge de lames', cd: 6, power: 0.45, hits: 8, mark: 2, anim: 'deluge', desc: 'Les lames pleuvent du ciel : 8 × 45 % des dégâts, et l’ennemi est marqué.' },
 
   // ----- Voie de l'Ermite -----
   // Paume
@@ -121,15 +121,15 @@ var STAT_WORD = { force: 'Force', vitalite: 'Vitalité', agilite: 'Agilité', es
 
 var PATHS = {
   baton: [
-    { name: 'Bâton de jade', tag: 'contrôle', skills: ['onde', 'balayage', 'garde', 'tempete'], stats: ['vitalite', 'force', 'vitalite'],
+    { name: 'Onde de jade', tag: 'ondes, contrôle', skills: ['onde', 'balayage', 'garde', 'tempete'], stats: ['vitalite', 'force', 'vitalite'],
       passives: [['Roseau qui plie', { stunChance: 0.05, hpMult: 0.04 }], ['Garde de fer', { dmgReduce: 0.06 }], ['Contre-attaque', { riposte: 0.15 }]] },
-    { name: 'Katana', tag: 'saignement, critiques', skills: ['croix', 'iai', 'danse', 'lune'], stats: ['force', 'agilite', 'force'],
+    { name: 'Lames', tag: 'saignement, critiques', skills: ['croix', 'iai', 'danse', 'lune'], stats: ['force', 'agilite', 'force'],
       passives: [['Fil du sabre', { crit: 0.05, bleedMult: 0.25 }], ['Lame affûtée', { critDmg: 0.3 }], ['Coup de grâce', { execute: 0.4 }]] },
     { name: 'Colosse', tag: 'masse, force brute', skills: ['fracas', 'cri', 'moulinet', 'seisme'], stats: ['vitalite', 'force', 'vitalite'],
       passives: [['Croissance', { size: 0.05, hpMult: 0.06 }], ['Peau de pierre', { shield: 0.12 }], ['Colosse', { size: 0.08, hpMult: 0.08, dmgMult: 0.06 }]] }
   ],
   kunai: [
-    { name: 'Kunaï', tag: 'rafales, précision', skills: ['double', 'eventail', 'marque', 'pluie'], stats: ['agilite', 'vitalite', 'agilite'],
+    { name: 'Rafales', tag: 'lancers en rafale, précision', skills: ['double', 'eventail', 'marque', 'pluie'], stats: ['agilite', 'vitalite', 'agilite'],
       passives: [['Œil du héron', { crit: 0.06 }], ['Lancer parfait', { multiHit: 0.2 }], ['Rafale', { critDmg: 0.3 }]] },
     { name: 'Shuriken d’eau', tag: 'eau, contrôle', skills: ['mizu', 'prison', 'fuma', 'tourbillon'], stats: ['agilite', 'vitalite', 'esprit'],
       passives: [['Eau vive', { spellMult: 0.1 }], ['Marée montante', { regenHp: 0.02 }], ['Courant rapide', { flow: 0.25 }]] },

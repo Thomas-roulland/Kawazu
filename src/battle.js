@@ -302,6 +302,8 @@ var BattleScene = (function () {
       if (water && Math.random() < 0.6) particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * 30, vy: -10 - Math.random() * 20, life: 0.35, c: Math.random() < 0.5 ? '#bfe8ff' : '#5fa3e0', g: 160 });
     };
   }
+  // ce que lance la grenouille : des étoiles pour un shuriken, des kunaïs sinon
+  function thrownDraw(f, dirName) { return f.wtype === 'shuriken' ? starDraw(f, 5, /eau|rosee|maree/.test(f.weaponId || '')) : knifeDraw(f, dirName); }
   function from(f) { return { x: frontX(f), y: chestY(f) - 2 }; }
   function to(f, dy) { return { x: midX(f) - (f.dir < 0 ? 6 : -6), y: chestY(f) + (dy || 0) }; }
 
@@ -624,7 +626,7 @@ var BattleScene = (function () {
     kunai: async function (att, def, s, hit) {
       for (var k = 0; k < s.hits && alive(def); k++) {
         att.frame = 1; sfx('throw');
-        await fly(from(att), to(def, (k % 2) * -6), 200, knifeDraw(att));
+        await fly(from(att), to(def, (k % 2) * -6), 200, thrownDraw(att));
         await hit(k);
         att.frame = 0;
         await wait(s.hits > 2 ? 90 : 150);
@@ -635,7 +637,7 @@ var BattleScene = (function () {
       att.frame = 1; sfx('throw');
       var all = [];
       for (var k = 0; k < s.hits; k++) {
-        (function (k) { all.push(wait(k * 60).then(function () { return fly(from(att), to(def, [-12, 0, 10, -4, 6][k % 5]), 210, knifeDraw(att), [8, 0, -6][k % 3]); }).then(function () { return hit(k); })); })(k);
+        (function (k) { all.push(wait(k * 60).then(function () { return fly(from(att), to(def, [-12, 0, 10, -4, 6][k % 5]), 210, thrownDraw(att), [8, 0, -6][k % 3]); }).then(function () { return hit(k); })); })(k);
       }
       await Promise.all(all);
       att.frame = 0;
@@ -643,7 +645,7 @@ var BattleScene = (function () {
     // kunaï marqueur : un parchemin rouge accroché au kunaï
     marker: async function (att, def, s, hit) {
       att.frame = 1; sfx('throw');
-      var knife = knifeDraw(att), d = att.dir;
+      var knife = thrownDraw(att), d = att.dir;
       await fly(from(att), to(def), 230, function (sh, x, y) { ctx.fillStyle = '#f4ecd8'; ctx.fillRect(R(x - d * 12) - 2, R(y) - 1, 5, 6); ctx.fillStyle = '#c9412f'; ctx.fillRect(R(x - d * 12) - 1, R(y) + 1, 3, 2); knife(sh, x, y); });
       await hit(0);
       att.frame = 0;
@@ -652,13 +654,13 @@ var BattleScene = (function () {
     rain: async function (att, def, s, hit) {
       att.frame = 1; sfx('throw');
       await tween(att, 'y', -16, 120);
-      await fly(from(att), { x: frontX(att) + att.dir * 20, y: -20 }, 180, knifeDraw(att, 'up'));
+      await fly(from(att), { x: frontX(att) + att.dir * 20, y: -20 }, 180, thrownDraw(att, 'up'));
       await tween(att, 'y', 0, 120); att.frame = 0;
       var all = [];
       for (var k = 0; k < s.hits; k++) {
         (function (k) {
           var x = midX(def) + (Math.random() - 0.5) * 30;
-          all.push(wait(k * 80).then(function () { sfx('throw'); return fly({ x: x, y: -16 }, { x: x, y: chestY(def) }, 170, knifeDraw(att, 'down')); }).then(function () { return hit(k); }));
+          all.push(wait(k * 80).then(function () { sfx('throw'); return fly({ x: x, y: -16 }, { x: x, y: chestY(def) }, 170, thrownDraw(att, 'down')); }).then(function () { return hit(k); }));
         })(k);
       }
       await Promise.all(all);
@@ -763,7 +765,7 @@ var BattleScene = (function () {
       });
       await wait(250);
       for (var k = 0; k < s.hits && alive(def); k++) {
-        if (k % 2 === 0) { att.frame = 1; sfx('throw'); await fly(from(att), to(def), 170, knifeDraw(att)); att.frame = 0; }
+        if (k % 2 === 0) { att.frame = 1; sfx('throw'); await fly(from(att), to(def), 170, thrownDraw(att)); att.frame = 0; }
         else { sfx('slash'); slashFx(midX(def) + att.dir * 4, chestY(def), 22, att.dir > 0 ? Math.PI : 0, '#8a78c0', 0.3); await wait(60); }
         await hit(k);
         await wait(80);
@@ -979,7 +981,7 @@ var BattleScene = (function () {
       if (s.hits === 1 && att.pas.multiHit && alive(def) && Math.random() < att.pas.multiHit) {
         await wait(80);
         floater(midX(att), headY(att) - 6, 'Encore !', '#f3d27a');
-        if (KIND_VOIE[att.kind] === 'kunai') await fly(from(att), to(def), 160, knifeDraw(att));
+        if (KIND_VOIE[att.kind] === 'kunai') await fly(from(att), to(def), 160, thrownDraw(att));
         else sparks(midX(def), chestY(def), '#ffffff', 8, 60);
         await hitter(att, def, s, false)(1, 0.5);
       }
