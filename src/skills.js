@@ -27,9 +27,14 @@ function allocMult(voie, stat) { var v = voieDef(voie); return (v && v.mult[stat
 
 // Les types d'armes : leur famille (kind : 'baton' = corps à corps, 'kunai' = distance) et leur attaque de base
 var WEAPON_TYPES = {
-  baton: { name: 'Bâton', kind: 'baton' }, harpon: { name: 'Harpon', kind: 'baton' }, katana: { name: 'Katana', kind: 'baton' }, masse: { name: 'Masse', kind: 'baton' },
-  kunai: { name: 'Kunaï', kind: 'kunai' }, shuriken: { name: 'Shuriken', kind: 'kunai' }, mains: { name: 'Mains nues', kind: 'mains' }
+  baton: { name: 'Bâton', plural: 'Bâtons', kind: 'baton' }, harpon: { name: 'Harpon', plural: 'Harpons', kind: 'baton' },
+  katana: { name: 'Katana', plural: 'Katanas', kind: 'baton' }, masse: { name: 'Masse', plural: 'Masses', kind: 'baton' },
+  kunai: { name: 'Kunaï', plural: 'Kunaïs', kind: 'kunai' }, shuriken: { name: 'Shuriken', plural: 'Shurikens', kind: 'kunai' },
+  mains: { name: 'Mains nues', plural: 'Mains nues', kind: 'mains' }
 };
+// Les armes qu'une voie peut choisir (save.arme) : une fois choisie, on ne manie, ne trouve et ne voit qu'elle
+var VOIE_ARMES = { baton: ['baton', 'harpon', 'katana', 'masse'], kunai: ['kunai', 'shuriken'], ermite: [] };
+var ARME_PRICE = 40; // changer d'arme, au Temple
 // La voie qui manie une famille d'armes
 var KIND_VOIE = { baton: 'baton', kunai: 'kunai', mains: 'ermite' };
 

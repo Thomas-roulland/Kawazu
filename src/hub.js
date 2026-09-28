@@ -187,7 +187,7 @@
   function enterGame() {
     $('title').hidden = true;
     $('app').hidden = false;
-    if (!save.shop.length) { refreshShop(save); persist(); }
+    if (!save.shop.length) { refreshShop(save); persist(); } else tidyShop(save);
     state.sheet = null;
     buildHero();
     renderAll();
@@ -370,10 +370,11 @@
     $('sb-level').textContent = save.level;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
     $('sb-gold').textContent = save.gold;
-    $('sb-items').textContent = albumItemsFound(save) + ' / ' + ALBUM_ITEMS.length;
+    $('sb-items').textContent = albumItemsFound(save) + ' / ' + albumPool(save).length;
     var bp = $('badge-perso'), bs = $('badge-skills');
     bp.hidden = save.points <= 0; bp.textContent = save.points;
-    bs.hidden = save.skillPoints <= 0; bs.textContent = save.skillPoints;
+    var needArme = !save.arme && (save.voie === 'baton' || save.voie === 'kunai');
+    bs.hidden = save.skillPoints <= 0 && !needArme; bs.textContent = save.skillPoints > 0 ? save.skillPoints : '!';
     Array.prototype.forEach.call(document.querySelectorAll('.menu-btn'), function (b) {
       b.classList.toggle('is-active', b.dataset.page === state.page);
     });
@@ -523,7 +524,7 @@
     var max = Math.max.apply(null, STATS.map(function (st) { return parts[st.id].total; }));
     var scale = Math.max(STAT_MAX, Math.ceil(max / 10) * 10 + 10);
     var main = mainStat(chosenVoie(save));
-    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.</span>'
+    $('stat-voie').innerHTML = v ? '<img src="' + VOIE_ICON[v.id] + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.' + (VOIE_ARMES[v.id].length && !save.arme ? ' <b class="need-arme">Choisis ton arme au Temple !</b>' : '') + '</span>'
       : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1 et la Force fait tes dégâts. Choisis ta voie au Temple : elle te donne un attribut principal et multiplie tes points.</span>';
     $('stats').innerHTML = STATS.map(function (st) {
       var p = parts[st.id], seg = function (val, cls) { return val > 0 ? '<span class="' + cls + '" style="width:' + Math.min(100, val / scale * 100) + '%"></span>' : ''; };
@@ -608,7 +609,12 @@
   }
   function renderInventory() {
     var worn = function (id) { return save.equip[ITEMS[id].slot] === id ? 1 : 0; };
-    var ids = save.owned.filter(function (id) { return ITEMS[id] && matchesFilter(ITEMS[id]); });
+    var v = chosenVoie(save), fb = document.querySelector('#filters [data-filter="baton"]'), fk = document.querySelector('#filters [data-filter="kunai"]');
+    fb.hidden = v === 'kunai' || v === 'ermite'; fk.hidden = v === 'baton' || v === 'ermite';
+    fb.textContent = save.arme && v === 'baton' ? WEAPON_TYPES[save.arme].plural : 'Corps à corps';
+    fk.textContent = save.arme && v === 'kunai' ? WEAPON_TYPES[save.arme].plural : 'Distance';
+    if ((state.filter === 'baton' && fb.hidden) || (state.filter === 'kunai' && fk.hidden)) state.filter = 'tout';
+    var ids = save.owned.filter(function (id) { return ITEMS[id] && itemAvailable(save, id) && matchesFilter(ITEMS[id]); });
     ids.sort(function (a, b) { return worn(b) - worn(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)) || tierOf(b) - tierOf(a) || ITEMS[a].name.localeCompare(ITEMS[b].name); });
     $('inventory').innerHTML = ids.length ? ids.map(function (id) {
       var it = ITEMS[id], equipped = worn(id);
@@ -952,7 +958,7 @@
         temple.splash = { x: temple.L.gate.x, y: temple.L.gate.y, t0: performance.now(), color: voieOf(voieId).color };
         Sfx.play('levelup');
         notice(voieId === 'ermite' ? 'La grenouille ressort de la flaque dorée : mode Ermite ! Peau orange, yeux de crapaud, plus d’arme, elle frappe à mains nues avec l’onde de paume.'
-          : 'Tu as plongé dans la ' + voieOf(voieId).name + ' : trois branches s’ouvrent devant toi, et se rejoignent au sommet. Tu te bats désormais ' + (voieId === 'kunai' ? 'à distance.' : 'au corps à corps.'));
+          : 'Tu as plongé dans la ' + voieOf(voieId).name + ' : trois branches s’ouvrent devant toi, et se rejoignent au sommet. Choisis maintenant ton arme, à droite.');
       }, 750);
     })(t0);
   }
@@ -1029,7 +1035,34 @@
       '<p class="muted vp-note">Choix définitif. Plus tard, le ' + TEA.name + ' (' + TEA.price + ' lucioles) permet de tout recommencer.</p>';
   }
 
+  // L'arme de la voie (Armes, Lancer) : à choisir une fois ; ensuite on ne manie, ne trouve et ne voit qu'elle
+  var ARME_ICON = { baton: 'baton_roseau', harpon: 'harpon_pecheur', katana: 'katana_roseau', masse: 'masse_fer', kunai: 'kunai_acier', shuriken: 'shuriken_eau' };
+  function renderArmePick() {
+    var voie = chosenVoie(save), box = $('arme-pick');
+    box.hidden = !VOIE_ARMES[voie] || !VOIE_ARMES[voie].length;
+    if (box.hidden) return;
+    if (save.arme) {
+      var t = WEAPON_TYPES[save.arme];
+      box.innerHTML = '<h2>TON ARME</h2><div class="ap-cur"><img class="px" src="' + iconUrls[ARME_ICON[save.arme]] + '" alt=""><span><b>' + t.plural + '</b><small>Tu ne manies, ne trouves et ne vois plus que des ' + t.plural.toLowerCase() + '.</small></span></div>' +
+        '<button class="btn btn-ghost" id="arme-change"' + (save.gold < ARME_PRICE ? ' disabled' : '') + '>Changer d’arme (' + ARME_PRICE + ' lucioles)</button>';
+      return;
+    }
+    box.innerHTML = '<h2>CHOISIS TON ARME</h2><p class="muted ap-help">Ensuite, tu ne manieras, ne trouveras et ne verras plus qu’elle : butin, boutique et inventaire.</p><div class="ap-list">' +
+      VOIE_ARMES[voie].map(function (id) {
+        var b = SKILLS.filter(function (s) { return s.base === id; })[0];
+        return '<button class="ap-opt" data-arme="' + id + '"><img class="px" src="' + iconUrls[ARME_ICON[id]] + '" alt=""><span><b>' + WEAPON_TYPES[id].plural + '</b><small>' + b.name + ' : ' + b.desc + '</small></span></button>';
+      }).join('') + '</div>';
+  }
+  function chooseArme(id) {
+    save.arme = id;
+    ensureWeapon(save); tidyShop(save);
+    setPlayer(save); persist(); buildHero(); renderAll();
+    Sfx.play('equip');
+    notice('Ton arme : les ' + WEAPON_TYPES[id].plural.toLowerCase() + '. En main : ' + ITEMS[save.equip.arme].name + '. Tu ne trouveras plus que cette arme-là.');
+  }
+
   function renderDeck() {
+    renderArmePick();
     var weapon = weaponOf(save.equip);
     var deck = deckSkills(save, weapon);
     var cdr = combatProfile(save).cdr;
@@ -1069,7 +1102,7 @@
   }
   // Tout oublier : les points dépensés sont rendus et la voie redevient libre
   function forgetTree() {
-    save.skillPoints += treeCost(save); save.tree = []; save.deck = []; save.voie = null;
+    save.skillPoints += treeCost(save); save.tree = []; save.deck = []; save.voie = null; save.arme = null;
     setPlayer(save); persist(); buildHero();
   }
 
@@ -1194,7 +1227,7 @@
   function renderShop() {
     $('reroll').textContent = 'Nouvel arrivage · ' + SHOP_REROLL + ' lucioles';
     $('reroll').disabled = save.gold < SHOP_REROLL;
-    var items = save.shop.filter(function (id) { return id === TEA_ID || !owns(id); });
+    var items = save.shop.filter(function (id) { return id === TEA_ID || (!owns(id) && itemAvailable(save, id)); });
     if (items.indexOf(state.ware) < 0) state.ware = items[0] || null;
     $('stock').innerHTML = items.length ? items.map(function (id) {
       var tea = id === TEA_ID, price = tea ? TEA.price : itemPrice(id);
@@ -1605,13 +1638,14 @@
     save.tower = f;
     save.gold += r.gold;
     levels = gainXp(save, r.xp);
-    if (r.item && !owns(r.item)) save.owned.push(r.item);
+    var swap = r.item && !itemAvailable(save, r.item) ? itemPrice(r.item) : 0; // pas ton arme : sa valeur en lucioles
+    if (swap) save.gold += swap; else if (r.item && !owns(r.item)) save.owned.push(r.item);
     if (card.boss) albumKill(save, 's-' + f);
     persist();
     Sfx.play(levels ? 'levelup' : 'pickup');
     tower.sel = Math.min(TOWER_FLOORS, f + 1);
     return '<p>Étage ' + f + ' conquis ! +' + r.gold + ' lucioles · +' + r.xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
-      (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> Trésor du Grand Sage : <b>' + ITEMS[r.item].name + '</b></p>' : '') +
+      (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> Trésor du Grand Sage : <b>' + ITEMS[r.item].name + '</b>' + (swap ? ' — ce n’est pas ton arme : les Sages te donnent <b>' + swap + ' lucioles</b> à la place.' : '') + '</p>' : '') +
       (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline devant toi.</p>' : '');
   }
   function openTower() {
@@ -1660,7 +1694,7 @@
         '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(hp, me.maxHp) + '">' + hp + '</b></li><li><span>Dégâts</span><b class="' + cmp(dmg, me.dmg) + '">' + Math.round(dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(fighter.agi, me.agi) + '">' + fighter.agi + '</b></li></ul>' +
         (fighter.skills.length > 1 ? '<p class="tw-spells">Sorts : ' + fighter.skills.slice(1).map(function (s) { return '<i>' + s.name + '</i>'; }).join('') + '</p>' : '') +
         '<div class="tw-reward"><h2>' + (f <= save.tower ? 'DÉJÀ CONQUIS' : 'RÉCOMPENSE') + '</h2>' + (f <= save.tower ? '<p class="muted">Tu peux rejouer l’épreuve, sans récompense.</p>' :
-          '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + statLine(ITEMS[r.item].stats) + '</small></p>' : '')) + '</div>' +
+          '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + (itemAvailable(save, r.item) ? statLine(ITEMS[r.item].stats) : 'Pas ton arme : ' + itemPrice(r.item) + ' lucioles à la place') + '</small></p>' : '')) + '</div>' +
         '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (boss ? 'Défier le Grand Sage ▶' : 'Affronter ▶')) + '</button></div>';
     }
     // tout ce que la tour a déjà rapporté : lucioles, XP et les trésors des Grands Sages
@@ -1691,6 +1725,12 @@
   function chapterFound(ch) {
     return ch.cat === 'monstres' ? ch.list.filter(function (m) { return albumOf(save).monstres[m.id]; }).length : ch.list.filter(function (id) { return albumSyncItems(save).indexOf(id) >= 0; }).length;
   }
+  // les cartes qui comptent pour cette grenouille (les armes des autres voies ou des autres types ne comptent pas)
+  function chapterTotal(ch) {
+    if (ch.cat === 'monstres') return ch.list.length;
+    var pool = albumPool(save);
+    return ch.list.filter(function (id) { return pool.indexOf(id) >= 0; }).length;
+  }
   // une carte : cadre de la rareté, illustration, nom, et ce qu'on sait
   function albumCard(ch, e) {
     if (ch.cat === 'monstres') {
@@ -1702,6 +1742,7 @@
         '<span class="ac-sub">' + (e.kind === 'sage' ? 'Étage ' + e.floor : biome.name) + '</span><span class="ac-foot">' + (e.kind === 'boss' ? 'BOSS' : RARITIES[e.rarity].name.toUpperCase()) + ' · vaincu ×' + n + '</span></div></div>';
     }
     var it = ITEMS[e], ok = albumSyncItems(save).indexOf(e) >= 0;
+    if (!ok && !itemAvailable(save, e)) return '<div class="acard back off"><img class="px ac-ghost" src="' + lockedUrls[e] + '" alt=""><small>Pas pour ton arme</small></div>';
     if (!ok) return '<div class="acard back"><img class="px ac-ghost" src="' + lockedUrls[e] + '" alt=""><small>' + itemHint(e) + '</small></div>';
     var slot = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name;
     return '<div class="acard ' + (it.reward ? 'r-epique k-tresor' : 'r-commun') + '" title="' + it.desc + '"><div class="ac-in"><b class="ac-name">' + it.name + '</b>' +
@@ -1717,25 +1758,25 @@
     var left, right;
     if (!ch) {
       var bar = function (cat, label) {
-        var total = cat === 'monstres' ? ALBUM_MONSTERS.length : ALBUM_ITEMS.length, found = albumCount(save, cat);
+        var total = cat === 'monstres' ? ALBUM_MONSTERS.length : albumPool(save).length, found = albumCount(save, cat);
         return '<div class="bk-prog"><span>' + label + ' <b>' + found + ' / ' + total + '</b></span><span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div>';
       };
       var toc = function (cat) {
-        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + chapterFound(c) + ' / ' + c.list.length + '</b></button>'; }).join('');
+        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + (chapterTotal(c) ? chapterFound(c) + ' / ' + chapterTotal(c) : '—') + '</b></button>'; }).join('');
       };
       left = '<h1 class="bk-title">ALBUM DU MARAIS</h1><p class="bk-intro">Chaque créature vaincue et chaque objet trouvé colle sa carte dans ce livre. Les cartes rares et épiques ont leur cadre bleu ou violet.</p>' +
         bar('monstres', 'Bestiaire') + bar('objets', 'Objets') +
         '<h2 class="bk-h">BESTIAIRE</h2><div class="bk-tocs">' + toc('monstres') + '</div><h2 class="bk-h">OBJETS</h2><div class="bk-tocs">' + toc('objets') + '</div>';
       right = '<h2 class="bk-h">RÉCOMPENSES</h2><p class="bk-intro">Remplis le livre pour gagner des lucioles, de l’expérience… et deux trésors.</p><div class="bk-miles">' +
         ALBUM_MILESTONES.map(function (m) {
-          var done = albumOf(save).paliers.indexOf(m.id) >= 0, rdy = milestoneReady(save, m), have = albumCount(save, m.cat);
-          return '<div class="bk-mile' + (done ? ' done' : (rdy ? ' ready' : '')) + '"><span class="bm-n">' + m.n + '</span><span class="bm-txt"><b>' + (m.cat === 'monstres' ? 'créatures' : 'objets') + '</b>' + m.gold + ' lucioles · ' + m.xp + ' XP' + (m.item ? ' · <em>' + ITEMS[m.item].name + '</em>' : '') + '</span>' +
-            (done ? '<span class="bm-state">Reçu</span>' : (rdy ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<span class="bm-state">' + Math.min(have, m.n) + ' / ' + m.n + '</span>')) + '</div>';
+          var done = albumOf(save).paliers.indexOf(m.id) >= 0, rdy = milestoneReady(save, m), have = albumCount(save, m.cat), n = milestoneTarget(save, m);
+          return '<div class="bk-mile' + (done ? ' done' : (rdy ? ' ready' : '')) + '"><span class="bm-n">' + n + '</span><span class="bm-txt"><b>' + (m.cat === 'monstres' ? 'créatures' : 'objets') + '</b>' + m.gold + ' lucioles · ' + m.xp + ' XP' + (m.item ? ' · <em>' + ITEMS[m.item].name + '</em>' : '') + '</span>' +
+            (done ? '<span class="bm-state">Reçu</span>' : (rdy ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<span class="bm-state">' + Math.min(have, n) + ' / ' + n + '</span>')) + '</div>';
         }).join('') + '</div>';
     } else {
-      var found = chapterFound(ch), cards = ch.list.map(function (e) { return albumCard(ch, e); });
+      var found = chapterFound(ch), total = chapterTotal(ch), cards = ch.list.map(function (e) { return albumCard(ch, e); });
       left = '<div class="bk-chap"><span class="bk-kicker">' + (ch.cat === 'monstres' ? 'BESTIAIRE' : 'OBJETS') + '</span><h1 class="bk-title">' + ch.name.toUpperCase() + '</h1><p class="bk-intro">' + ch.desc + '</p>' +
-        '<div class="bk-prog"><span>Cartes trouvées <b>' + found + ' / ' + ch.list.length + '</b></span><span class="al-bar"><i style="width:' + (found / ch.list.length * 100) + '%"></i></span></div></div>' +
+        (total ? '<div class="bk-prog"><span>Cartes trouvées <b>' + found + ' / ' + total + '</b></span><span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div>' : '<p class="bk-intro"><b>Ce ne sont pas tes armes :</b> elles ne comptent pas dans ta collection.</p>') + '</div>' +
         '<div class="bk-cards">' + cards.slice(0, 6).join('') + '</div>';
       right = '<div class="bk-cards">' + cards.slice(6).join('') + '</div>' + (cards.length <= 6 ? '<p class="bk-empty">La suite de ce chapitre reste à écrire…</p>' : '');
     }
@@ -1918,6 +1959,8 @@
     if (t.hasAttribute('data-close-sheet')) { state.sheet = null; renderWorldMap(); return; }
     if (t.dataset.fight) { startFight(stageFight(save, state.sheet.w, +t.dataset.fight)); return; }
     if (t.dataset.exp) { if (save.meditation) endMeditation(false, 'Kawazu se lève pour partir en mission'); startExpedition(save, state.sheet.w, state.sheet.st, t.dataset.exp); persist(); renderStageSheet(); renderSidebar(); return; }
+    if (t.dataset.arme) { if (!save.arme && VOIE_ARMES[chosenVoie(save)].indexOf(t.dataset.arme) >= 0) chooseArme(t.dataset.arme); return; }
+    if (t.id === 'arme-change') { if (save.gold >= ARME_PRICE && save.arme) { save.gold -= ARME_PRICE; save.arme = null; persist(); Sfx.play('pickup'); renderAll(); } return; }
     if (t.id === 'med-start') { save.meditation = { since: Date.now() }; persist(); Sfx.play('drip'); renderMeditation(); return; }
     if (t.id === 'med-stop') { endMeditation(false); return; }
     if (t.id === 'exp-claim' || (t.id === 'sb-expedition' && expeditionLeft(save) <= 0)) { claimExpedition(); return; }

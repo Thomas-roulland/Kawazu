@@ -163,10 +163,19 @@ var TEA_ID = 'the_oubli';
 var TEA = { name: 'Thé de l’oubli', price: 80, desc: 'Une tisane amère : oublie ta voie et tout le Temple, et rend les points.' };
 var SHOP_SIZE = 5, SHOP_REROLL = 25;
 
-function refreshShop(save) {
+function shopTier(save) {
   var maxTier = 1;
   for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w + 2;
+  return Math.min(maxTier, 6);
+}
+function refreshShop(save) {
   var stock = [];
-  while (stock.length < SHOP_SIZE) stock.push(rollItem(save, pickBase(Math.min(maxTier, 6)), rollRarity('shop')));
+  while (stock.length < SHOP_SIZE) stock.push(rollItem(save, pickBase(shopTier(save), save), rollRarity('shop')));
   save.shop = stock.concat([TEA_ID]);
+}
+// L'étal ne garde que ce que la grenouille peut porter : chaque objet qui ne lui sert plus est remplacé
+function tidyShop(save) {
+  var stock = save.shop.filter(function (id) { return id !== TEA_ID; }), kept = stock.filter(function (id) { return itemAvailable(save, id); });
+  for (var i = kept.length; i < stock.length; i++) kept.push(rollItem(save, pickBase(shopTier(save), save), rollRarity('shop')));
+  save.shop = kept.concat([TEA_ID]);
 }

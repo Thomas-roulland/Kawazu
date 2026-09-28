@@ -83,7 +83,10 @@ Les **lucioles** sont la monnaie du jeu.
   - **Voie de l’Ermite** (mains nues, qui donnent de l’Esprit) : Esprit ; sorts plus puissants qui reviennent plus vite,
     une petite armure. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et **coups de boule**.
 
-  Une voie ne manie que sa famille d’armes. Elle offre **trois branches de 10 dalles** (sorts aux étapes 1, 4, 7, 10 ;
+  Une voie ne manie que sa famille d’armes, et on y **choisit son arme** au Temple (Armes : bâton, harpon, katana ou masse ;
+  Lancer : kunaï ou shuriken ; changer coûte 40 lucioles) : ensuite, on ne manie, ne trouve (butin, boutique) et ne voit
+  (inventaire) plus que celle-là. L’Ermite ne trouve plus d’armes du tout. L’album ne compte que les objets qu’on peut
+  avoir, et un trésor de la tour qui n’est pas ton arme est remplacé par sa valeur en lucioles. Elle offre **trois branches de 10 dalles** (sorts aux étapes 1, 4, 7, 10 ;
   caractéristiques aux étapes 2, 5, 8 ; passifs aux étapes 3, 6, 9) qui **se rejoignent sur la dalle-sommet** (niveau 90,
   15 points : un sort ultime et un grand passif) :
   - Armes : Bâton de jade (ondes, étourdissements, garde), Katana (entailles, saignement, iaï, critiques), Colosse
@@ -153,7 +156,7 @@ Les **lucioles** sont la monnaie du jeu.
 - Chaque objet trouvé ou acheté est un **exemplaire unique** : ses stats sont **tirées au hasard** selon sa rareté
   (Rare : environ +35 % et parfois une stat en plus ; Épique : environ +75 % et deux stats en plus). Deux Bâtons de
   jade épiques n’ont donc pas les mêmes jets. On peut en avoir plusieurs, et vendre les autres.
-- **Près de 80 modèles** (bâtons, harpons, katanas, masses, kunaïs, shurikens, chapeaux, écharpes, ceintures, anneaux), rangés par biome :
+- **Plus de 80 modèles** (bâtons, harpons, katanas, masses, kunaïs, shurikens, chapeaux, écharpes, ceintures, anneaux), rangés par biome :
   plus on avance, plus les modèles sont forts. Butin : 72 % commun, 24 % rare, 4 % épique (bien mieux sur un boss
   ou un monstre rare). L’étal de l’Aïeule Gamako tire aussi ses objets dans les trois raretés.
 - **Monstres rares et épiques** : un combat normal peut tomber sur une variante rare (16 %) ou épique (4 %),

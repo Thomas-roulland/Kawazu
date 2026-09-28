@@ -289,16 +289,24 @@ function weaponOf(equip) {
 function isRanged(weapon) { return weapon.kind === 'kunai'; }
 // L'onde dessinée au bout de l'arme (un kunaï, qu'on lance, reçoit celle d'un bâton pour ses coups au contact)
 function weaponFx(weapon) { return weapon.kind === 'kunai' ? { type: 'arc', radii: [5, 9, 13] } : weapon.attack.fx; }
-// Une voie choisie ne manie que sa famille d'armes (l'Ermite, aucune)
-function weaponAllowed(save, it) { var v = chosenVoie(save); return !v || (v !== 'ermite' && it.kind === v); }
-// Après un changement de voie (ou une ancienne partie) : la meilleure arme possédée de la bonne famille en main
+// Une voie choisie ne manie que sa famille d'armes (l'Ermite, aucune) ; une fois l'arme choisie (save.arme), que celle-là
+function weaponAllowed(save, it) {
+  var v = chosenVoie(save);
+  if (!v) return true;
+  return v !== 'ermite' && it.kind === v && (!save.arme || weaponType(it) === save.arme);
+}
+// Un objet qu'on peut trouver, garder et voir : les armes des autres voies (ou des autres types) n'apparaissent pas
+function itemAvailable(save, id) { var it = ITEMS[id] || ITEMS[baseOf(id)]; return !!it && (it.slot !== 'arme' || weaponAllowed(save, it)); }
+// L'arme de départ de chaque type, donnée si on n'en possède aucune
+var STARTER_WEAPON = { baton: 'baton_roseau', harpon: 'harpon_roseau', katana: 'katana_bambou', masse: 'masse_racine', kunai: 'kunai_rouille', shuriken: 'shuriken_bois' };
+// Après un changement de voie ou d'arme (ou une ancienne partie) : la meilleure arme possédée qui convient, en main
 function ensureWeapon(save) {
   var v = chosenVoie(save);
   if (!v || v === 'ermite') return;
   var cur = ITEMS[save.equip.arme];
-  if (cur && cur.kind === v) return;
-  var mine = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].slot === 'arme' && ITEMS[id].kind === v; });
-  if (!mine.length) { var starter = v === 'kunai' ? 'kunai_rouille' : 'baton_roseau'; save.owned.push(starter); mine = [starter]; }
+  if (cur && weaponAllowed(save, cur)) return;
+  var mine = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].slot === 'arme' && weaponAllowed(save, ITEMS[id]); });
+  if (!mine.length) { var starter = STARTER_WEAPON[save.arme || v]; if (save.owned.indexOf(starter) < 0) save.owned.push(starter); mine = [starter]; }
   mine.sort(function (a, b) { return tierOf(b) - tierOf(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)); });
   save.equip.arme = mine[0];
 }
@@ -518,6 +526,9 @@ Object.assign(ITEMS, {
 });
 // Les armes de la Voie des Armes (katanas, masses) et de la Voie du Lancer (shurikens), du marais au sommet
 Object.assign(ITEMS, {
+  harpon_roseau: mkStaff('Harpon de roseau', { force: 2, agilite: 1 }, ['#c9e07a', '#8aa84a', '#f0f8c8', '#8d6a45', '#5a3e25'], ['#e8f0c8', '#8aa84a'], 'Une pointe de roseau taillée en biseau. Les grenouilles pêcheuses l’adorent.', 0, 'harpon'),
+  harpon_cristal: mkStaff('Harpon de cristal', { force: 6, agilite: 2 }, ['#b8e8ff', '#5fa3c0', '#ffffff', '#2c3f73', '#1d2a52'], ['#e0f7ff', '#5fa3c0'], 'Une longue pointe de cristal : elle file tout droit, sans jamais trembler.', 0, 'harpon'),
+  harpon_foudre: mkStaff('Harpon de foudre', { force: 9, agilite: 3 }, ['#fff6b0', '#e0b43a', '#ffffff', '#3a1a5a', '#1a0a2a'], ['#fff6b0', '#b86ae8'], 'Forgé au sommet, les soirs d’orage. Il vibre avant de frapper.', 0, 'harpon'),
   katana_bambou: mkKatana('Sabre de bambou', { force: 2, agilite: 1 }, ['#d8e0b0', '#9aa86a', '#ffffff', '#6e4a2a', '#3e2a19'], ['#ffffff', '#b8c96a'], 'Pour s’entraîner. Il ne coupe pas grand-chose, mais il siffle joliment.'),
   katana_roseau: mkKatana('Katana du roseau', { force: 3, agilite: 1 }, ['#d9e1e6', '#a9b3bf', '#ffffff', '#4e9a45', '#2e6b3d'], ['#ffffff', '#8fce52'], 'Une lame fine, une poignée tressée de roseau vert.'),
   katana_saule: mkKatana('Wakizashi d’écorce', { force: 4, agilite: 2 }, ['#e8e0d0', '#a89a8a', '#ffffff', '#5a3e25', '#3e2a19'], ['#fff8e8', '#a89a7a'], 'Court et vif : il sort du fourreau avant qu’on l’ait vu bouger.'),
@@ -630,6 +641,7 @@ Object.assign(ITEM_TIER, {
   baton_braise: 6, kunai_tempete: 6, echarpe_givre: 6, ceinture_jade: 6, anneau_givre: 6, kasa_noir: 6
 });
 Object.assign(ITEM_TIER, {
+  harpon_roseau: 1, harpon_cristal: 4, harpon_foudre: 6,
   katana_bambou: 1, masse_racine: 1, shuriken_bois: 1,
   katana_roseau: 2, masse_galet: 2, shuriken_eau: 2,
   katana_saule: 3, masse_fer: 3, shuriken_rosee: 3,
@@ -689,11 +701,12 @@ function rollRarity(luck) {
   return r < p[0] ? 'commun' : (r < p[0] + p[1] ? 'rare' : 'epique');
 }
 // Les modèles qu'on peut trouver jusqu'à un rang (ceux du rang atteint un peu plus souvent)
-function lootPool(maxTier) {
-  return BASE_IDS.filter(function (id) { return ITEMS[id].drop > 0 && (ITEM_TIER[id] || 1) <= maxTier; });
+// (save : seulement ce que la grenouille peut porter — pas d'armes d'une autre voie ou d'un autre type)
+function lootPool(maxTier, save) {
+  return BASE_IDS.filter(function (id) { return ITEMS[id].drop > 0 && (ITEM_TIER[id] || 1) <= maxTier && (!save || itemAvailable(save, id)); });
 }
-function pickBase(maxTier) {
-  var pool = lootPool(maxTier), weight = function (id) { return ITEMS[id].drop * ((ITEM_TIER[id] || 1) === maxTier ? 2 : 1); };
+function pickBase(maxTier, save) {
+  var pool = lootPool(maxTier, save), weight = function (id) { return ITEMS[id].drop * ((ITEM_TIER[id] || 1) === maxTier ? 2 : 1); };
   var total = pool.reduce(function (s, id) { return s + weight(id); }, 0), r = Math.random() * total;
   for (var i = 0; i < pool.length; i++) { r -= weight(pool[i]); if (r <= 0) return pool[i]; }
   return pool[pool.length - 1];
@@ -717,7 +730,7 @@ function sellPrice(id) { return Math.max(3, Math.floor(itemPrice(id) / 4)); }
 // Butin : un nouvel exemplaire d'un modèle de rang autorisé, de rareté tirée au sort (luck : voir rollRarity)
 function rollLoot(save, maxTier, chance, luck) {
   if (Math.random() > chance) return null;
-  return rollItem(save, pickBase(maxTier), rollRarity(luck));
+  return rollItem(save, pickBase(maxTier, save), rollRarity(luck));
 }
 
 // ---------- Sauvegarde ----------
@@ -731,7 +744,7 @@ function newSave() {
     v: SAVE_VERSION, hero: null, // hero = { name, skin } une fois la grenouille créée
     equip: Object.assign({}, DEFAULT_EQUIP), owned: STARTER_ITEMS.slice(),
     level: 1, xp: 0, points: 0, alloc: { vitalite: 0, agilite: 0, force: 0, esprit: 0 },
-    skillPoints: 0, voie: null, tree: [], deck: [], gold: 30,
+    skillPoints: 0, voie: null, arme: null, tree: [], deck: [], gold: 30,
     progress: [0, 0, 0, 0, 0, 0], expedition: null, shop: [],
     ach: [], // hauts faits obtenus (voir feats.js)
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
@@ -797,6 +810,7 @@ function parseSave(data) {
     if (id === null || (ITEMS[id] && ITEMS[id].slot === sl.id && save.owned.indexOf(id) >= 0)) save.equip[sl.id] = id;
   });
   if (!save.equip.arme) save.equip.arme = DEFAULT_EQUIP.arme; // toujours une arme en main
+  if (typeof data.arme === 'string' && WEAPON_TYPES[data.arme] && WEAPON_TYPES[data.arme].kind === save.voie) save.arme = data.arme;
   ensureWeapon(save); // et une arme de sa voie
   // hauts faits : null = partie d'avant les hauts faits, ils seront rangés sans être annoncés
   save.ach = Array.isArray(data.ach) ? data.ach.filter(function (id) { return typeof id === 'string'; }) : null;

@@ -28,9 +28,9 @@ var ALBUM_MILESTONES = [
   { id: 'ob-5', cat: 'objets', n: 5, gold: 60, xp: 40 },
   { id: 'ob-10', cat: 'objets', n: 10, gold: 150, xp: 100 },
   { id: 'ob-20', cat: 'objets', n: 20, gold: 300, xp: 250 },
-  { id: 'ob-35', cat: 'objets', n: 35, gold: 600, xp: 600 },
-  { id: 'ob-50', cat: 'objets', n: 50, gold: 1000, xp: 1000 },
-  { id: 'ob-all', cat: 'objets', n: ALBUM_ITEMS.length - 1, gold: 1500, xp: 1500, item: 'echarpe_collection' } // tout, sauf l'écharpe qu'on gagne
+  { id: 'ob-35', cat: 'objets', n: 30, gold: 600, xp: 600 },
+  { id: 'ob-50', cat: 'objets', n: 40, gold: 1000, xp: 1000 },
+  { id: 'ob-all', cat: 'objets', all: true, n: 0, gold: 1500, xp: 1500, item: 'echarpe_collection' } // tout, sauf l'écharpe qu'on gagne
 ];
 
 function albumOf(save) {
@@ -46,9 +46,13 @@ function albumSyncItems(save) {
   return a.objets;
 }
 function albumItemsFound(save) { return albumSyncItems(save).length; }
+// Les objets qu'une grenouille peut collectionner : tous, sauf les armes qui ne sont pas les siennes (et qu'elle n'a jamais eues)
+function albumPool(save) { var found = albumSyncItems(save); return ALBUM_ITEMS.filter(function (id) { return itemAvailable(save, id) || found.indexOf(id) >= 0; }); }
+// Le nombre à atteindre pour un palier (« tout » dépend des armes de la grenouille)
+function milestoneTarget(save, ms) { return ms.all ? albumPool(save).length - 1 : ms.n; }
 function albumMonstersFound(save) { var m = albumOf(save).monstres; return ALBUM_MONSTERS.filter(function (x) { return m[x.id]; }).length; }
 function albumCount(save, cat) { return cat === 'monstres' ? albumMonstersFound(save) : albumItemsFound(save); }
-function milestoneReady(save, ms) { return albumOf(save).paliers.indexOf(ms.id) < 0 && albumCount(save, ms.cat) >= ms.n; }
+function milestoneReady(save, ms) { return albumOf(save).paliers.indexOf(ms.id) < 0 && albumCount(save, ms.cat) >= milestoneTarget(save, ms); }
 // Réclame un palier : lucioles, XP, et parfois un trésor
 function albumClaim(save, ms) {
   if (!milestoneReady(save, ms)) return null;

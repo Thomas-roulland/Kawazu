@@ -442,6 +442,21 @@ button:focus-visible { outline: 3px solid var(--gold-2); outline-offset: 3px; }
 .tslab.summit { width: var(--summit, 90px); height: var(--summit, 90px); margin: calc(var(--summit, 90px) / -2) 0 0 calc(var(--summit, 90px) / -2); }
 .tslab.summit img { width: 32px; height: 32px; image-rendering: pixelated; }
 .ni-known { color: #8fce52; }
+/* le choix de l'arme, au Temple */
+.arme-pick { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #2a383c; }
+.arme-pick[hidden] { display: none; }
+.ap-help { margin: 0; font-size: 14px; }
+.ap-list { display: flex; flex-direction: column; gap: 6px; }
+.ap-opt, .ap-cur { display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left; color: var(--text); background: var(--panel-2); border: 2px solid var(--line-2); }
+.ap-opt:hover { border-color: var(--gold); }
+.ap-cur { border-color: var(--gold); }
+.ap-opt img, .ap-cur img { width: 34px; height: 34px; flex-shrink: 0; padding: 2px; background: #0f1512; image-rendering: pixelated; }
+.ap-opt span, .ap-cur span { display: flex; flex-direction: column; gap: 2px; }
+.ap-opt b, .ap-cur b { font-size: 16px; color: var(--gold-2); }
+.ap-opt small, .ap-cur small { font-size: 13px; line-height: 1.3; color: var(--muted); }
+#filters [hidden] { display: none; }
+.need-arme { color: var(--gold-2); }
+.acard.back.off { opacity: 0.4; filter: grayscale(1); }
 .ttier { position: absolute; z-index: 1; transform: translateY(-50%); padding: 4px 7px; font-family: var(--pixel); font-size: 7px; color: #6a7a7e; background: #1a2426; box-shadow: 0 0 0 2px #10181a, inset 0 1px 0 #3e4e54; }
 .ttier.reached { color: var(--gold-2); }
 /* dalles : le dessin est dans le décor, le bouton porte l'icône et le nom */
