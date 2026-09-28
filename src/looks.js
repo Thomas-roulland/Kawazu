@@ -317,6 +317,43 @@ Object.keys(SPECIES).forEach(function (id) {
   SPECIES[id].frames = SPECIES[id].frames.map(function (f) { return f.map(function (r) { return (r + '.'.repeat(n)).slice(0, n); }); });
 });
 
+// L'arbre d'entraînement du dojo (32×32) : un tronc cerclé de paille, une cible peinte, deux moignons de branches
+// et une touffe de feuilles qui ondule d'une image à l'autre.
+SPECIES.arbre = {
+  behavior: 'arbre', xp: 0, hp: 1, speed: 0, chase: 0, size: 32,
+  pal: { k: '#1a1c2c', 1: '#3e2a19', 2: '#6e4a2a', 3: '#8d6a45', s: '#d9c07a', S: '#a8904a', r: '#c9412f', w: '#f4f4e8', g: '#4e9a45', G: '#2e6b3d', l: '#8fce52' },
+  frames: [0, 1].map(function (sway) {
+    var rows = [];
+    for (var y = 0; y < 32; y++) {
+      var row = '';
+      for (var x = 0; x < 32; x++) {
+        var ch = '.';
+        var left = y >= 27 ? 8 + (30 - y) : 10, right = y >= 27 ? 23 - (30 - y) : 21; // les racines s'évasent
+        if (y >= 9 && y <= 30 && x >= left && x <= right) {
+          if (x === left || x === right || y === 30) ch = 'k';
+          else if ((y === 12 || y === 13 || y === 25 || y === 26)) ch = x % 2 ? 's' : 'S';       // cordes de paille
+          else {
+            var d = Math.hypot(x - 15.5, y - 19);
+            if (d <= 1.3) ch = 'r'; else if (d <= 2.6) ch = 'w'; else if (d <= 3.9) ch = 'r'; else if (d <= 4.8) ch = 'w';
+            else ch = x === left + 1 ? '3' : (x === right - 1 ? '1' : ((x + y * 3) % 7 === 0 ? '1' : '2'));
+          }
+        }
+        // moignons de branches, avec une feuille au bout
+        if (y >= 15 && y <= 17 && x >= 4 && x < 10) ch = y === 16 ? (x === 4 ? 'k' : '2') : 'k';
+        if (y >= 21 && y <= 23 && x > 21 && x <= 27) ch = y === 22 ? (x === 27 ? 'k' : '2') : 'k';
+        if (Math.hypot(x - 3 - sway, y - 13.5) < 2.2) ch = 'g';
+        if (Math.hypot(x - 28 + sway, y - 19.5) < 2.2) ch = 'l';
+        // la touffe de feuilles au sommet
+        var e = Math.pow((x - 15.5 - sway) / 9.5, 2) + Math.pow((y - 5) / 4.6, 2);
+        if (e <= 1) ch = e > 0.78 ? 'k' : ((x * 3 + y * 5 + sway) % 7 === 0 ? 'l' : (y > 6 ? 'G' : 'g'));
+        row += ch;
+      }
+      rows.push(row);
+    }
+    return rows;
+  })
+};
+
 // Grille de chaînes -> canvas (pour les monstres et les icônes)
 function stringsToCanvas(rows, pal, flip, flash) {
   var h = rows.length, w = rows[0].length;

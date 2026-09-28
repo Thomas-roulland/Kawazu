@@ -2,6 +2,9 @@
 // Chaque tour, on choisit une compétence du deck (coût en Souffle, temps de recharge) ; l'ennemi a ses tactiques
 // (charge préparée, vol de vie, englue, rage du boss). Mode auto et vitesse ×1/×2/×4.
 // BattleScene.start(save, fight, onEnd) ; onEnd(résultat, fight) avec résultat = 'win' | 'lose' | 'flee'.
+// Au dojo (fight.kind 'duel' ou 'arbre') : l'adversaire peut être la grenouille d'un autre joueur (enemy.frog :
+// ses sorts, son souffle, ses coups au corps à corps ou au kunaï, choisis par l'ordinateur), ou l'arbre
+// d'entraînement (fight.turns tours, puis le bilan des dégâts). fight.settle(victoire) donne le texte du résultat.
 var BattleScene = (function () {
   var W = 320, H = 180, GROUND = 132;
   var $ = function (id) { return document.getElementById(id); };
@@ -79,6 +82,7 @@ var BattleScene = (function () {
     if (weapon.kind === 'kunai') KUNAI = kunaiProjectileImgs(weapon.blade).right;
   }
   function buildEnemyImgs(e) {
+    if (e.frog) { ENEMY = e.imgs; return; } // une grenouille du dojo : ses images sont prêtes (tournées vers la gauche)
     var s = SPECIES[e.species];
     var pal = Object.assign({}, s.pal, e.pal || {});
     ENEMY = {
@@ -117,9 +121,15 @@ var BattleScene = (function () {
     }).join('');
     $('bt-hero-status').textContent = statusText(P);
     $('bt-enemy-name').textContent = E.name;
-    $('bt-enemy-lvl').textContent = 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : ''));
-    $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
-    $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
+    if (fight.kind === 'arbre') {
+      $('bt-enemy-lvl').textContent = 'Tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns;
+      $('bt-enemy-hp').style.width = '100%';
+      $('bt-enemy-hptext').textContent = 'Dégâts : ' + fight.stats.total;
+    } else {
+      $('bt-enemy-lvl').textContent = 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? ' · DUEL' : '')));
+      $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
+      $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
+    }
     $('bt-enemy-status').textContent = statusText(E);
     renderSkills();
     $('bt-auto').classList.toggle('is-on', save.battle.auto);
@@ -169,6 +179,7 @@ var BattleScene = (function () {
     opts = opts || {};
     var box = enemyBox(), cx = box.x + box.w / 2, cy = box.y + box.h * 0.4;
     var dodge = E.dodge + (fight.weather && fight.weather.enemyDodge || 0);
+    if (E.shadow) { E.shadow = false; dodge = 1; opts.sure = false; } // une grenouille dans l'ombre esquive le coup
     if (!opts.sure && Math.random() < dodge) {
       floater(cx, cy, 'Esquive', '#c9d6e3');
       log(E.name + ' esquive !');
@@ -176,7 +187,10 @@ var BattleScene = (function () {
       return 0;
     }
     var r = heroDamage(mult, opts.crit);
+    if (E.guard > 0) r.dmg = Math.max(1, Math.round(r.dmg * 0.5));
+    if (E.dmgReduce) r.dmg = Math.max(1, Math.round(r.dmg * (1 - E.dmgReduce)));
     E.hp -= r.dmg;
+    if (fight.stats) { var st = fight.stats; st.total += r.dmg; st.hits++; if (r.crit) st.crits++; st.best = Math.max(st.best, r.dmg); }
     E.flash = 0.15;
     shake = r.crit ? 4 : 2;
     burst(cx, cy, '#f4f4e8', r.crit ? 14 : 8);
@@ -280,6 +294,23 @@ var BattleScene = (function () {
     Object.keys(P.cds).forEach(function (k) { if (P.cds[k] > 0) P.cds[k]--; });
     P.souffle = Math.min(P.maxSouffle, P.souffle + P.regen + (fight.weather && fight.weather.regen || 0));
     if (P.buff > 0) P.buff--;
+    if (E.guard > 0) E.guard--;
+    if (P.poison > 0) {
+      P.poison--;
+      P.hp -= P.poisonDmg;
+      floater(P.x + 32, GROUND - 60, P.poisonDmg + '', '#8fce52');
+      burst(P.x + 32, GROUND - 40, '#6fae52', 8);
+      renderHud();
+      await wait(350);
+      if (P.hp <= 0) return defeat();
+    }
+    if (P.stun > 0) {
+      P.stun--;
+      log(heroName() + ' est étourdi et ne bouge pas.', 'danger');
+      renderHud();
+      await wait(450);
+      return enemyTurn();
+    }
     busy = false;
     renderHud();
     if (save.battle.auto) {
@@ -293,6 +324,7 @@ var BattleScene = (function () {
     busy = true;
     renderHud();
     await useSkill(skill);
+    if (fight.kind === 'arbre') { fight.done++; renderHud(); if (fight.done >= fight.turns) return trainingEnd(); }
     if (E.hp <= 0) return victory();
     await wait(300);
     enemyTurn();
@@ -305,6 +337,7 @@ var BattleScene = (function () {
     if (E.poison > 0) {
       E.poison--;
       E.hp -= E.poisonDmg;
+      if (fight.stats) fight.stats.total += E.poisonDmg;
       floater(E.x + 24, GROUND - 60, E.poisonDmg + '', '#8fce52');
       burst(E.x + 24, GROUND - 40, '#6fae52', 8);
       renderHud();
@@ -317,6 +350,8 @@ var BattleScene = (function () {
       await wait(450);
       return playerTurn();
     }
+    if (E.frog) return frogTurn();
+    if (E.species === 'arbre') return treeTurn();
     E.turn++;
     if (E.rank === 'boss' && !E.enraged && E.hp < E.maxHp * 0.5) {
       E.enraged = true;
@@ -381,6 +416,155 @@ var BattleScene = (function () {
     playerTurn();
   }
 
+  // ---------- Au dojo : la grenouille adverse joue ses sorts comme Kawazu, choisis par l'ordinateur ----------
+  function frogReady(s) { return !(E.cds[s.id] > 0) && E.souffle >= s.cost; }
+  function frogPick() {
+    var ready = E.skills.filter(frogReady), pick = function (fn) { return ready.filter(fn)[0]; };
+    if (E.hp < E.maxHp * 0.35) { var heal = pick(function (s) { return s.heal; }); if (heal) return heal; }
+    if (!E.buff) { var buff = pick(function (s) { return s.buff; }); if (buff && P.hp > E.dmg * 3) return buff; }
+    if (!E.guard && !E.shadow && Math.random() < 0.25) { var def = pick(function (s) { return s.guard || s.shadow; }); if (def) return def; }
+    var attacks = ready.filter(function (s) { return s.power > 0; });
+    attacks.sort(function (a, b) { return b.power * b.hits - a.power * a.hits; });
+    return attacks[0] || ready[0];
+  }
+  // un coup de la grenouille adverse sur Kawazu
+  async function hitHero(mult, opts) {
+    opts = opts || {};
+    if (!opts.sure && (P.shadow || Math.random() < P.dodge)) {
+      P.shadow = false;
+      floater(P.x + 32, GROUND - 50, 'Esquive', '#c9d6e3');
+      log(heroName() + ' esquive !', 'hero');
+      Sfx.play('swing');
+      P.x -= 10; tween(P, 'x', P.homeX, 160);
+      return 0;
+    }
+    var crit = opts.crit || Math.random() < E.crit;
+    var dmg = E.dmg * mult * (E.buff > 0 ? 1.4 : 1) * (crit ? 1.6 : 1) * (0.9 + Math.random() * 0.2);
+    if (P.guard > 0) dmg *= 0.5;
+    dmg = Math.max(1, Math.round(dmg * (1 - P.dmgReduce)));
+    P.hp -= dmg;
+    P.hurt = 0.35;
+    shake = crit ? 4 : 2;
+    burst(P.x + 32, GROUND - 40, '#e05a4a', 10);
+    floater(P.x + 32, GROUND - 50, (crit ? 'CRIT ' : '') + dmg, '#ff8a7a');
+    Sfx.play('hurt');
+    P.x -= 8; tween(P, 'x', P.homeX, 160);
+    return dmg;
+  }
+  async function frogTurn() {
+    Object.keys(E.cds).forEach(function (k) { if (E.cds[k] > 0) E.cds[k]--; });
+    E.souffle = Math.min(E.maxSouffle, E.souffle + E.regen);
+    if (E.buff > 0) E.buff--;
+    renderHud();
+    await wait(250);
+    var s = frogPick();
+    if (!s) { log(E.name + ' reprend son souffle.'); await wait(350); return playerTurn(); }
+    E.souffle -= s.cost;
+    if (s.cd) E.cds[s.id] = s.cd + 1;
+    log(E.name + ' utilise ' + s.name + '.', 'danger');
+    var crit = false;
+    if (E.shadowCrit && s.power > 0) { crit = true; E.shadowCrit = false; }
+    var cx = E.x + enemySize(E) / 2;
+    if (s.heal) {
+      var amount = Math.round(E.maxHp * s.heal);
+      E.hp = Math.min(E.maxHp, E.hp + amount);
+      burst(cx, GROUND - 40, '#8fce52', 16); floater(cx, GROUND - 50, '+' + amount, '#8fce52');
+      Sfx.play('heart'); await wait(450);
+    } else if (s.guard) {
+      E.guard = s.guard; burst(cx, GROUND - 40, '#c9e07a', 12); Sfx.play('equip'); await wait(400);
+    } else if (s.shadow) {
+      E.shadow = true; E.shadowCrit = true; E.alpha = 0.4; Sfx.play('throw'); await wait(400); E.alpha = 1;
+    } else if (s.buff) {
+      E.buff = s.buff; burst(cx, GROUND - 40, '#9cc7e0', 16); Sfx.play('levelup'); await wait(450);
+    } else if (s.voie === 'kunai') {
+      for (var k = 0; k < s.hits && P.hp > 0; k++) {
+        E.frame = 1;
+        Sfx.play('throw');
+        var shot = { x: E.x + 6, y: GROUND - 34 - (k % 2) * 6, img: ENEMY.kunai };
+        shots.push(shot);
+        await tween(shot, 'x', P.x + 44, 220);
+        shots.splice(shots.indexOf(shot), 1);
+        await hitHero(s.power, { sure: true, crit: crit && k === 0 });
+        E.frame = 0;
+        await wait(s.hits > 2 ? 90 : 160);
+      }
+    } else {
+      // corps à corps, en miroir de Kawazu
+      var jump = s.id === 'saut';
+      await tween(E, 'x', P.homeX + 78, 220);
+      if (jump) { await tween(E, 'y', -60, 200); Sfx.play('swing'); await tween(E, 'y', 0, 140); shake = 6; }
+      for (var h = 0; h < s.hits && P.hp > 0; h++) {
+        E.frame = 1;
+        await wait(60);
+        E.frame = 2;
+        E.fx = s.voie === 'baton' || E.weaponKind === 'mains' ? 1 : 0;
+        E.palm = s.voie === 'ermite' ? 0.25 : 0;
+        if (s.voie === 'baton') Sfx.play('swing');
+        var dealt = await hitHero(s.power, { crit: crit && h === 0 });
+        if (s.drain && dealt) { var heal = Math.round(dealt * s.drain); E.hp = Math.min(E.maxHp, E.hp + heal); floater(cx, GROUND - 60, '+' + heal, '#8fce52'); }
+        if (s.stun && dealt && Math.random() < s.stun) { P.stun = 1; floater(P.x + 32, GROUND - 70, 'Étourdi !', '#f3d27a'); }
+        await wait(120);
+        E.fx = 0; E.frame = 3;
+        await wait(90);
+      }
+      E.frame = 0;
+      await tween(E, 'x', E.homeX, 200);
+    }
+    if (s.poison && P.hp > 0) { P.poison = s.poison; P.poisonDmg = Math.max(1, Math.round(E.dmg * 0.35 * (1 + E.poisonMult))); log(heroName() + ' est empoisonné.', 'danger'); }
+    renderHud();
+    if (P.hp <= 0) return defeat();
+    await wait(200);
+    playerTurn();
+  }
+
+  // ---------- L'arbre d'entraînement : il encaisse, ou fouette de ses branches si on l'a demandé ----------
+  async function treeTurn() {
+    if (!fight.riposte) {
+      log('L’arbre encaisse sans broncher.');
+      await wait(300);
+      return playerTurn();
+    }
+    E.x -= 4; tween(E, 'x', E.homeX, 200);
+    Sfx.play('swing');
+    await wait(120);
+    var dmg = await hitHero(1, {});
+    if (dmg) { fight.stats.taken += dmg; log('L’arbre fouette de ses branches : ' + dmg + ' dégâts.', 'danger'); }
+    renderHud();
+    if (P.hp <= 0) return defeat();
+    await wait(200);
+    playerTurn();
+  }
+  // le bilan de l'entraînement
+  async function trainingEnd() {
+    over = true;
+    renderHud();
+    Sfx.play('ladder');
+    log('Fin de l’entraînement !', 'hero');
+    await wait(600);
+    var st = fight.stats, turns = Math.max(1, fight.done);
+    var row = function (label, v) { return '<li><span>' + label + '</span><b>' + v + '</b></li>'; };
+    showEnd(true, '<ul class="bt-bilan">' + row('Dégâts en ' + turns + ' tours', st.total) + row('Par tour', Math.round(st.total / turns)) +
+      row('Meilleur coup', st.best) + row('Critiques', st.crits + ' / ' + st.hits + ' coups') +
+      (fight.riposte ? row('Dégâts reçus', st.taken) + row('PV restants', Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp) : '') + '</ul>' +
+      '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', true);
+  }
+  // la fin d'un combat du dojo : le texte vient de fight.settle (réputation, XP…)
+  async function settle(win) {
+    fight.settled = true;
+    var html;
+    try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
+    showEnd(win, html);
+  }
+  function showEnd(win, html, title, again) {
+    var box = $('bt-result');
+    box.innerHTML = '<h2>' + (title || (win ? 'Victoire !' : 'Défaite…')) + '</h2>' + html +
+      '<div class="bt-result-actions">' + (again ? '<button class="btn" data-result="again">Recommencer</button>' : '') +
+      '<button class="btn' + (again ? ' btn-ghost' : '') + '" data-result="back">Retour au dojo</button></div>';
+    box.hidden = false;
+    box.dataset.win = win ? '1' : '0';
+    box.querySelector('button').focus();
+  }
+
   // ---------- Fin du combat ----------
   async function victory() {
     over = true;
@@ -390,6 +574,7 @@ var BattleScene = (function () {
     log(E.name + ' est vaincu !', 'hero');
     renderHud();
     await wait(700);
+    if (fight.settle) return settle(true);
     // récompenses
     var r = fight.rewards;
     var tier = fight.biomeIndex + 1;
@@ -414,6 +599,8 @@ var BattleScene = (function () {
     log(heroName() + ' est à terre…', 'danger');
     renderHud();
     await wait(900);
+    if (fight.kind === 'arbre') return trainingEnd();
+    if (fight.settle) return settle(false);
     showResult(false, {});
   }
 
@@ -427,7 +614,7 @@ var BattleScene = (function () {
     } else {
       html += '<p>' + heroName() + ' retourne au camp soigner ses blessures. Répartis tes points ou change d’équipement, puis réessaie !</p>';
     }
-    var hasNext = win && fight.stage < STAGES;
+    var hasNext = win && fight.kind === 'stage' && fight.stage < STAGES;
     html += '<div class="bt-result-actions">' +
       (hasNext ? '<button class="btn" data-result="next">Étape suivante ▶</button>' : '') +
       '<button class="btn' + (hasNext ? ' btn-ghost' : '') + '" data-result="back">Retour</button></div>';
@@ -453,6 +640,7 @@ var BattleScene = (function () {
     floaters = floaters.filter(function (f) { f.t += dt; return f.t < 1.1; });
     particles = particles.filter(function (pt) { pt.life -= dt; pt.vy += 200 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; return pt.life > 0; });
     if (E.flash > 0) E.flash -= dt;
+    if (E.palm > 0) E.palm -= dt;
     if (P.hurt > 0) P.hurt -= dt;
     if (P.palm > 0) P.palm -= dt;
     shake = Math.max(0, shake - dt * 20);
@@ -494,7 +682,23 @@ var BattleScene = (function () {
     }
 
     // ennemi
-    if (!E.dead) {
+    if (!E.dead && E.frog) {
+      var fimg = E.flash > 0 ? ENEMY.hurt[0] : (E.frame ? ENEMY.atk[E.frame] || ENEMY.atk[1] : ENEMY.idle[Math.floor(now / 500) % 2]);
+      ctx.globalAlpha = E.alpha == null ? 1 : E.alpha;
+      ctx.drawImage(fimg, Math.round(E.x), Math.round(GROUND - es + E.y), es, es);
+      ctx.globalAlpha = 1;
+      if (E.fx && ENEMY.fx[1]) ctx.drawImage(ENEMY.fx[E.frame] || ENEMY.fx[1], Math.round(E.x - 56 * es / 64), GROUND - es, es, es);
+      if (E.palm > 0) {
+        ctx.strokeStyle = 'rgba(243,210,122,' + (E.palm * 3).toFixed(2) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(E.x + es / 2 - 44, GROUND - 28, 14 + (0.25 - E.palm) * 60, 0, Math.PI * 2); ctx.stroke();
+      }
+      if (E.guard > 0) {
+        ctx.strokeStyle = 'rgba(201,224,122,0.7)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(E.x + es / 2, GROUND - es / 2, es * 0.47, es * 0.56, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else if (!E.dead) {
       var f = Math.floor(now / (E.behavior === 'flyer' ? 90 : 400)) % 2;
       var hover = E.behavior === 'flyer' ? -10 + Math.round(Math.sin(now / 200) * 3) : 0;
       var shakeE = E.charging ? Math.round(Math.sin(now / 25) * 1.5) : 0;
@@ -503,7 +707,7 @@ var BattleScene = (function () {
     }
 
     // kunaïs en vol
-    shots.forEach(function (s) { ctx.drawImage(KUNAI, Math.round(s.x) - 12, Math.round(s.y) - 12, 24, 24); });
+    shots.forEach(function (s) { ctx.drawImage(s.img || KUNAI, Math.round(s.x) - 12, Math.round(s.y) - 12, 24, 24); });
 
     particles.forEach(function (pt) { ctx.fillStyle = pt.c; ctx.fillRect(Math.round(pt.x), Math.round(pt.y), 2, 2); });
 
@@ -558,27 +762,30 @@ var BattleScene = (function () {
       size: 1 + pas.size, // la Croissance fait grandir la grenouille
       souffle: f.weather && f.weather.noStartSouffle ? 0 : 1, maxSouffle: cs.maxSouffle, regen: cs.regen + pas.regen,
       dmgReduce: pas.dmgReduce, riposte: pas.riposte, poisonMult: pas.poisonMult,
-      cds: {}, guard: 0, buff: 0, shadow: false, shadowCrit: false,
+      cds: {}, guard: 0, buff: 0, shadow: false, shadowCrit: false, poison: 0, poisonDmg: 0, stun: 0,
       skills: deckSkills(save, weapon)
     };
     var en = f.enemy;
     var size = enemySize(en);
-    E = Object.assign({}, en, { hp: en.maxHp, x: W - 40 - size, homeX: W - 40 - size, flash: 0, turn: 0, stun: 0, poison: 0, poisonDmg: 0, charging: false, enraged: false, dead: false });
+    E = Object.assign({}, en, { hp: en.maxHp, x: W - 40 - size, homeX: W - 40 - size, flash: 0, turn: 0, stun: 0, poison: 0, poisonDmg: 0, charging: false, enraged: false, dead: false,
+      y: 0, frame: 0, fx: 0, palm: 0, alpha: 1, cds: {}, souffle: 1, guard: 0, buff: 0, shadow: false, shadowCrit: false });
     tweens = []; floaters = []; particles = []; shots = []; shake = 0;
     busy = true; over = false;
-    bg = buildBackground(BIOMES[f.biomeIndex]);
-    $('battle').style.background = BIOMES[f.biomeIndex].pal.groundDark;
+    bg = f.backdrop || buildBackground(BIOMES[f.biomeIndex]);
+    $('battle').style.background = f.backdrop ? '#1a1108' : BIOMES[f.biomeIndex].pal.groundDark;
     buildHero();
     buildEnemyImgs(E);
     $('bt-log').innerHTML = '';
     $('bt-result').hidden = true;
-    $('bt-title').textContent = BIOMES[f.biomeIndex].name + ' · étape ' + f.stage + ' / ' + STAGES;
+    $('bt-title').textContent = f.title || BIOMES[f.biomeIndex].name + ' · étape ' + f.stage + ' / ' + STAGES;
     $('bt-hero-name').textContent = heroName();
     $('bt-weather').textContent = f.weather && f.weather.id !== 'clair' ? f.weather.name + ' : ' + f.weather.desc : '';
     $('bt-weather').hidden = !(f.weather && f.weather.id !== 'clair');
     $('battle').hidden = false;
     resize();
-    log('Un ' + E.name + ' (niv. ' + E.level + ') barre la route !', 'danger');
+    if (f.kind === 'duel') log('Duel au dojo contre ' + E.name + ', la grenouille de ' + E.pseudo + ' (niv. ' + E.level + ') !', 'danger');
+    else if (f.kind === 'arbre') log('L’arbre d’entraînement t’attend : ' + f.turns + ' tours pour tout essayer.', 'hero');
+    else log('Un ' + E.name + ' (niv. ' + E.level + ') barre la route !', 'danger');
     if (E.rank === 'boss') Sfx.play('boss');
     renderHud();
     last = performance.now();
@@ -615,6 +822,7 @@ var BattleScene = (function () {
     if (t.id === 'bt-flee') { if (!over) { Sfx.play('click'); close('flee'); } return; }
     if (t.dataset.result) {
       var win = $('bt-result').dataset.win === '1';
+      if (t.dataset.result === 'again') { start(save, fight.again(), onEnd); return; }
       if (t.dataset.result === 'next') {
         var nf = stageFight(save, fight.biomeIndex, fight.stage + 1);
         start(save, nf, onEnd);

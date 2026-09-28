@@ -17,7 +17,7 @@ var FEATS = [
     test: function (s) { return SLOTS.every(function (sl) { return s.equip[sl.id]; }); } },
   { id: 'pie', name: 'Pie des marais', desc: 'Posséder 10 objets.', cat: 'objets', tier: 0, test: function (s) { return s.owned.length >= 10; } },
   { id: 'tresor', name: 'Trésor complet', desc: 'Posséder tous les objets du jeu.', cat: 'objets', tier: 2,
-    test: function (s) { return s.owned.length >= Object.keys(ITEMS).length; } },
+    test: function (s) { return s.owned.filter(collectible).length >= Object.keys(ITEMS).filter(collectible).length; } },
   { id: 'lucioles', name: 'Pluie de lucioles', desc: 'Avoir 300 lucioles en poche.', cat: 'objets', tier: 1, test: function (s) { return s.gold >= 300; } },
   { id: 'eleve', name: 'Élève du temple', desc: 'Prendre 5 dalles au Temple des voies.', cat: 'arbre', tier: 0, test: function (s) { return s.tree.length >= 5; } },
   { id: 'main', name: 'Main pleine', desc: 'Remplir les 3 emplacements du deck.', cat: 'arbre', tier: 1, test: function (s) { return s.deck.length >= DECK_SIZE; } },

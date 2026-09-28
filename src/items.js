@@ -179,6 +179,17 @@ var ITEMS = {
     desc: 'Cuir sombre et, pendue à la boucle, la dent d’un brochet vaincu.',
     colors: { 1: '#3e2a19', 2: '#241810', 3: '#5a3e25', 4: '#efe6a8' }, belt: ['#3e2a19', '#b8ad6e'], charm: '#efe6a8', look: { belt: true, charm: true }
   },
+  // récompenses du dojo (jamais en boutique ni en butin)
+  ceinture_champion: {
+    slot: 'ceinture', name: 'Ceinture du champion', icon: 'ceinture', stats: { force: 2, agilite: 2, vitalite: 2 }, drop: 0, reward: true,
+    desc: 'Remise chaque lundi à la première grenouille du dojo. Soie noire, boucle d’or en forme de grenouille.',
+    colors: { 1: '#1a1c2c', 2: '#0b0c14', 3: '#3a3c4c', 4: '#f3d27a' }, belt: ['#22243a', '#f3d27a'], charm: '#f3d27a', look: { belt: true, charm: true }
+  },
+  ceinture_dojo: {
+    slot: 'ceinture', name: 'Ceinture du dojo', icon: 'ceinture', stats: { force: 1, agilite: 2 }, drop: 0, reward: true,
+    desc: 'Pour les grenouilles du podium du dojo : une ceinture pourpre nouée à la façon des maîtres.',
+    colors: { 1: '#7a2a4a', 2: '#4a1a2e', 3: '#a84a6a', 4: '#cfd8dc' }, belt: ['#7a2a4a', '#cfd8dc'], look: { belt: true }
+  },
   perle_rosee: {
     slot: 'ceinture', name: 'Ceinture de rosée', icon: 'ceinture', stats: { souffle: 3 }, drop: 2,
     desc: 'Tressée d’algues bleues, fermée par une perle de rosée qui ne s’évapore jamais.',
@@ -213,6 +224,9 @@ var ITEMS = {
 
 var STARTER_ITEMS = ['baton_roseau', 'kunai_rouille', 'kunai_acier', 'echarpe_rouge', 'ceinture_corde'];
 var DEFAULT_EQUIP = { tete: null, arme: 'baton_roseau', echarpe: 'echarpe_rouge', ceinture: 'ceinture_corde', anneau: null };
+
+// Les objets à collectionner (sans les récompenses du dojo, réservées au podium)
+function collectible(id) { return ITEMS[id] && !ITEMS[id].reward; }
 
 function computeStats(equip) {
   var s = Object.assign({}, BASE_STATS);
@@ -376,6 +390,7 @@ function newSave() {
     skillPoints: 0, voie: null, tree: [], deck: [], gold: 30,
     progress: [0, 0, 0, 0, 0, 0], expedition: null, shop: [],
     ach: [], // hauts faits obtenus (voir feats.js)
+    gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
     battle: { auto: false, speed: 1 }
   };
 }
@@ -422,6 +437,7 @@ function parseSave(data) {
   if (!save.equip.arme) save.equip.arme = DEFAULT_EQUIP.arme; // toujours une arme en main
   // hauts faits : null = partie d'avant les hauts faits, ils seront rangés sans être annoncés
   save.ach = Array.isArray(data.ach) ? data.ach.filter(function (id) { return typeof id === 'string'; }) : null;
+  save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
   return save;
 }
 

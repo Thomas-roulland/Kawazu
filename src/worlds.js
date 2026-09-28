@@ -10,7 +10,10 @@ var GUARDIAN_STAGES = [4, 7];
 function stageLevel(w, st) { return w * 8 + st; }
 
 // Taille d'un ennemi dans l'arène de combat (px) : 48 pour un monstre, ~70 pour un gardien, ~96 pour un boss
-function enemySize(e) { return Math.round((SPECIES[e.species].size === 32 ? 96 : 48) * e.scale); }
+function enemySize(e) {
+  if (e.frog) return Math.round(64 * (e.size || 1)); // une grenouille du dojo : la même taille que Kawazu
+  return Math.round((SPECIES[e.species].size === 32 ? 96 : 48) * e.scale);
+}
 
 function makeEnemy(w, level, variant, rank, title) {
   var b = BIOMES[w];

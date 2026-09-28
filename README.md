@@ -56,7 +56,7 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 
 ## Le menu
 
-Menu latéral en bois : Camp, Personnage, Compétences, Carte du monde, Boutique (+ sauvegarde, son / touche M).
+Menu latéral en bois : Camp, Personnage, Compétences, Carte du monde, Boutique, Dojo, Classement (+ sauvegarde, son / touche M).
 Les **lucioles** sont la monnaie du jeu.
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
@@ -89,6 +89,21 @@ Les **lucioles** sont la monnaie du jeu.
   équipement). Gamako parle en **animalese**, comme dans Animal Crossing (une petite syllabe chantée par lettre, la bulle
   s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets (nouvel étal pour
   25 lucioles) et le **Thé de l’oubli**, qui rend tous les points de compétence.
+- **Dojo** (avec un compte, sauf l’entraînement) : un dojo en pixel art, trois onglets.
+  - **Duels** : trois adversaires proches en réputation (une plus forte, une plus faible, la plus proche), qui
+    sont les grenouilles des autres joueurs, jamais les siennes. On les affronte avec leur vrai équipement, leurs
+    points, leur voie et leur deck, joués par l’ordinateur. Une victoire rapporte de 4 à 30 points de
+    **réputation** (plus l’adversaire est réputé, plus elle rapporte) et un peu d’XP ; une défaite en coûte un peu,
+    jamais sous zéro. La grenouille défiée gagne ou perd la moitié en défense, et le **journal** raconte les défis
+    lancés et reçus. **10 duels par jour** ; quitter un duel, c’est le perdre.
+  - **Classement** : les dix meilleures du dojo et leurs **cadeaux du lundi** : chaque lundi à minuit (heure de
+    Paris), la 1re reçoit 400 lucioles et la **Ceinture du champion**, les 2e et 3e 250 lucioles et la
+    **Ceinture du dojo**, puis 150 et 100 lucioles jusqu’à la 10e. Le cadeau arrive tout seul dans la partie.
+  - **Entraînement** : l’**arbre d’entraînement**, 10 tours pour tester équipement, points et sorts, immobile ou
+    qui riposte, puis le bilan (dégâts, par tour, meilleur coup, critiques, dégâts reçus). Sans récompense ni limite.
+- **Classement** : toutes les grenouilles des joueurs. Un podium de souches pour les trois premières, la liste
+  complète triée par **Aventure** (étapes conquises), **Niveau**, **Succès** ou **Dojo** (réputation), un filtre par
+  voie, et la fiche de chaque grenouille : sa voie et ses dalles du temple, ses sorts, ses terres, son équipement.
 
 ## Le combat
 
@@ -109,6 +124,7 @@ Caractéristiques : Vitalité → PV, Force → dégâts, Agilité → critique 
 - `jeu.html`, `src/style.css` : le jeu, ses pages et son style (bois, dorures, parchemin)
 - `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
+- `src/dojo.js` : le décor du dojo (page et arène) ; le dojo lui-même est dans `src/hub.js` et `src/battle.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, ondes de choc, kunaï lancé, espèces de monstres

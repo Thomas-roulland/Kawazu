@@ -35,6 +35,10 @@
       { k: '#1a1c2c', 2: '#7a5634', 3: '#c9412f', 4: '#f3d27a' }],
     paume: [['', '....kk....kk', '...k33k..k33k', '...k33k..k33k', '....kk....kk', '.kk..........kk', 'k33k.kkkkkk.k33k', 'k33kk333333kk33k', '.kkk33333333kkk', '...k33333333k', '...k33333333k', '....k333333k', '.....kkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a' }],
+    dojo: [['', 'kkkkkkkkkkkkkkkk', 'k11111111111111k', 'kkkk1kkkkkk1kkkk', '...k1k....k1k...', '.kkk1kkkkkk1kkk.', '.k111111111111k.', '.kkk1kkkkkk1kkk.', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '..k111k..k111k..', '..kkkkk..kkkkk..'],
+      { k: '#1a1c2c', 1: '#c9412f' }],
+    rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
+      { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
     the: [['', '', '......k.k', '.......k.k', '...kkkkkkkkk', '..k111111111kk', '..k122222221k.k', '..k122222221k.k', '..k112222211kk', '...k1111111k', '....kkkkkkk', '..kkkkkkkkkkk'],
       { k: '#1a1c2c', 1: '#e8ecf0', 2: '#8fce52' }]
   };
@@ -328,7 +332,7 @@
     $('sb-level').textContent = save.level;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
     $('sb-gold').textContent = save.gold;
-    $('sb-items').textContent = save.owned.length + ' / ' + Object.keys(ITEMS).length;
+    $('sb-items').textContent = save.owned.filter(collectible).length + ' / ' + Object.keys(ITEMS).filter(collectible).length;
     var bp = $('badge-perso'), bs = $('badge-skills');
     bp.hidden = save.points <= 0; bp.textContent = save.points;
     bs.hidden = save.skillPoints <= 0; bs.textContent = save.skillPoints;
@@ -1109,6 +1113,332 @@
       (miss > 0 ? '<span class="sc-miss">Il te manque ' + miss + ' lucioles.</span>' : '') + '</div>';
   }
 
+  // ---------- Classement ----------
+  // Les fiches publiques de toutes les grenouilles (serveur du jeu) : un podium des trois premières sur des
+  // souches, la liste complète à droite, triée par aventure, niveau ou succès, et filtrée par voie. Un clic
+  // ouvre la fiche d'une grenouille. Sans compte (jeu hors ligne), on explique comment y apparaître.
+  var rank = { data: null, joueurs: 0, loading: false, error: '', sort: 'aventure', voie: 'toutes', sel: null };
+  var TOTAL_STAGES = BIOMES.length * STAGES;
+  var RANK_SORTS = {
+    aventure: { name: 'Aventure', cmp: function (a, b) { return b.conquis - a.conquis || b.niveau - a.niveau || b.xp - a.xp; },
+      metric: function (e) { return e.conquis >= TOTAL_STAGES ? 'Sommet conquis !' : (BIOMES[e.monde] || BIOMES[0]).name + ' · ' + e.etape + '/' + STAGES; } },
+    niveau: { name: 'Niveau', cmp: function (a, b) { return b.niveau - a.niveau || b.xp - a.xp || b.conquis - a.conquis; },
+      metric: function (e) { return 'Niveau ' + e.niveau; } },
+    succes: { name: 'Succès', cmp: function (a, b) { return b.succes - a.succes || b.niveau - a.niveau; },
+      metric: function (e) { return e.succes + ' succès'; } },
+    reputation: { name: 'Dojo', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
+      metric: function (e) { return (e.rep || 0) + ' réputation'; } }
+  };
+  var RANK_VOIES = [{ id: 'toutes', short: 'Toutes' }].concat(VOIES, [{ id: 'aucune', short: 'Sans voie' }]);
+  var rankBgDone = null, portraitCache = {};
+  // La grenouille d'un autre joueur, avec sa peau et son équipement (et le mode Ermite)
+  function portraitOf(e) {
+    var equip = Object.assign({}, DEFAULT_EQUIP);
+    Object.keys(e.equip || {}).forEach(function (slot) { var it = ITEMS[e.equip[slot]]; if (it && it.slot === slot) equip[slot] = e.equip[slot]; });
+    var hermit = e.voie === 'ermite', key = e.peau + '|' + hermit + '|' + JSON.stringify(equip);
+    if (!portraitCache[key]) {
+      var saved = [heroSkin, playerHermit];
+      heroSkin = SKINS[e.peau] || SKINS.marais; playerHermit = hermit;
+      portraitCache[key] = gridToCanvas(buildKawazuAnims(dressKawazu(sp, lookFor(equip))).idle.frames[0], paletteFor(sp.PAL, equip)).toDataURL();
+      heroSkin = saved[0]; playerHermit = saved[1];
+    }
+    return portraitCache[key];
+  }
+  function ago(vu) {
+    var h = Math.floor(Date.now() / 3600e3) - vu;
+    return h <= 0 ? 'dans l’heure' : (h < 24 ? 'il y a ' + h + ' h' : 'il y a ' + Math.floor(h / 24) + ' j');
+  }
+  // En fond : le camp du biome où l'on se trouve, figé
+  function drawRankBg() {
+    var id = BIOMES[currentWorld()].id;
+    if (rankBgDone === id) return;
+    rankBgDone = id;
+    var W = CampScene.W, H = CampScene.H, cv = $('rank-bg'), L = {}, parts = {};
+    cv.width = W; cv.height = H;
+    ['back', 'mid', 'front'].forEach(function (k) { parts[k] = document.createElement('canvas'); parts[k].width = W; parts[k].height = H; L[k] = parts[k].getContext('2d'); });
+    CampScene.draw(L, CampScene.buildStatic(id), 12, null, null);
+    var ctx = cv.getContext('2d');
+    ['back', 'mid', 'front'].forEach(function (k) { ctx.drawImage(parts[k], 0, 0); });
+  }
+  function openRank() {
+    drawRankBg();
+    if (!Cloud.id) { rank.data = null; renderRank(); return; }
+    rank.loading = true; rank.error = '';
+    renderRank();
+    // la dernière partie d'abord, pour que sa propre fiche soit à jour
+    Cloud.flush().then(function () { return fetch('/api/classement', { credentials: 'same-origin' }); }).then(function (r) {
+      if (!r.ok) throw new Error();
+      return r.json();
+    }).then(function (d) {
+      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.loading = false;
+      renderRank();
+    }, function () { rank.loading = false; rank.error = 'Le classement n’a pas pu être chargé. Réessaie dans un instant.'; renderRank(); });
+  }
+  function rankedList() {
+    var list = (rank.data || []).filter(function (e) { return rank.voie === 'toutes' || (rank.voie === 'aucune' ? !e.voie : e.voie === rank.voie); });
+    return list.sort(RANK_SORTS[rank.sort].cmp);
+  }
+  function voieChip(e) {
+    var v = voieOf(e.voie);
+    return v ? '<span class="rk-voie" style="--voie:' + v.color + '"><img src="' + VOIE_ICON[v.id] + '" alt="">' + v.short + '</span>' : '<span class="rk-voie none">Sans voie</span>';
+  }
+  // La voie d'une grenouille, dans sa fiche : son nom, son avancée dans le temple et les sorts qu'elle emporte
+  function rcVoie(e) {
+    var v = voieOf(e.voie);
+    if (!v) return '<div class="rc-voie none"><b>PAS ENCORE DE VOIE</b><span>Elle n’a pas encore plongé dans une flaque du temple.</span></div>';
+    var spells = (e.sorts || []).map(skillById).filter(Boolean);
+    return '<div class="rc-voie" style="--voie:' + v.color + '"><img class="px" src="' + VOIE_ICON[v.id] + '" alt=""><div><b>' + v.name.toUpperCase() + '</b>' +
+      '<span>' + (e.dalles || 0) + ' / ' + (STEPS * 5) + ' dalles du temple' + (v.id === 'ermite' ? ' · mode Ermite' : '') + '</span>' +
+      (spells.length ? '<span class="rc-spells">' + spells.map(function (s) { return '<i title="' + s.desc + '">' + s.name + '</i>'; }).join('') + '</span>' : '<span class="muted">Aucun sort équipé</span>') + '</div></div>';
+  }
+  function renderRank() {
+    var S = RANK_SORTS[rank.sort];
+    $('rank-tabs').innerHTML = Object.keys(RANK_SORTS).map(function (k) { return '<button role="tab" data-rank-sort="' + k + '" aria-selected="' + (k === rank.sort) + '">' + RANK_SORTS[k].name + '</button>'; }).join('');
+    $('rank-filters').innerHTML = RANK_VOIES.map(function (v) {
+      return '<button data-rank-voie="' + v.id + '" aria-pressed="' + (v.id === rank.voie) + '"' + (v.color ? ' style="--voie:' + v.color + '"' : '') + '>' + (VOIE_ICON[v.id] ? '<img src="' + VOIE_ICON[v.id] + '" alt="">' : '') + v.short + '</button>';
+    }).join('');
+    var podium = $('rank-podium'), list = $('rank-list'), card = $('rank-card');
+    if (!Cloud.id) {
+      $('rank-sub').textContent = 'Le classement réunit les grenouilles de tous les joueurs.';
+      podium.innerHTML = '<div class="rank-empty panel"><h2>JOUE AVEC UN COMPTE</h2><p>Ta partie est gardée dans ce navigateur seulement. Crée un compte depuis l’accueil : ta grenouille rejoindra le classement, à côté de celles de tes amis.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
+      list.innerHTML = ''; card.hidden = true;
+      return;
+    }
+    if (rank.loading && !rank.data) { podium.innerHTML = '<p class="rank-wait">Les grenouilles se rassemblent…</p>'; list.innerHTML = ''; card.hidden = true; return; }
+    if (rank.error) { podium.innerHTML = '<div class="rank-empty panel"><p>' + rank.error + '</p><button class="btn" data-rank-refresh>Réessayer</button></div>'; list.innerHTML = ''; card.hidden = true; return; }
+    var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id);
+    $('rank-sub').textContent = all.length + ' grenouille' + (all.length > 1 ? 's' : '') + ' · ' + rank.joueurs + ' joueur' + (rank.joueurs > 1 ? 's' : '') +
+      (mine >= 0 ? ' — la tienne est ' + (mine === 0 ? '1re' : (mine + 1) + 'e') + ' en ' + S.name.toLowerCase() : '');
+    // le podium : 2e, 1re, 3e
+    var top = ranked.slice(0, 3);
+    podium.innerHTML = top.length ? [1, 0, 2].filter(function (i) { return top[i]; }).map(function (i) {
+      var e = top[i];
+      return '<button class="podium-spot p' + (i + 1) + (e.id === Cloud.id ? ' is-current' : '') + '" data-rank-frog="' + e.id + '" aria-label="' + (i + 1) + (i ? 'e' : 're') + ' : ' + escapeHtml(e.nom) + '">' +
+        '<img class="px pd-frog" src="' + portraitOf(e) + '" alt="">' +
+        '<span class="pd-who"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small>' + voieChip(e) + '<em>' + S.metric(e) + '</em></span>' +
+        '<span class="pd-block"><i>' + (i + 1) + '</i></span></button>';
+    }).join('') : '<p class="rank-wait">Aucune grenouille ici pour l’instant.</p>';
+    list.innerHTML = ranked.map(function (e, i) {
+      return '<li><button class="rank-row' + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-selected' : '') + '" data-rank-frog="' + e.id + '">' +
+        '<span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
+        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · ' + (rank.sort === 'niveau' ? S.metric(e) : 'niv. ' + e.niveau + ' · ' + S.metric(e)) + '</small></span>' + voieChip(e) + '</button></li>';
+    }).join('');
+    // la fiche de la grenouille choisie
+    var sel = all.filter(function (e) { return e.id === rank.sel; })[0];
+    card.hidden = !sel;
+    if (!sel) return;
+    var pos = ranked.indexOf(sel);
+    var lands = BIOMES.map(function (b, w) {
+      var p = sel.progres[w] || 0, seen = w === 0 || (sel.progres[w - 1] || 0) >= STAGES;
+      return '<li class="' + (seen ? '' : 'fog') + '"><span>' + (seen ? b.name : 'Terre inconnue') + '</span><span class="pips">' + Array.from({ length: STAGES }, function (_, k) { return '<i' + (k < p ? ' class="on"' : '') + '></i>'; }).join('') + '</span></li>';
+    }).join('');
+    var gear = SLOTS.map(function (s) { var id = sel.equip && sel.equip[s.id], it = ITEMS[id]; return it && it.slot === s.id && !(s.id === 'arme' && sel.voie === 'ermite') ? '<img class="px" src="' + iconUrls[id] + '" alt="' + it.name + '" title="' + s.name + ' : ' + it.name + '">' : ''; }).join('');
+    card.innerHTML = '<button class="rank-close" data-rank-close aria-label="Fermer">×</button>' +
+      '<div class="rc-head"><img class="px" src="' + portraitOf(sel) + '" alt=""><div><h3>' + escapeHtml(sel.nom) + '</h3><span class="muted">Grenouille de <b>' + escapeHtml(sel.pseudo) + '</b></span>' + voieChip(sel) + '</div>' +
+      (pos >= 0 ? '<span class="rc-pos">' + (pos + 1) + '<small>' + (pos ? 'e' : 're') + '</small></span>' : '') + '</div>' +
+      '<div class="rc-stats"><span><b>' + sel.niveau + '</b>niveau</span><span><b>' + sel.conquis + '/' + TOTAL_STAGES + '</b>étapes</span><span><b>' + sel.succes + '</b>succès</span></div>' +
+      rcVoie(sel) + '<ul class="rc-lands">' + lands + '</ul>' +
+      '<div class="rc-gear"><span class="muted">' + (sel.voie === 'ermite' ? 'Mains nues' : 'Équipement') + '</span>' + gear + '</div>' +
+      '<span class="muted rc-seen">Dernière partie ' + ago(sel.vu) + '</span>';
+  }
+
+  // ---------- Dojo ----------
+  // Trois onglets : les duels contre les grenouilles des autres joueurs (réputation, 10 duels par jour, journal),
+  // le classement du dojo et ses cadeaux du lundi, et l'arbre d'entraînement pour essayer équipement et sorts.
+  var dojo = { tab: null, data: null, foes: null, loading: false, error: '', riposte: false, last: null, fighters: {} };
+  var DOJO_TURNS = 10;
+  var TREE_IMG = stringsToCanvas(SPECIES.arbre.frames[0], SPECIES.arbre.pal).toDataURL();
+  var dojoApi = function (method, path, body) {
+    return fetch('/api/dojo/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
+  };
+  function cleanEquip(e) {
+    var equip = Object.assign({}, DEFAULT_EQUIP);
+    Object.keys(e || {}).forEach(function (slot) { var it = ITEMS[e[slot]]; if (it && it.slot === slot) equip[slot] = e[slot]; });
+    return equip;
+  }
+  // Une grenouille d'un autre joueur, prête à combattre : ses stats (niveau, points, équipement, arbre) calculées
+  // comme les nôtres, ses sorts, et ses images tournées vers la gauche
+  function dojoFighter(card) {
+    if (dojo.fighters[card.id]) return dojo.fighters[card.id];
+    var equip = cleanEquip(card.equip);
+    var ps = {
+      level: card.niveau, voie: card.voie, deck: card.deck || [], equip: equip, hero: { name: card.nom, skin: card.peau },
+      alloc: Object.assign({ vitalite: 0, agilite: 0, force: 0, souffle: 0 }, card.alloc),
+      tree: (card.tree || []).filter(function (id) { var n = nodeById(id); return n && n.voie === card.voie; })
+    };
+    setPlayer(ps);
+    try {
+      var weapon = weaponOf(equip), cs = combatStats(computeStats(equip)), pas = treeBonuses(ps).passives;
+      var anims = buildKawazuAnims(dressKawazu(sp, lookFor(equip))), pal = paletteFor(sp.PAL, equip);
+      var imgs = function (frames) { return frames.map(function (g) { return g ? gridToCanvas(g, pal, true) : null; }); };
+      var maxHp = Math.round(cs.maxHp * (1 + pas.hpMult));
+      return (dojo.fighters[card.id] = {
+        frog: true, name: card.nom, pseudo: card.pseudo, level: card.niveau, rank: 'duel',
+        maxHp: maxHp, dmg: cs.dmg * (1 + pas.dmgMult), crit: cs.crit + pas.crit, dodge: Math.min(0.5, cs.dodge + pas.dodge), agi: cs.agi,
+        size: 1 + pas.size, maxSouffle: cs.maxSouffle, regen: cs.regen + pas.regen, dmgReduce: pas.dmgReduce, poisonMult: pas.poisonMult,
+        skills: deckSkills(ps, weapon), weaponKind: weapon.kind,
+        imgs: {
+          idle: imgs(anims.idleRight.frames), atk: imgs(anims.attack.frames), hurt: imgs(anims.hurt.frames),
+          fx: imgs(buildFx(weapon.kind === 'kunai' ? { type: 'arc', radii: [5, 9, 13] } : weapon.attack.fx)),
+          kunai: kunaiProjectileImgs(weapon.kind === 'kunai' ? weapon.blade : ITEMS.kunai_acier.blade).left
+        }
+      });
+    } finally { setPlayer(save); }
+  }
+  // nos propres chiffres, pour comparer
+  function myFight() {
+    var cs = combatStats(computeStats(save.equip)), pas = treeBonuses(save).passives;
+    return { maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult), agi: cs.agi };
+  }
+  // la réputation en jeu, avant le duel (la même règle que le serveur)
+  function repStakes(theirs) {
+    var mine = dojo.data ? dojo.data.rep : 0, diff = theirs - mine, clampN = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+    return { win: clampN(Math.round(12 + diff / 8), 4, 30), lose: clampN(Math.round(8 - diff / 10), 2, 15) };
+  }
+  function agoMs(t) {
+    var m = Math.floor((Date.now() - t) / 60000);
+    return m < 1 ? 'à l’instant' : (m < 60 ? 'il y a ' + m + ' min' : (m < 1440 ? 'il y a ' + Math.floor(m / 60) + ' h' : 'il y a ' + Math.floor(m / 1440) + ' j'));
+  }
+  function untilMs(t) {
+    var h = Math.max(0, Math.floor((t - Date.now()) / 3600e3));
+    return h >= 24 ? Math.floor(h / 24) + ' j ' + (h % 24) + ' h' : h + ' h';
+  }
+  function giftText(g) { return g ? g.lucioles + ' lucioles' + (g.objet && ITEMS[g.objet] ? ' + ' + ITEMS[g.objet].name : '') : ''; }
+  // Les cadeaux du lundi : ajoutés à la partie une seule fois, puis confirmés au serveur
+  function applyGifts(list) {
+    var fresh = (list || []).filter(function (g) { return save.gifts.indexOf(g.id) < 0; });
+    fresh.forEach(function (g) {
+      save.gold += g.lucioles || 0;
+      if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
+      save.gifts.push(g.id);
+      notice('Cadeau du dojo pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
+    });
+    if (fresh.length) { save.gifts = save.gifts.slice(-50); persist(); Sfx.play('levelup'); renderAll(); }
+    if ((list || []).length) dojoApi('POST', '/cadeaux', { ids: list.map(function (g) { return g.id; }) }).catch(function () {});
+  }
+  function loadDojo() {
+    if (!Cloud.id) return Promise.resolve();
+    dojo.loading = true;
+    return dojoApi('GET', '').then(function (d) {
+      dojo.data = d; dojo.loading = false; dojo.error = '';
+      applyGifts(d.cadeaux);
+      if (state.page === 'dojo') renderDojo();
+    }, function (e) { dojo.loading = false; dojo.error = e.message; if (state.page === 'dojo') renderDojo(); });
+  }
+  function loadFoes() {
+    dojo.foes = null; dojo.fighters = {};
+    renderDojo();
+    Cloud.flush().then(function () { return dojoApi('GET', '/adversaires'); }).then(function (d) { dojo.foes = d.adversaires; renderDojo(); },
+      function (e) { dojo.foes = []; dojo.error = e.message; renderDojo(); });
+  }
+  function openDojo() {
+    var bg = $('dojo-bg'), img = DojoScene.backdrop();
+    if (bg.width !== img.width) { bg.width = img.width; bg.height = img.height; bg.getContext('2d').drawImage(img, 0, 0); }
+    if (!dojo.tab) dojo.tab = Cloud.id ? 'duels' : 'arbre';
+    renderDojo();
+    if (Cloud.id) { loadDojo(); if (!dojo.foes) loadFoes(); }
+  }
+  function dojoVoie(e) {
+    var v = voieOf(e.voie);
+    return v ? '<span class="rk-voie" style="--voie:' + v.color + '"><img src="' + VOIE_ICON[v.id] + '" alt="">' + v.short + '</span>' : '<span class="rk-voie none">Sans voie</span>';
+  }
+  function needAccount(what) {
+    return '<div class="panel dojo-empty"><h2>JOUE AVEC UN COMPTE</h2><p>' + what + ' se jouent contre les grenouilles des autres joueurs : crée un compte depuis l’accueil pour y participer. L’arbre d’entraînement, lui, t’attend déjà.</p>' +
+      '<div class="row"><a class="btn" href="/?connexion">Aller à l’accueil</a><button class="btn btn-ghost" data-dojo-tab="arbre">L’arbre d’entraînement</button></div></div>';
+  }
+  function renderDojo() {
+    var tabs = [['duels', 'Duels'], ['top', 'Classement'], ['arbre', 'Entraînement']];
+    $('dojo-tabs').innerHTML = tabs.map(function (t) { return '<button role="tab" data-dojo-tab="' + t[0] + '" aria-selected="' + (dojo.tab === t[0]) + '">' + t[1] + '</button>'; }).join('');
+    var body = $('dojo-body'), d = dojo.data;
+    if (dojo.tab === 'arbre') { body.innerHTML = renderTraining(); return; }
+    if (!Cloud.id) { body.innerHTML = needAccount(dojo.tab === 'top' ? 'Le classement et les cadeaux du dojo' : 'Les duels'); return; }
+    if (!d) { body.innerHTML = '<p class="dojo-wait">' + (dojo.error ? escapeHtml(dojo.error) + ' <button class="btn btn-ghost" data-dojo-reload>Réessayer</button>' : 'On déroule les tatamis…') + '</p>'; return; }
+    body.innerHTML = dojo.tab === 'top' ? renderDojoTop(d) : renderDuels(d);
+  }
+  // l'onglet Duels : notre carte, trois adversaires et le journal
+  function renderDuels(d) {
+    var me = myFight(), meRank = d.rang ? (d.rang === 1 ? '1re' : d.rang + 'e') + ' sur ' + d.classes : 'pas encore classée';
+    var pips = Array.from({ length: d.max }, function (_, i) { return '<i' + (i < d.restants ? ' class="on"' : '') + '></i>'; }).join('');
+    var myGift = d.rang && d.rang <= d.recompenses.length ? d.recompenses[d.rang - 1] : null;
+    var html = '<div class="dojo-duels"><section class="panel dojo-me">' +
+      '<div class="dm-head"><img class="px" src="' + $('sb-portrait').toDataURL() + '" alt=""><div><b>' + escapeHtml(save.hero.name) + '</b><span class="muted">Niveau ' + save.level + '</span>' + dojoVoie({ voie: save.voie }) + '</div></div>' +
+      '<div class="dm-rep"><b>' + d.rep + '</b><span>réputation · ' + meRank + '</span></div>' +
+      '<div class="dm-row"><span>Victoires <b>' + d.victoires + '</b></span><span>Défaites <b>' + d.defaites + '</b></span></div>' +
+      '<div class="dm-duels"><span>Duels du jour : <b>' + d.restants + ' / ' + d.max + '</b></span><span class="pips">' + pips + '</span></div>' +
+      '<p class="dm-gift">Cadeaux du dojo dans <b>' + untilMs(d.prochain) + '</b>' + (myGift ? ' · à ta place : ' + giftText(myGift) : ' · pour les 10 premières') + '</p></section>';
+    html += '<section class="dojo-foes"><div class="df-head"><h2>ADVERSAIRES</h2><button class="btn btn-ghost" data-dojo-foes' + (dojo.foes ? '' : ' disabled') + '>Nouveaux adversaires</button></div><div class="df-list">';
+    if (!dojo.foes) html += '<p class="dojo-wait">Des grenouilles entrent dans le dojo…</p>';
+    else if (!dojo.foes.length) html += '<p class="dojo-wait">Personne à défier pour l’instant : invite des amis à créer leur grenouille !</p>';
+    else html += dojo.foes.map(function (card) {
+      var f = dojoFighter(card), st = repStakes(card.rep), cmp = function (a, b) { return a > b * 1.08 ? ' up' : (a < b * 0.92 ? ' down' : ''); };
+      return '<article class="foe" style="--voie:' + (voieOf(card.voie) ? voieOf(card.voie).color : '#8a968a') + '">' +
+        '<img class="px foe-frog" src="' + portraitOf(card) + '" alt="">' +
+        '<b class="foe-name">' + escapeHtml(card.nom) + '</b><span class="muted">' + escapeHtml(card.pseudo) + ' · niv. ' + card.niveau + '</span>' + dojoVoie(card) +
+        '<span class="foe-rep">' + card.rep + ' réputation</span>' +
+        '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(f.maxHp, me.maxHp) + '">' + f.maxHp + '</b></li><li><span>Dégâts</span><b class="' + cmp(f.dmg, me.dmg) + '">' + Math.round(f.dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(f.agi, me.agi) + '">' + f.agi + '</b></li></ul>' +
+        '<span class="foe-stakes">Victoire <b class="up">+' + st.win + '</b> · Défaite <b class="down">−' + st.lose + '</b></span>' +
+        '<button class="btn" data-duel="' + card.id + '"' + (d.restants > 0 ? '' : ' disabled') + '>Défier ▶</button></article>';
+    }).join('');
+    html += '</div><div class="panel dojo-journal"><h2>JOURNAL DU DOJO</h2>' + (d.journal.length ? '<ul>' + d.journal.map(function (j) {
+      var who = '<b>' + escapeHtml(j.nom) + '</b> (' + escapeHtml(j.pseudo) + ')';
+      var text = j.type === 'attaque' ? (j.victoire ? 'Tu as battu ' + who : 'Tu as perdu contre ' + who) : (j.victoire ? who + ' t’a défiée et a perdu' : who + ' t’a défiée et t’a battue');
+      return '<li class="' + (j.delta >= 0 ? 'up' : 'down') + '"><span>' + text + '</span><b>' + (j.delta >= 0 ? '+' : '−') + Math.abs(j.delta) + '</b><small>' + agoMs(j.t) + '</small></li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun duel pour l’instant. Les défis que tu lances, et ceux que tu reçois, s’afficheront ici.</p>') + '</div></section></div>';
+    return html;
+  }
+  // l'onglet Classement : le top 10 et ce qu'il gagne lundi
+  function renderDojoTop(d) {
+    var rows = d.top.map(function (e, i) {
+      return '<li class="' + (e.id === Cloud.id ? 'is-current' : '') + '"><span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
+        '<span class="rk-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' + dojoVoie(e) +
+        '<span class="dt-rep">' + e.rep + '</span><span class="dt-gift">' + giftText(d.recompenses[i]) + '</span></li>';
+    }).join('');
+    return '<div class="dojo-top"><section class="panel"><div class="df-head"><h2>LES 10 MEILLEURES DU DOJO</h2><span class="muted">Cadeaux dans <b>' + untilMs(d.prochain) + '</b></span></div>' +
+      (rows ? '<ol class="dt-list">' + rows + '</ol>' : '<p class="muted">Personne n’a encore gagné de réputation : à toi de jouer !</p>') +
+      '<p class="muted">Ta grenouille : ' + (d.rang ? (d.rang === 1 ? '1re' : d.rang + 'e') + ' avec ' + d.rep + ' réputation.' : 'pas encore classée, gagne un duel pour entrer au classement.') + '</p></section>' +
+      '<aside class="panel dojo-rules"><h2>LES CADEAUX DU LUNDI</h2><p>Chaque lundi à minuit, les dix premières du dojo reçoivent leur cadeau. Il arrive tout seul dans la partie à la prochaine visite.</p>' +
+      '<ul class="dr-gifts">' + d.recompenses.map(function (g, i) { return '<li><span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span>' + (g.objet && ITEMS[g.objet] ? '<img class="px" src="' + iconUrls[g.objet] + '" alt="">' : '<span class="luciole"></span>') + '<span>' + giftText(g) + '</span></li>'; }).join('') + '</ul>' +
+      '<h2>LA RÉPUTATION</h2><p>Une victoire rapporte de 4 à 30 points : plus l’adversaire est réputé, plus elle rapporte. Une défaite en coûte un peu, jamais sous zéro. Quand on te défie, tu gagnes ou perds la moitié en défense. Chaque victoire donne aussi un peu d’XP. 10 duels par jour.</p></aside></div>';
+  }
+  // l'onglet Entraînement : l'arbre, ses réglages, le dernier bilan
+  function renderTraining() {
+    var l = dojo.last;
+    return '<div class="dojo-train"><section class="panel dt-tree"><img class="px" src="' + TREE_IMG + '" alt=""><div><h2>L’ARBRE D’ENTRAÎNEMENT</h2>' +
+      '<p>Un vieux tronc cerclé de paille, qui en a vu d’autres. ' + DOJO_TURNS + ' tours pour frapper de toutes tes forces : essaie un équipement, une répartition de points ou un deck de sorts, puis compare le bilan. Pas de récompense, pas de limite.</p>' +
+      '<div class="dt-opts" role="radiogroup" aria-label="L’arbre"><button role="radio" data-riposte="0" aria-checked="' + !dojo.riposte + '"><b>Immobile</b><small>il encaisse, rien de plus</small></button>' +
+      '<button role="radio" data-riposte="1" aria-checked="' + dojo.riposte + '"><b>Il riposte</b><small>ses branches fouettent : teste ta défense et tes soins</small></button></div>' +
+      '<button class="btn" data-train>Commencer l’entraînement ▶</button></div></section>' +
+      (l ? '<section class="panel dt-last"><h2>DERNIER BILAN</h2><ul class="bt-bilan"><li><span>Dégâts en ' + l.turns + ' tours</span><b>' + l.total + '</b></li><li><span>Par tour</span><b>' + Math.round(l.total / Math.max(1, l.turns)) + '</b></li><li><span>Meilleur coup</span><b>' + l.best + '</b></li><li><span>Critiques</span><b>' + l.crits + ' / ' + l.hits + '</b></li>' + (l.riposte ? '<li><span>Dégâts reçus</span><b>' + l.taken + '</b></li>' : '') + '</ul></section>' : '') + '</div>';
+  }
+  function trainingFight() {
+    return {
+      kind: 'arbre', title: 'Dojo · entraînement', backdrop: DojoScene.backdrop(), turns: DOJO_TURNS, done: 0, riposte: dojo.riposte,
+      stats: { total: 0, hits: 0, crits: 0, best: 0, taken: 0 },
+      enemy: { species: 'arbre', name: 'Arbre d’entraînement', level: save.level, rank: 'arbre', behavior: 'arbre', scale: 1, maxHp: 1e9, dmg: dojo.riposte ? Math.round(2 + 0.95 * save.level) : 0, agi: -1, dodge: 0 },
+      again: trainingFight
+    };
+  }
+  function duelFight(card) {
+    return {
+      kind: 'duel', title: 'Dojo · duel contre ' + card.nom, backdrop: DojoScene.backdrop(), card: card, enemy: dojoFighter(card),
+      settle: function (win) { return settleDuel(card, win); }
+    };
+  }
+  // Le résultat d'un duel : la réputation (serveur) et, en cas de victoire, un peu d'XP
+  function settleDuel(card, win) {
+    return dojoApi('POST', '/duel', { adversaire: card.id, victoire: win }).then(function (r) {
+      if (dojo.data) { dojo.data.rep = r.rep; dojo.data.restants = r.restants; dojo.data[win ? 'victoires' : 'defaites']++; }
+      dojo.foes = (dojo.foes || []).filter(function (c) { return c.id !== card.id; });
+      var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
+      if (xp) persist();
+      if (levels) Sfx.play('levelup');
+      return '<p class="bt-rep ' + (r.delta >= 0 ? 'up' : 'down') + '">' + (r.delta >= 0 ? '+' : '−') + Math.abs(r.delta) + ' réputation <span>(' + r.rep + ' en tout)</span></p>' +
+        (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '<p>' + escapeHtml(card.nom) + ' garde sa place. Change d’équipement ou de sorts, et retente ta chance !</p>') +
+        '<p class="muted">Duels restants aujourd’hui : ' + r.restants + '.</p>';
+    });
+  }
+
   // ---------- Rendu général ----------
   function renderAll() {
     checkFeats();
@@ -1128,11 +1458,13 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'dojo', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
     if (page === 'map') renderWorldMap();
+    if (page === 'rank') openRank();
+    if (page === 'dojo') openDojo();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
     Sfx.ambient(page === 'camp' && visible);
   }
@@ -1159,7 +1491,12 @@
     state.sheet = null;
     buildHero();
     renderAll();
-    showPage('map');
+    var atDojo = fight.kind === 'duel' || fight.kind === 'arbre';
+    if (fight.kind === 'arbre' && fight.done > 0) dojo.last = Object.assign({ turns: fight.done, riposte: fight.riposte }, fight.stats);
+    if (fight.kind === 'duel' && result === 'flee' && !fight.settled) {
+      settleDuel(fight.card, false).then(function () { notice('Tu as quitté le duel : il compte comme une défaite.'); if (state.page === 'dojo') renderDojo(); }, function () {});
+    }
+    showPage(atDojo ? 'dojo' : 'map');
     startTick();
   }
 
@@ -1180,6 +1517,21 @@
       return;
     }
     // choisir sa voie : la grenouille plonge dans la flaque (définitif)
+    if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
+    if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
+    if (t.hasAttribute('data-dojo-foes')) { Sfx.play('click'); loadFoes(); return; }
+    if (t.dataset.riposte) { dojo.riposte = t.dataset.riposte === '1'; Sfx.play('click'); renderDojo(); return; }
+    if (t.hasAttribute('data-train')) { Sfx.play('click'); startFight(trainingFight()); return; }
+    if (t.dataset.duel) {
+      var foe = (dojo.foes || []).filter(function (x) { return x.id === t.dataset.duel; })[0];
+      if (foe && dojo.data && dojo.data.restants > 0) { Sfx.play('click'); startFight(duelFight(foe)); }
+      return;
+    }
+    if (t.dataset.rankSort) { rank.sort = t.dataset.rankSort; Sfx.play('click'); renderRank(); return; }
+    if (t.dataset.rankVoie) { rank.voie = t.dataset.rankVoie; Sfx.play('click'); renderRank(); return; }
+    if (t.dataset.rankFrog) { rank.sel = rank.sel === t.dataset.rankFrog ? null : t.dataset.rankFrog; Sfx.play('click'); renderRank(); return; }
+    if (t.hasAttribute('data-rank-close')) { rank.sel = null; renderRank(); return; }
+    if (t.hasAttribute('data-rank-refresh')) { Sfx.play('click'); openRank(); return; }
     if (t.dataset.pickVoie) { if (!diving && state.pick !== t.dataset.pickVoie) { state.pick = t.dataset.pickVoie; Sfx.play('drip'); renderTree(); } return; }
     if (t.dataset.chooseVoie) { if (!diving) diveInto(t.dataset.chooseVoie); return; }
     Sfx.play(t.id === 'equip-btn' ? 'equip' : 'click');
@@ -1313,6 +1665,7 @@
       if (frog.save) save = parseSave(frog.save);
       else { save = newSave(); save.hero = { name: frog.nom, skin: frog.peau }; refreshShop(save); } // grenouille toute neuve
       setPlayer(save); persist(); enterGame();
+      loadDojo(); // les cadeaux du lundi, s'il y en a
     }, function (e) { location.href = e.message === 'connexion' ? '/?connexion' : '/?grenouilles'; });
   }
 
