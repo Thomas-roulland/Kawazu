@@ -2,7 +2,7 @@
 // Chaque tour, on choisit une compétence du deck (coût en Souffle, temps de recharge) ; l'ennemi a ses tactiques
 // (charge préparée, vol de vie, englue, rage du boss). Mode auto et vitesse ×1/×2/×4.
 // BattleScene.start(save, fight, onEnd) ; onEnd(résultat, fight) avec résultat = 'win' | 'lose' | 'flee'.
-// Au dojo (fight.kind 'duel' ou 'arbre') : l'adversaire peut être la grenouille d'un autre joueur (enemy.frog :
+// À la Cascade des Duels (fight.kind 'duel' ou 'arbre') : l'adversaire peut être la grenouille d'un autre joueur (enemy.frog :
 // ses sorts, son souffle, ses coups au corps à corps ou au kunaï, choisis par l'ordinateur), ou l'arbre
 // d'entraînement (fight.turns tours, puis le bilan des dégâts). fight.settle(victoire) donne le texte du résultat.
 var BattleScene = (function () {
@@ -547,7 +547,7 @@ var BattleScene = (function () {
     showEnd(true, '<ul class="bt-bilan">' + row('Dégâts en ' + turns + ' tours', st.total) + row('Par tour', Math.round(st.total / turns)) +
       row('Meilleur coup', st.best) + row('Critiques', st.crits + ' / ' + st.hits + ' coups') +
       (fight.riposte ? row('Dégâts reçus', st.taken) + row('PV restants', Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp) : '') + '</ul>' +
-      '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', [['again', 'Recommencer'], ['back', 'Retour au dojo']]);
+      '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', [['again', 'Recommencer'], ['back', 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo : le texte vient de fight.settle (réputation, XP…)
   async function settle(win) {
@@ -556,7 +556,7 @@ var BattleScene = (function () {
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
     showEnd(win, html, null, fight.kind === 'tour'
       ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
-      : [['back', 'Retour au dojo']]);
+      : [['back', 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
   function showEnd(win, html, title, buttons) {
@@ -657,6 +657,7 @@ var BattleScene = (function () {
     ctx.save();
     ctx.translate(sx, sy);
     ctx.drawImage(bg, 0, 0, W, H, 0, 0, W, H);
+    if (fight.bgFx) fight.bgFx(ctx, now); // un décor animé (l'eau de la cascade)
     if (fight.weather && fight.weather.id !== 'clair') drawWeather(now);
 
     // ombres
@@ -795,7 +796,7 @@ var BattleScene = (function () {
     $('bt-weather').hidden = !(f.weather && f.weather.id !== 'clair');
     $('battle').hidden = false;
     resize();
-    if (f.kind === 'duel') log('Duel au dojo contre ' + E.name + ', la grenouille de ' + E.pseudo + ' (niv. ' + E.level + ') !', 'danger');
+    if (f.kind === 'duel') log('Duel à la cascade contre ' + E.name + ', la grenouille de ' + E.pseudo + ' (niv. ' + E.level + ') !', 'danger');
     else if (f.kind === 'arbre') log('L’arbre d’entraînement t’attend : ' + f.turns + ' tours pour tout essayer.', 'hero');
     else if (f.kind === 'tour') log(f.intro, 'danger');
     else log('Un ' + E.name + ' (niv. ' + E.level + ') barre la route !', 'danger');

@@ -43,8 +43,8 @@
       { k: '#1a1c2c', 2: '#1f9a8a', 1: '#c9412f', 3: '#f3d27a', 4: '#f4e8c8' }],
     album: [['', '..kkkkkkkkkkk...', '..k2222222221k..', '..k2kkkkkk221k..', '..k2k3333k221k..', '..k2k3kk3k221k..', '..k2k3333k221k..', '..k2kkkkkk221k..', '..k2222222221k..', '..k2222222221k..', '..kkkkkkkkkkkk..', '...k11111111k...', '...kkkkkkkkkk...'],
       { k: '#1a1c2c', 2: '#7a5634', 1: '#f4e8c8', 3: '#e0b43a' }],
-    dojo: [['', 'kkkkkkkkkkkkkkkk', 'k11111111111111k', 'kkkk1kkkkkk1kkkk', '...k1k....k1k...', '.kkk1kkkkkk1kkk.', '.k111111111111k.', '.kkk1kkkkkk1kkk.', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '...k1k....k1k...', '..k111k..k111k..', '..kkkkk..kkkkk..'],
-      { k: '#1a1c2c', 1: '#c9412f' }],
+    cascade: [['.kkkkk....kkkkk.', 'k3333kbbbbk3333k', 'k333kbwbbwbk333k', 'k33kbbwbbwbbk33k', 'k33kbbbbwbbbk33k', 'k3kbwbbbwbbwbk3k', 'k3kbwbbbbbbwbk3k', 'kkkbbwbbwbbbbkkk', '...kbbwbbwbbbk..', '..kwbbbbbbbbwk..', '.kwwwbwwwbwwwwk.', 'kwwwwwwwwwwwwwwk', '.kkkkkkkkkkkkkk.'],
+      { k: '#1a1c2c', 3: '#5a6a60', b: '#4fb0d8', w: '#e8fbff' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
     the: [['', '', '......k.k', '.......k.k', '...kkkkkkkkk', '..k111111111kk', '..k122222221k.k', '..k122222221k.k', '..k112222211kk', '...k1111111k', '....kkkkkkk', '..kkkkkkkkkkk'],
@@ -209,7 +209,7 @@
       layerEls[k].style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
     });
   }
-  window.addEventListener('resize', function () { layoutScene(); if (state.page === 'skills') renderTree(); if (state.page === 'map') renderWorldMap(); });
+  window.addEventListener('resize', function () { layoutScene(); if (state.page === 'skills') renderTree(); if (state.page === 'map') renderWorldMap(); if (state.page === 'tower') renderTower(); });
   $('page-camp').addEventListener('mousemove', function (e) {
     var r = this.getBoundingClientRect();
     parallax.tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
@@ -328,6 +328,8 @@
     else if (state.page === 'perso') drawPreview(now);
     else if (state.page === 'shop') drawShop(now);
     else if (state.page === 'skills') drawTempleFx(now);
+    else if (state.page === 'dojo') drawCascade(now);
+    else if (state.page === 'tower') TowerPage.animate(now);
     if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); }
     raf = requestAnimationFrame(tick);
   }
@@ -1124,10 +1126,10 @@
   }
 
   // ---------- Classement ----------
-  // Les fiches publiques de toutes les grenouilles (serveur du jeu) : un podium des trois premières sur des
-  // souches, la liste complète à droite, triée par aventure, niveau ou succès, et filtrée par voie. Un clic
-  // ouvre la fiche d'une grenouille. Sans compte (jeu hors ligne), on explique comment y apparaître.
-  var rank = { data: null, joueurs: 0, loading: false, error: '', sort: 'aventure', voie: 'toutes', sel: null };
+  // Une grande liste gravée dans la pierre : les 50 premières grenouilles, puis la suite à la demande. Cinq façons
+  // de trier (aventure, niveau, succès, tour, duels), un filtre par voie, et un clic sur une ligne déplie sa fiche.
+  var rank = { data: null, joueurs: 0, duels: null, loading: false, error: '', sort: 'aventure', voie: 'toutes', sel: null, limit: 50 };
+  var RANK_PAGE = 50;
   var TOTAL_STAGES = BIOMES.length * STAGES;
   var RANK_SORTS = {
     aventure: { name: 'Aventure', cmp: function (a, b) { return b.conquis - a.conquis || b.niveau - a.niveau || b.xp - a.xp; },
@@ -1138,11 +1140,11 @@
       metric: function (e) { return e.succes + ' succès'; } },
     tour: { name: 'Tour', cmp: function (a, b) { return (b.tour || 0) - (a.tour || 0) || b.niveau - a.niveau; },
       metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + TOWER_FLOORS; } },
-    reputation: { name: 'Dojo', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
+    reputation: { name: 'Duels', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
       metric: function (e) { return (e.rep || 0) + ' réputation'; } }
   };
   var RANK_VOIES = [{ id: 'toutes', short: 'Toutes' }].concat(VOIES, [{ id: 'aucune', short: 'Sans voie' }]);
-  var rankBgDone = null, portraitCache = {};
+  var portraitCache = {};
   // La grenouille d'un autre joueur, avec sa peau et son équipement (et le mode Ermite)
   function portraitOf(e) {
     var equip = Object.assign({}, DEFAULT_EQUIP);
@@ -1160,20 +1162,25 @@
     var h = Math.floor(Date.now() / 3600e3) - vu;
     return h <= 0 ? 'dans l’heure' : (h < 24 ? 'il y a ' + h + ' h' : 'il y a ' + Math.floor(h / 24) + ' j');
   }
-  // En fond : le camp du biome où l'on se trouve, figé
-  function drawRankBg() {
-    var id = BIOMES[currentWorld()].id;
-    if (rankBgDone === id) return;
-    rankBgDone = id;
-    var W = CampScene.W, H = CampScene.H, cv = $('rank-bg'), L = {}, parts = {};
-    cv.width = W; cv.height = H;
-    ['back', 'mid', 'front'].forEach(function (k) { parts[k] = document.createElement('canvas'); parts[k].width = W; parts[k].height = H; L[k] = parts[k].getContext('2d'); });
-    CampScene.draw(L, CampScene.buildStatic(id), 12, null, null);
-    var ctx = cv.getContext('2d');
-    ['back', 'mid', 'front'].forEach(function (k) { ctx.drawImage(parts[k], 0, 0); });
-  }
+  // La pierre du fond : des blocs gris, des joints sombres, un peu de mousse (dessinée une fois, en pixel art)
+  (function stone() {
+    var c = document.createElement('canvas'), x2 = c.getContext('2d');
+    c.width = 48; c.height = 48;
+    var greys = ['#5a6064', '#62686c', '#555b5f', '#6a7074', '#5e6468'];
+    for (var row = 0; row < 4; row++) {
+      for (var col = -1; col < 3; col++) {
+        var bx = col * 24 + (row % 2 ? 12 : 0), by = row * 12, g = greys[Math.floor(hash(row, col + 1, 51) * greys.length)];
+        x2.fillStyle = '#2e3234'; x2.fillRect(bx, by, 24, 12);
+        x2.fillStyle = g; x2.fillRect(bx + 1, by + 1, 22, 10);
+        x2.fillStyle = 'rgba(255, 255, 255, 0.1)'; x2.fillRect(bx + 1, by + 1, 22, 1);
+        x2.fillStyle = 'rgba(0, 0, 0, 0.2)'; x2.fillRect(bx + 1, by + 10, 22, 1);
+      }
+    }
+    for (var n = 0; n < 70; n++) { x2.fillStyle = hash(n, 2, 51) < 0.5 ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.08)'; x2.fillRect(Math.floor(hash(n, 3, 51) * 48), Math.floor(hash(n, 4, 51) * 48), 1, 1); }
+    for (var m = 0; m < 6; m++) { x2.fillStyle = '#4e7a4a'; x2.fillRect(Math.floor(hash(m, 5, 51) * 46), Math.floor(hash(m, 6, 51) * 4) * 12 + 11, 2, 1); }
+    $('page-rank').style.setProperty('--stone', 'url(' + c.toDataURL() + ')');
+  })();
   function openRank() {
-    drawRankBg();
     if (!Cloud.id) { rank.data = null; renderRank(); return; }
     rank.loading = true; rank.error = '';
     renderRank();
@@ -1182,7 +1189,7 @@
       if (!r.ok) throw new Error();
       return r.json();
     }).then(function (d) {
-      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.loading = false;
+      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.duels = d.duels; rank.loading = false;
       renderRank();
     }, function () { rank.loading = false; rank.error = 'Le classement n’a pas pu être chargé. Réessaie dans un instant.'; renderRank(); });
   }
@@ -1203,60 +1210,54 @@
       '<span>' + (e.dalles || 0) + ' / ' + (STEPS * 5) + ' dalles du temple' + (v.id === 'ermite' ? ' · mode Ermite' : '') + '</span>' +
       (spells.length ? '<span class="rc-spells">' + spells.map(function (s) { return '<i title="' + s.desc + '">' + s.name + '</i>'; }).join('') + '</span>' : '<span class="muted">Aucun sort équipé</span>') + '</div></div>';
   }
+  // la fiche dépliée sous une ligne
+  function rankDetail(e) {
+    var lands = BIOMES.map(function (b, w) {
+      var p = e.progres[w] || 0, seen = w === 0 || (e.progres[w - 1] || 0) >= STAGES;
+      return '<li class="' + (seen ? '' : 'fog') + '"><span>' + (seen ? b.name : 'Terre inconnue') + '</span><span class="pips">' + Array.from({ length: STAGES }, function (_, k) { return '<i' + (k < p ? ' class="on"' : '') + '></i>'; }).join('') + '</span></li>';
+    }).join('');
+    var gear = SLOTS.map(function (s) { var id = e.equip && e.equip[s.id] && baseOf(e.equip[s.id]), it = ITEMS[id]; return it && it.slot === s.id && !(s.id === 'arme' && e.voie === 'ermite') ? '<img class="px" src="' + iconUrls[id] + '" alt="' + it.name + '" title="' + s.name + ' : ' + it.name + '">' : ''; }).join('');
+    return '<div class="rk-detail"><div class="rd-col"><div class="rc-stats"><span><b>' + e.niveau + '</b>niveau</span><span><b>' + e.conquis + '/' + TOTAL_STAGES + '</b>étapes</span><span><b>' + (e.tour || 0) + '</b>étage de la tour</span><span><b>' + (e.rep || 0) + '</b>réputation</span></div>' +
+      rcVoie(e) + '<div class="rc-gear"><span class="muted">' + (e.voie === 'ermite' ? 'Mains nues' : 'Équipement') + '</span>' + gear + '</div><span class="muted rc-seen">Dernière partie ' + ago(e.vu) + '</span></div>' +
+      '<ul class="rc-lands">' + lands + '</ul></div>';
+  }
   function renderRank() {
     var S = RANK_SORTS[rank.sort];
     $('rank-tabs').innerHTML = Object.keys(RANK_SORTS).map(function (k) { return '<button role="tab" data-rank-sort="' + k + '" aria-selected="' + (k === rank.sort) + '">' + RANK_SORTS[k].name + '</button>'; }).join('');
     $('rank-filters').innerHTML = RANK_VOIES.map(function (v) {
       return '<button data-rank-voie="' + v.id + '" aria-pressed="' + (v.id === rank.voie) + '"' + (v.color ? ' style="--voie:' + v.color + '"' : '') + '>' + (VOIE_ICON[v.id] ? '<img src="' + VOIE_ICON[v.id] + '" alt="">' : '') + v.short + '</button>';
     }).join('');
-    var podium = $('rank-podium'), list = $('rank-list'), card = $('rank-card');
+    var list = $('rank-list'), foot = $('rank-foot'), note = $('rank-note');
+    note.hidden = true; foot.innerHTML = '';
     if (!Cloud.id) {
       $('rank-sub').textContent = 'Le classement réunit les grenouilles de tous les joueurs.';
-      podium.innerHTML = '<div class="rank-empty panel"><h2>JOUE AVEC UN COMPTE</h2><p>Ta partie est gardée dans ce navigateur seulement. Crée un compte depuis l’accueil : ta grenouille rejoindra le classement, à côté de celles de tes amis.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
-      list.innerHTML = ''; card.hidden = true;
+      list.innerHTML = '<li class="rk-msg"><b>Joue avec un compte</b><span>Ta partie est gardée dans ce navigateur seulement. Crée un compte depuis l’accueil : ta grenouille rejoindra le classement.</span><a class="btn" href="/?connexion">Aller à l’accueil</a></li>';
       return;
     }
-    if (rank.loading && !rank.data) { podium.innerHTML = '<p class="rank-wait">Les grenouilles se rassemblent…</p>'; list.innerHTML = ''; card.hidden = true; return; }
-    if (rank.error) { podium.innerHTML = '<div class="rank-empty panel"><p>' + rank.error + '</p><button class="btn" data-rank-refresh>Réessayer</button></div>'; list.innerHTML = ''; card.hidden = true; return; }
-    var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id);
+    if (rank.loading && !rank.data) { list.innerHTML = '<li class="rk-msg"><span>Les grenouilles se rassemblent…</span></li>'; return; }
+    if (rank.error) { list.innerHTML = '<li class="rk-msg"><span>' + rank.error + '</span><button class="btn" data-rank-refresh>Réessayer</button></li>'; return; }
+    var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id), gifts = rank.sort === 'reputation' && rank.duels;
     $('rank-sub').textContent = all.length + ' grenouille' + (all.length > 1 ? 's' : '') + ' · ' + rank.joueurs + ' joueur' + (rank.joueurs > 1 ? 's' : '') +
       (mine >= 0 ? ' — la tienne est ' + (mine === 0 ? '1re' : (mine + 1) + 'e') + ' en ' + S.name.toLowerCase() : '');
-    // le podium : 2e, 1re, 3e
-    var top = ranked.slice(0, 3);
-    podium.innerHTML = top.length ? [1, 0, 2].filter(function (i) { return top[i]; }).map(function (i) {
-      var e = top[i];
-      return '<button class="podium-spot p' + (i + 1) + (e.id === Cloud.id ? ' is-current' : '') + '" data-rank-frog="' + e.id + '" aria-label="' + (i + 1) + (i ? 'e' : 're') + ' : ' + escapeHtml(e.nom) + '">' +
-        '<img class="px pd-frog" src="' + portraitOf(e) + '" alt="">' +
-        '<span class="pd-who"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small>' + voieChip(e) + '<em>' + S.metric(e) + '</em></span>' +
-        '<span class="pd-block"><i>' + (i + 1) + '</i></span></button>';
-    }).join('') : '<p class="rank-wait">Aucune grenouille ici pour l’instant.</p>';
-    list.innerHTML = ranked.map(function (e, i) {
-      return '<li><button class="rank-row' + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-selected' : '') + '" data-rank-frog="' + e.id + '">' +
-        '<span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
-        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · ' + (rank.sort === 'niveau' ? S.metric(e) : 'niv. ' + e.niveau + ' · ' + S.metric(e)) + '</small></span>' + voieChip(e) + '</button></li>';
-    }).join('');
-    // la fiche de la grenouille choisie
-    var sel = all.filter(function (e) { return e.id === rank.sel; })[0];
-    card.hidden = !sel;
-    if (!sel) return;
-    var pos = ranked.indexOf(sel);
-    var lands = BIOMES.map(function (b, w) {
-      var p = sel.progres[w] || 0, seen = w === 0 || (sel.progres[w - 1] || 0) >= STAGES;
-      return '<li class="' + (seen ? '' : 'fog') + '"><span>' + (seen ? b.name : 'Terre inconnue') + '</span><span class="pips">' + Array.from({ length: STAGES }, function (_, k) { return '<i' + (k < p ? ' class="on"' : '') + '></i>'; }).join('') + '</span></li>';
-    }).join('');
-    var gear = SLOTS.map(function (s) { var id = sel.equip && sel.equip[s.id] && baseOf(sel.equip[s.id]), it = ITEMS[id]; return it && it.slot === s.id && !(s.id === 'arme' && sel.voie === 'ermite') ? '<img class="px" src="' + iconUrls[id] + '" alt="' + it.name + '" title="' + s.name + ' : ' + it.name + '">' : ''; }).join('');
-    card.innerHTML = '<button class="rank-close" data-rank-close aria-label="Fermer">×</button>' +
-      '<div class="rc-head"><img class="px" src="' + portraitOf(sel) + '" alt=""><div><h3>' + escapeHtml(sel.nom) + '</h3><span class="muted">Grenouille de <b>' + escapeHtml(sel.pseudo) + '</b></span>' + voieChip(sel) + '</div>' +
-      (pos >= 0 ? '<span class="rc-pos">' + (pos + 1) + '<small>' + (pos ? 'e' : 're') + '</small></span>' : '') + '</div>' +
-      '<div class="rc-stats"><span><b>' + sel.niveau + '</b>niveau</span><span><b>' + sel.conquis + '/' + TOTAL_STAGES + '</b>étapes</span><span><b>' + sel.succes + '</b>succès</span></div>' +
-      rcVoie(sel) + '<ul class="rc-lands">' + lands + '</ul>' +
-      '<div class="rc-gear"><span class="muted">' + (sel.voie === 'ermite' ? 'Mains nues' : 'Équipement') + '</span>' + gear + '</div>' +
-      '<span class="muted rc-seen">Dernière partie ' + ago(sel.vu) + '</span>';
+    if (gifts) { note.hidden = false; note.innerHTML = 'Chaque lundi à minuit, les dix premières des duels reçoivent un cadeau — prochain dans <b>' + untilMs(rank.duels.prochain) + '</b>.'; }
+    list.innerHTML = ranked.slice(0, rank.limit).map(function (e, i) {
+      var gift = gifts && i < rank.duels.recompenses.length ? rank.duels.recompenses[i] : null;
+      return '<li class="rk-row' + (i < 3 ? ' top' + (i + 1) : '') + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-open' : '') + '">' +
+        '<button class="rk-line" data-rank-frog="' + e.id + '" aria-expanded="' + (rank.sel === e.id) + '">' +
+        '<span class="rk-pos">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
+        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
+        voieChip(e) + '<span class="rk-metric">' + S.metric(e) + '</span>' + (gifts ? '<span class="rk-gift">' + (gift ? giftText(gift) : '') + '</span>' : '') + '</button>' +
+        (rank.sel === e.id ? rankDetail(e) : '') + '</li>';
+    }).join('') || '<li class="rk-msg"><span>Aucune grenouille ici pour l’instant.</span></li>';
+    foot.innerHTML = (ranked.length > rank.limit ? '<button class="btn" data-rank-more>Afficher la suite (' + (rank.limit + 1) + ' à ' + Math.min(ranked.length, rank.limit + RANK_PAGE) + ' sur ' + ranked.length + ')</button>' : '') +
+      (mine >= rank.limit ? '<button class="btn btn-ghost" data-rank-mine>Aller à ma place (' + (mine + 1) + 'e)</button>' : '') +
+      '<button class="btn btn-ghost" data-rank-refresh>Actualiser</button>';
   }
 
-  // ---------- Dojo ----------
-  // Trois onglets : les duels contre les grenouilles des autres joueurs (réputation, 10 duels par jour, journal),
-  // le classement du dojo et ses cadeaux du lundi, et l'arbre d'entraînement pour essayer équipement et sorts.
+  // ---------- La Cascade des Duels (dans le code : « dojo ») ----------
+  // Deux onglets : les duels contre les grenouilles des autres joueurs, et ses propres autres grenouilles une fois
+  // par jour (réputation, 10 duels par jour, journal ; leur classement est dans la page Classement, onglet Duels),
+  // et l'arbre d'entraînement pour essayer équipement et sorts.
   var dojo = { tab: null, data: null, foes: null, loading: false, error: '', riposte: false, last: null, fighters: {} };
   var DOJO_TURNS = 10;
   var TREE_IMG = stringsToCanvas(SPECIES.arbre.frames[0], SPECIES.arbre.pal).toDataURL();
@@ -1325,7 +1326,7 @@
       save.gold += g.lucioles || 0;
       if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
       save.gifts.push(g.id);
-      notice('Cadeau du dojo pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
+      notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
     });
     if (fresh.length) { save.gifts = save.gifts.slice(-50); persist(); Sfx.play('levelup'); renderAll(); }
     if ((list || []).length) dojoApi('POST', '/cadeaux', { ids: list.map(function (g) { return g.id; }) }).catch(function () {});
@@ -1345,10 +1346,16 @@
     Cloud.flush().then(function () { return dojoApi('GET', '/adversaires'); }).then(function (d) { dojo.foes = d.adversaires; renderDojo(); },
       function (e) { dojo.foes = []; dojo.error = e.message; renderDojo(); });
   }
+  // le décor de la page : la cascade, qui coule
+  function drawCascade(now) {
+    var cv = $('dojo-bg'), x2 = cv.getContext('2d');
+    if (cv.width !== CascadeScene.W) { cv.width = CascadeScene.W; cv.height = CascadeScene.H; }
+    x2.drawImage(CascadeScene.backdrop(), 0, 0);
+    CascadeScene.fx(x2, now);
+  }
   function openDojo() {
-    var bg = $('dojo-bg'), img = DojoScene.backdrop();
-    if (bg.width !== img.width) { bg.width = img.width; bg.height = img.height; bg.getContext('2d').drawImage(img, 0, 0); }
-    if (!dojo.tab) dojo.tab = Cloud.id ? 'duels' : 'arbre';
+    drawCascade(performance.now());
+    if (!dojo.tab || dojo.tab === 'top') dojo.tab = Cloud.id ? 'duels' : 'arbre';
     renderDojo();
     if (Cloud.id) { loadDojo(); if (!dojo.foes) loadFoes(); }
   }
@@ -1361,13 +1368,13 @@
       '<div class="row"><a class="btn" href="/?connexion">Aller à l’accueil</a><button class="btn btn-ghost" data-dojo-tab="arbre">L’arbre d’entraînement</button></div></div>';
   }
   function renderDojo() {
-    var tabs = [['duels', 'Duels'], ['top', 'Classement'], ['arbre', 'Entraînement']];
+    var tabs = [['duels', 'Duels'], ['arbre', 'Entraînement']];
     $('dojo-tabs').innerHTML = tabs.map(function (t) { return '<button role="tab" data-dojo-tab="' + t[0] + '" aria-selected="' + (dojo.tab === t[0]) + '">' + t[1] + '</button>'; }).join('');
     var body = $('dojo-body'), d = dojo.data;
     if (dojo.tab === 'arbre') { body.innerHTML = renderTraining(); return; }
-    if (!Cloud.id) { body.innerHTML = needAccount(dojo.tab === 'top' ? 'Le classement et les cadeaux du dojo' : 'Les duels'); return; }
+    if (!Cloud.id) { body.innerHTML = needAccount('Les duels'); return; }
     if (!d) { body.innerHTML = '<p class="dojo-wait">' + (dojo.error ? escapeHtml(dojo.error) + ' <button class="btn btn-ghost" data-dojo-reload>Réessayer</button>' : 'On déroule les tatamis…') + '</p>'; return; }
-    body.innerHTML = dojo.tab === 'top' ? renderDojoTop(d) : renderDuels(d);
+    body.innerHTML = renderDuels(d);
   }
   // l'onglet Duels : notre carte, trois adversaires et le journal
   function renderDuels(d) {
@@ -1379,13 +1386,15 @@
       '<div class="dm-rep"><b>' + d.rep + '</b><span>réputation · ' + meRank + '</span></div>' +
       '<div class="dm-row"><span>Victoires <b>' + d.victoires + '</b></span><span>Défaites <b>' + d.defaites + '</b></span></div>' +
       '<div class="dm-duels"><span>Duels du jour : <b>' + d.restants + ' / ' + d.max + '</b></span><span class="pips">' + pips + '</span></div>' +
-      '<p class="dm-gift">Cadeaux du dojo dans <b>' + untilMs(d.prochain) + '</b>' + (myGift ? ' · à ta place : ' + giftText(myGift) : ' · pour les 10 premières') + '</p></section>';
+      '<p class="dm-gift">Cadeaux du lundi dans <b>' + untilMs(d.prochain) + '</b>' + (myGift ? ' · à ta place : ' + giftText(myGift) : ' · pour les 10 premières') + '</p>' +
+      '<button class="btn btn-ghost" data-rank-duels>Classement des duels</button></section>';
     html += '<section class="dojo-foes"><div class="df-head"><h2>ADVERSAIRES</h2><button class="btn btn-ghost" data-dojo-foes' + (dojo.foes ? '' : ' disabled') + '>Nouveaux adversaires</button></div><div class="df-list">';
     if (!dojo.foes) html += '<p class="dojo-wait">Des grenouilles entrent dans le dojo…</p>';
-    else if (!dojo.foes.length) html += '<p class="dojo-wait">Personne à défier pour l’instant : invite des amis à créer leur grenouille !</p>';
+    else if (!dojo.foes.length) html += '<p class="dojo-wait">Personne à défier pour l’instant : invite des amis à créer leur grenouille, ou crée-toi une deuxième grenouille pour l’affronter (une fois par jour).</p>';
     else html += dojo.foes.map(function (card) {
       var f = dojoFighter(card), st = repStakes(card.rep), cmp = function (a, b) { return a > b * 1.08 ? ' up' : (a < b * 0.92 ? ' down' : ''); };
-      return '<article class="foe" style="--voie:' + (voieOf(card.voie) ? voieOf(card.voie).color : '#8a968a') + '">' +
+      return '<article class="foe' + (card.soeur ? ' sister' : '') + '" style="--voie:' + (voieOf(card.voie) ? voieOf(card.voie).color : '#8a968a') + '">' +
+        (card.soeur ? '<span class="foe-sister">TA GRENOUILLE · 1 DUEL PAR JOUR</span>' : '') +
         '<img class="px foe-frog" src="' + portraitOf(card) + '" alt="">' +
         '<b class="foe-name">' + escapeHtml(card.nom) + '</b><span class="muted">' + escapeHtml(card.pseudo) + ' · niv. ' + card.niveau + '</span>' + dojoVoie(card) +
         '<span class="foe-rep">' + card.rep + ' réputation</span>' +
@@ -1393,26 +1402,12 @@
         '<span class="foe-stakes">Victoire <b class="up">+' + st.win + '</b> · Défaite <b class="down">−' + st.lose + '</b></span>' +
         '<button class="btn" data-duel="' + card.id + '"' + (d.restants > 0 ? '' : ' disabled') + '>Défier ▶</button></article>';
     }).join('');
-    html += '</div><div class="panel dojo-journal"><h2>JOURNAL DU DOJO</h2>' + (d.journal.length ? '<ul>' + d.journal.map(function (j) {
+    html += '</div><div class="panel dojo-journal"><h2>JOURNAL DE LA CASCADE</h2>' + (d.journal.length ? '<ul>' + d.journal.map(function (j) {
       var who = '<b>' + escapeHtml(j.nom) + '</b> (' + escapeHtml(j.pseudo) + ')';
       var text = j.type === 'attaque' ? (j.victoire ? 'Tu as battu ' + who : 'Tu as perdu contre ' + who) : (j.victoire ? who + ' t’a défiée et a perdu' : who + ' t’a défiée et t’a battue');
       return '<li class="' + (j.delta >= 0 ? 'up' : 'down') + '"><span>' + text + '</span><b>' + (j.delta >= 0 ? '+' : '−') + Math.abs(j.delta) + '</b><small>' + agoMs(j.t) + '</small></li>';
     }).join('') + '</ul>' : '<p class="muted">Aucun duel pour l’instant. Les défis que tu lances, et ceux que tu reçois, s’afficheront ici.</p>') + '</div></section></div>';
     return html;
-  }
-  // l'onglet Classement : le top 10 et ce qu'il gagne lundi
-  function renderDojoTop(d) {
-    var rows = d.top.map(function (e, i) {
-      return '<li class="' + (e.id === Cloud.id ? 'is-current' : '') + '"><span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
-        '<span class="rk-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' + dojoVoie(e) +
-        '<span class="dt-rep">' + e.rep + '</span><span class="dt-gift">' + giftText(d.recompenses[i]) + '</span></li>';
-    }).join('');
-    return '<div class="dojo-top"><section class="panel"><div class="df-head"><h2>LES 10 MEILLEURES DU DOJO</h2><span class="muted">Cadeaux dans <b>' + untilMs(d.prochain) + '</b></span></div>' +
-      (rows ? '<ol class="dt-list">' + rows + '</ol>' : '<p class="muted">Personne n’a encore gagné de réputation : à toi de jouer !</p>') +
-      '<p class="muted">Ta grenouille : ' + (d.rang ? (d.rang === 1 ? '1re' : d.rang + 'e') + ' avec ' + d.rep + ' réputation.' : 'pas encore classée, gagne un duel pour entrer au classement.') + '</p></section>' +
-      '<aside class="panel dojo-rules"><h2>LES CADEAUX DU LUNDI</h2><p>Chaque lundi à minuit, les dix premières du dojo reçoivent leur cadeau. Il arrive tout seul dans la partie à la prochaine visite.</p>' +
-      '<ul class="dr-gifts">' + d.recompenses.map(function (g, i) { return '<li><span class="rk-pos' + (i < 3 ? ' m' + (i + 1) : '') + '">' + (i + 1) + '</span>' + (g.objet && ITEMS[g.objet] ? '<img class="px" src="' + iconUrls[g.objet] + '" alt="">' : '<span class="luciole"></span>') + '<span>' + giftText(g) + '</span></li>'; }).join('') + '</ul>' +
-      '<h2>LA RÉPUTATION</h2><p>Une victoire rapporte de 4 à 30 points : plus l’adversaire est réputé, plus elle rapporte. Une défaite en coûte un peu, jamais sous zéro. Quand on te défie, tu gagnes ou perds la moitié en défense. Chaque victoire donne aussi un peu d’XP. 10 duels par jour.</p></aside></div>';
   }
   // l'onglet Entraînement : l'arbre, ses réglages, le dernier bilan
   function renderTraining() {
@@ -1426,7 +1421,7 @@
   }
   function trainingFight() {
     return {
-      kind: 'arbre', title: 'Dojo · entraînement', backdrop: DojoScene.backdrop(), turns: DOJO_TURNS, done: 0, riposte: dojo.riposte,
+      kind: 'arbre', title: 'Cascade · entraînement', backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, turns: DOJO_TURNS, done: 0, riposte: dojo.riposte,
       stats: { total: 0, hits: 0, crits: 0, best: 0, taken: 0 },
       enemy: { species: 'arbre', name: 'Arbre d’entraînement', level: save.level, rank: 'arbre', behavior: 'arbre', scale: 1, maxHp: 1e9, dmg: dojo.riposte ? Math.round(2 + 0.95 * save.level) : 0, agi: -1, dodge: 0 },
       again: trainingFight
@@ -1434,7 +1429,7 @@
   }
   function duelFight(card) {
     return {
-      kind: 'duel', title: 'Dojo · duel contre ' + card.nom, backdrop: DojoScene.backdrop(), card: card, enemy: dojoFighter(card),
+      kind: 'duel', title: 'Cascade · duel contre ' + card.nom, backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
       settle: function (win) { return settleDuel(card, win); }
     };
   }
@@ -1456,13 +1451,13 @@
   // La tour se dresse au milieu du mont Kaeru : un étage par sage, la grenouille sur le prochain à conquérir,
   // les étages du dessus perdus dans la brume. À droite, la fiche de l'étage choisi : le sage, sa force comparée
   // à la nôtre, ses sorts, et ce que rapporte la première victoire.
-  var tower = { sel: null };
+  var tower = { sel: null, view: 0 };
   function towerNext() { return Math.min(TOWER_FLOORS, save.tower + 1); }
   function towerFight(f) {
     var card = towerCard(f), en = Object.assign({}, dojoFighter(card), { rank: 'sage' });
     if (card.boss) { en.maxHp = Math.round(en.maxHp * 1.15); en.dmg *= 1.1; }
     return {
-      kind: 'tour', floor: f, card: card, enemy: en, title: 'Tour des Cent Sages · étage ' + f, backdrop: TowerScene.arena(f),
+      kind: 'tour', floor: f, card: card, enemy: en, title: 'Tour des Cent Sages · étage ' + f, backdrop: TowerScene.arena(f), bgFx: TowerScene.arenaFx,
       intro: card.boss ? 'Étage ' + f + ' : le Grand Sage ' + card.nom + ', ' + card.titre + ', t’attend (niv. ' + card.niveau + ') !' : 'Étage ' + f + ' : ' + card.nom + ' (niv. ' + card.niveau + ') t’attend pour son épreuve.',
       settle: function (win) { return Promise.resolve(settleTower(f, card, win)); },
       next: f < TOWER_FLOORS ? function () { return towerFight(f + 1); } : null,
@@ -1487,29 +1482,37 @@
       (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline devant toi.</p>' : '');
   }
   function openTower() {
-    var cv = $('tower-bg'), img = TowerScene.backdrop(towerNext());
-    cv.width = img.width; cv.height = img.height; cv.getContext('2d').drawImage(img, 0, 0);
     if (!tower.sel) tower.sel = towerNext();
+    tower.view = Math.max(1, towerNext() - 2);
     renderTower();
-    var cur = document.querySelector('.tfl.next') || document.querySelector('.tfl.is-selected');
-    if (cur) cur.scrollIntoView({ block: 'center' });
   }
+  // La tour dessinée (tower.js), et par-dessus un bouton par étage : son numéro, son sage devant la porte, le trésor
+  // des Grands Sages, et ta grenouille sur le balcon de l'étage à conquérir. La molette fait monter et descendre.
   function renderTower() {
-    var next = towerNext(), top = Math.min(TOWER_FLOORS, next + 4), me = $('sb-portrait').toDataURL(), html = '';
-    if (top < TOWER_FLOORS) html += '<div class="tw-mist"><span>' + (TOWER_FLOORS - top) + ' étages se perdent dans la brume…</span></div>';
-    for (var f = top; f >= 1; f--) {
-      var st = f <= save.tower ? 'done' : (f === next ? 'next' : 'locked'), boss = f % 10 === 0, near = f >= next - 6;
-      var card = st !== 'locked' && near ? towerCard(f) : null, prize = boss ? towerTreasure(f) : null;
-      html += '<button class="tfl ' + st + (boss ? ' boss' : '') + (tower.sel === f ? ' is-selected' : '') + '" data-floor="' + f + '" aria-label="Étage ' + f + '">' +
-        '<span class="tfl-roof"></span><span class="tfl-body"><span class="tfl-num">' + f + '</span>' +
-        (card ? '<img class="px tfl-sage" src="' + portraitOf(card) + '" alt="">' : '<span class="tfl-q">' + (st === 'done' ? '✓' : '?') + '</span>') +
+    var page = $('page-tower'), pw = page.clientWidth, ph = page.clientHeight, wide = pw > 1000, side = wide ? 400 : 0;
+    var S = ph < 620 ? 2 : 3, next = towerNext();
+    tower.view = Math.max(1, Math.min(tower.view || 1, Math.min(TOWER_FLOORS, next + 3) - 1));
+    var lay = TowerPage.render($('tower-bg'), { w: pw, h: wide ? ph : Math.round(ph * 0.58), s: S, cx: (pw - side) / 2 / S, view: tower.view, next: next, sky: TowerScene.skyOf(next) });
+    var me = $('sb-portrait').toDataURL(), html = '';
+    lay.floors.forEach(function (fl) {
+      var f = fl.f, st = f <= save.tower ? 'done' : (f === next ? 'next' : 'locked'), boss = f % 10 === 0;
+      var card = st !== 'locked' ? towerCard(f) : null, prize = boss ? towerTreasure(f) : null, dx = (fl.door.x - fl.x) * S;
+      html += '<button class="tfl ' + st + (boss ? ' boss' : '') + (tower.sel === f ? ' is-selected' : '') + '" data-floor="' + f + '" aria-label="Étage ' + f + '" style="left:' + fl.x * S + 'px;top:' + fl.y * S + 'px;width:' + fl.w * S + 'px;height:' + fl.h * S + 'px">' +
+        '<span class="tfl-num">' + f + '</span>' +
+        (card ? '<img class="px tfl-sage" src="' + portraitOf(card) + '" alt="" style="left:' + (dx - 12 * S) + 'px;top:' + 8 * S + 'px;width:' + 24 * S + 'px;height:' + 24 * S + 'px">' : '<span class="tfl-q" style="left:' + (dx - 6 * S) + 'px;top:' + 16 * S + 'px;width:' + 12 * S + 'px">?</span>') +
         (prize ? '<img class="px tfl-prize" src="' + iconUrls[prize] + '" alt="" title="' + ITEMS[prize].name + '">' : '') +
-        (f === next && save.tower < TOWER_FLOORS ? '<img class="px tfl-frog" src="' + me + '" alt="Ta grenouille">' : '') + '</span></button>';
-    }
-    html += '<div class="tw-base">MONT KAERU</div>';
+        (f === next && save.tower < TOWER_FLOORS ? '<img class="px tfl-frog" src="' + me + '" alt="Ta grenouille" style="width:' + 20 * S + 'px;height:' + 20 * S + 'px;top:' + 11 * S + 'px">' : '') + '</button>';
+    });
+    html += '<div class="tw-nav"><button data-tower-scroll="2" aria-label="Monter">▲</button><button data-tower-scroll="0" aria-label="Revenir à mon étage" title="Revenir à mon étage">◎</button><button data-tower-scroll="-2" aria-label="Descendre">▼</button></div>';
     $('tower-col').innerHTML = html;
     renderTowerSheet();
   }
+  $('page-tower').addEventListener('wheel', function (e) {
+    if (e.target.closest('#tower-side')) return;
+    e.preventDefault();
+    var v = tower.view + (e.deltaY < 0 ? 1 : -1);
+    if (v !== tower.view) { tower.view = v; renderTower(); }
+  }, { passive: false });
   function renderTowerSheet() {
     var f = tower.sel, next = towerNext(), card = towerCard(f), boss = f % 10 === 0, r = towerRewards(f), me = myFight();
     var fighter = f <= next ? dojoFighter(card) : null, hp = fighter ? Math.round(fighter.maxHp * (boss ? 1.15 : 1)) : 0, dmg = fighter ? fighter.dmg * (boss ? 1.1 : 1) : 0;
@@ -1535,56 +1538,90 @@
     $('tower-side').innerHTML = html;
   }
 
-  // ---------- L'Album ----------
-  var album = { tab: 'monstres' }, albumImgs = {};
+  // ---------- L'Album : un livre à feuilleter ----------
+  // Une double page par famille (ALBUM_CHAPTERS) : la présentation de la famille à gauche, ses cartes à collectionner
+  // sur les deux pages. Le sommaire ouvre le livre, avec les chapitres et les récompenses à réclamer. Une carte pas
+  // encore trouvée montre son dos, avec un indice pour la trouver.
+  var album = { spread: 0, dir: 0 }, albumImgs = {};
   function monsterImg(m, found) {
     var key = m.id + (found ? '' : '-x');
     if (albumImgs[key]) return albumImgs[key];
     if (m.kind === 'sage') return (albumImgs[key] = found ? portraitOf(towerCard(m.floor)) : '');
     var s = SPECIES[m.species], pal = rarityPal(Object.assign({}, s.pal, m.pal || {}), m.rarity);
-    if (!found) { var dark = {}; Object.keys(pal).forEach(function (k) { dark[k] = '#1a1208'; }); pal = dark; }
     return (albumImgs[key] = stringsToCanvas(s.frames[0], pal).toDataURL());
   }
-  function albumProgress(cat) {
-    var total = cat === 'monstres' ? ALBUM_MONSTERS.length : ALBUM_ITEMS.length, found = albumCount(save, cat);
-    var ms = ALBUM_MILESTONES.filter(function (m) { return m.cat === cat; });
-    return '<div class="al-progress"><div class="al-count"><b>' + found + ' / ' + total + '</b><span>' + (cat === 'monstres' ? 'créatures rencontrées et vaincues' : 'modèles d’objets découverts') + '</span>' +
-      '<span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div><div class="al-miles">' + ms.map(function (m) {
-        var done = albumOf(save).paliers.indexOf(m.id) >= 0, ready = milestoneReady(save, m);
-        return '<div class="al-mile' + (done ? ' done' : (ready ? ' ready' : '')) + '"><b>' + m.n + '</b><span>' + m.gold + ' lucioles' + (m.item ? ' + ' + ITEMS[m.item].name : '') + '</span>' +
-          (done ? '<em>Reçu</em>' : (ready ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<em>' + Math.min(found, m.n) + ' / ' + m.n + '</em>')) + '</div>';
-      }).join('') + '</div></div>';
+  function chapterFound(ch) {
+    return ch.cat === 'monstres' ? ch.list.filter(function (m) { return albumOf(save).monstres[m.id]; }).length : ch.list.filter(function (id) { return albumSyncItems(save).indexOf(id) >= 0; }).length;
+  }
+  // une carte : cadre de la rareté, illustration, nom, et ce qu'on sait
+  function albumCard(ch, e) {
+    if (ch.cat === 'monstres') {
+      var n = albumOf(save).monstres[e.id] || 0, biome = e.kind === 'sage' ? null : BIOMES[e.biome];
+      if (!n) return '<div class="acard back"><span class="ac-q">?</span><small>' + (e.kind === 'sage' ? 'Tour, étage ' + e.floor : biome.name + (e.rarity !== 'commun' ? ' · ' + RARITIES[e.rarity].name : '')) + '</small></div>';
+      var bg = biome ? 'linear-gradient(' + biome.pal.groundLight + ', ' + biome.pal.groundDark + ')' : 'linear-gradient(#ffb070, #7a2a1a)';
+      return '<div class="acard r-' + e.rarity + ' k-' + e.kind + '"><div class="ac-in"><b class="ac-name">' + e.name + '</b>' +
+        '<div class="ac-art" style="background:' + bg + '"><img class="px" src="' + monsterImg(e, true) + '" alt=""></div>' +
+        '<span class="ac-sub">' + (e.kind === 'sage' ? 'Étage ' + e.floor : biome.name) + '</span><span class="ac-foot">' + (e.kind === 'boss' ? 'BOSS' : RARITIES[e.rarity].name.toUpperCase()) + ' · vaincu ×' + n + '</span></div></div>';
+    }
+    var it = ITEMS[e], ok = albumSyncItems(save).indexOf(e) >= 0;
+    if (!ok) return '<div class="acard back"><img class="px ac-ghost" src="' + lockedUrls[e] + '" alt=""><small>' + itemHint(e) + '</small></div>';
+    var slot = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name;
+    return '<div class="acard ' + (it.reward ? 'r-epique k-tresor' : 'r-commun') + '" title="' + it.desc + '"><div class="ac-in"><b class="ac-name">' + it.name + '</b>' +
+      '<div class="ac-art item"><img class="px" src="' + iconUrls[e] + '" alt=""></div>' +
+      '<span class="ac-sub">' + statLine(it.stats) + '</span><span class="ac-foot">' + slot.toUpperCase() + (it.reward ? ' · TRÉSOR' : ' · RANG ' + (ITEM_TIER[e] || 1)) + '</span></div></div>';
   }
   function renderAlbum() {
-    $('album-tabs').innerHTML = [['monstres', 'Bestiaire'], ['objets', 'Objets']].map(function (t) {
-      var ready = ALBUM_MILESTONES.some(function (m) { return m.cat === t[0] && milestoneReady(save, m); });
-      return '<button role="tab" data-album-tab="' + t[0] + '" aria-selected="' + (album.tab === t[0]) + '">' + t[1] + (ready ? ' <i class="badge-dot"></i>' : '') + '</button>';
+    var spreads = [null].concat(ALBUM_CHAPTERS), sp = album.spread = Math.max(0, Math.min(spreads.length - 1, album.spread)), ch = spreads[sp];
+    var firstObj = 1 + ALBUM_CHAPTERS.map(function (c) { return c.cat; }).indexOf('objets'), ready = ALBUM_MILESTONES.some(function (m) { return milestoneReady(save, m); });
+    $('book-tabs').innerHTML = [['Sommaire', 0, sp === 0], ['Bestiaire', 1, sp >= 1 && sp < firstObj], ['Objets', firstObj, sp >= firstObj]].map(function (t, i) {
+      return '<button data-book-go="' + t[1] + '" aria-selected="' + t[2] + '" class="bt-' + i + '">' + t[0] + (i === 0 && ready ? ' <i class="badge-dot"></i>' : '') + '</button>';
     }).join('');
-    var html = albumProgress(album.tab), kills = albumOf(save).monstres;
-    if (album.tab === 'monstres') {
-      var groups = BIOMES.map(function (b, w) { return { name: b.name, list: ALBUM_MONSTERS.filter(function (m) { return m.biome === w; }) }; });
-      groups.push({ name: 'Grands Sages de la tour', list: ALBUM_MONSTERS.filter(function (m) { return m.kind === 'sage'; }) });
-      html += groups.map(function (g) {
-        return '<section class="al-group"><h2>' + g.name.toUpperCase() + '</h2><div class="al-grid">' + g.list.map(function (m) {
-          var n = kills[m.id] || 0, img = monsterImg(m, n > 0);
-          return '<div class="al-card' + (n ? '' : ' locked') + (m.kind !== 'monstre' ? ' ' + m.kind : '') + '" style="--rar:' + RARITIES[m.rarity].color + '" title="' + (n ? m.name : 'Pas encore vaincu') + '">' +
-            (img ? '<img class="px" src="' + img + '" alt="">' : '<span class="al-q">?</span>') + '<b>' + (n ? m.name : '???') + '</b>' +
-            '<small>' + (n ? 'vaincu ×' + n : (m.kind === 'sage' ? 'Tour, étage ' + m.floor : (m.kind === 'boss' ? 'Boss du biome' : RARITIES[m.rarity].name))) + '</small></div>';
-        }).join('') + '</div></section>';
-      }).join('');
+    var left, right;
+    if (!ch) {
+      var bar = function (cat, label) {
+        var total = cat === 'monstres' ? ALBUM_MONSTERS.length : ALBUM_ITEMS.length, found = albumCount(save, cat);
+        return '<div class="bk-prog"><span>' + label + ' <b>' + found + ' / ' + total + '</b></span><span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div>';
+      };
+      var toc = function (cat) {
+        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + chapterFound(c) + ' / ' + c.list.length + '</b></button>'; }).join('');
+      };
+      left = '<h1 class="bk-title">ALBUM DU MARAIS</h1><p class="bk-intro">Chaque créature vaincue et chaque objet trouvé colle sa carte dans ce livre. Les cartes rares et épiques ont leur cadre bleu ou violet.</p>' +
+        bar('monstres', 'Bestiaire') + bar('objets', 'Objets') +
+        '<h2 class="bk-h">BESTIAIRE</h2><div class="bk-tocs">' + toc('monstres') + '</div><h2 class="bk-h">OBJETS</h2><div class="bk-tocs">' + toc('objets') + '</div>';
+      right = '<h2 class="bk-h">RÉCOMPENSES</h2><p class="bk-intro">Remplis le livre pour gagner des lucioles, de l’expérience… et deux trésors.</p><div class="bk-miles">' +
+        ALBUM_MILESTONES.map(function (m) {
+          var done = albumOf(save).paliers.indexOf(m.id) >= 0, rdy = milestoneReady(save, m), have = albumCount(save, m.cat);
+          return '<div class="bk-mile' + (done ? ' done' : (rdy ? ' ready' : '')) + '"><span class="bm-n">' + m.n + '</span><span class="bm-txt"><b>' + (m.cat === 'monstres' ? 'créatures' : 'objets') + '</b>' + m.gold + ' lucioles · ' + m.xp + ' XP' + (m.item ? ' · <em>' + ITEMS[m.item].name + '</em>' : '') + '</span>' +
+            (done ? '<span class="bm-state">Reçu</span>' : (rdy ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<span class="bm-state">' + Math.min(have, m.n) + ' / ' + m.n + '</span>')) + '</div>';
+        }).join('') + '</div>';
     } else {
-      var found = albumSyncItems(save);
-      html += SLOTS.map(function (s) {
-        var ids = ALBUM_ITEMS.filter(function (id) { return ITEMS[id].slot === s.id; }).sort(function (a, b) { var t = function (id) { return ITEMS[id].reward ? 99 : ITEM_TIER[id] || 0; }; return t(a) - t(b); }); // les trésors en dernier
-        return '<section class="al-group"><h2>' + (s.id === 'arme' ? 'ARMES' : s.name.toUpperCase() + 'S') + '</h2><div class="al-grid">' + ids.map(function (id) {
-          var it = ITEMS[id], ok = found.indexOf(id) >= 0;
-          return '<div class="al-card al-item' + (ok ? '' : ' locked') + (it.reward ? ' treasure' : '') + '" style="--rar:' + (it.reward ? RARITIES.epique.color : RARITIES.commun.color) + '" title="' + (ok ? it.name + ' — ' + it.desc : itemHint(id)) + '">' +
-            '<img class="px" src="' + (ok ? iconUrls[id] : lockedUrls[id]) + '" alt=""><b>' + (ok ? it.name : '???') + '</b><small>' + (ok ? statLine(it.stats) : itemHint(id)) + '</small></div>';
-        }).join('') + '</div></section>';
-      }).join('');
+      var found = chapterFound(ch), cards = ch.list.map(function (e) { return albumCard(ch, e); });
+      left = '<div class="bk-chap"><span class="bk-kicker">' + (ch.cat === 'monstres' ? 'BESTIAIRE' : 'OBJETS') + '</span><h1 class="bk-title">' + ch.name.toUpperCase() + '</h1><p class="bk-intro">' + ch.desc + '</p>' +
+        '<div class="bk-prog"><span>Cartes trouvées <b>' + found + ' / ' + ch.list.length + '</b></span><span class="al-bar"><i style="width:' + (found / ch.list.length * 100) + '%"></i></span></div></div>' +
+        '<div class="bk-cards">' + cards.slice(0, 6).join('') + '</div>';
+      right = '<div class="bk-cards">' + cards.slice(6).join('') + '</div>' + (cards.length <= 6 ? '<p class="bk-empty">La suite de ce chapitre reste à écrire…</p>' : '');
     }
-    $('album-body').innerHTML = html;
+    $('book-left').innerHTML = left;
+    $('book-right').innerHTML = right;
+    $('book-folio').textContent = sp === 0 ? 'Sommaire' : 'Chapitre ' + sp + ' / ' + ALBUM_CHAPTERS.length;
+    $('book-prev').disabled = sp === 0;
+    $('book-next').disabled = sp === spreads.length - 1;
+    var book = $('book');
+    book.classList.remove('flip-l', 'flip-r');
+    if (album.dir) { void book.offsetWidth; book.classList.add(album.dir > 0 ? 'flip-r' : 'flip-l'); album.dir = 0; }
   }
+  function turnPage(to) {
+    if (to === album.spread) return;
+    album.dir = to > album.spread ? 1 : -1;
+    album.spread = to;
+    Sfx.play('cut');
+    renderAlbum();
+  }
+  window.addEventListener('keydown', function (e) {
+    if (state.page !== 'album' || $('app').hidden || !$('battle').hidden) return;
+    if (e.key === 'ArrowRight') turnPage(Math.min(ALBUM_CHAPTERS.length, album.spread + 1));
+    if (e.key === 'ArrowLeft') turnPage(Math.max(0, album.spread - 1));
+  });
 
   // ---------- Rendu général ----------
   function renderAll() {
@@ -1669,9 +1706,11 @@
       return;
     }
     // choisir sa voie : la grenouille plonge dans la flaque (définitif)
+    if (t.dataset.towerScroll) { var sc = +t.dataset.towerScroll; tower.view = sc ? tower.view + sc : Math.max(1, towerNext() - 2); Sfx.play('click'); renderTower(); return; }
     if (t.dataset.floor) { tower.sel = +t.dataset.floor; Sfx.play('click'); renderTower(); return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
-    if (t.dataset.albumTab) { album.tab = t.dataset.albumTab; Sfx.play('click'); renderAlbum(); return; }
+    if (t.dataset.bookGo) { turnPage(+t.dataset.bookGo); return; }
+    if (t.dataset.bookStep) { turnPage(Math.max(0, Math.min(ALBUM_CHAPTERS.length, album.spread + +t.dataset.bookStep))); return; }
     if (t.dataset.claim) {
       var ms = ALBUM_MILESTONES.filter(function (m) { return m.id === t.dataset.claim; })[0], got = ms && albumClaim(save, ms);
       if (got) {
@@ -1691,10 +1730,17 @@
       if (foe && dojo.data && dojo.data.restants > 0) { Sfx.play('click'); startFight(duelFight(foe)); }
       return;
     }
-    if (t.dataset.rankSort) { rank.sort = t.dataset.rankSort; Sfx.play('click'); renderRank(); return; }
-    if (t.dataset.rankVoie) { rank.voie = t.dataset.rankVoie; Sfx.play('click'); renderRank(); return; }
+    if (t.dataset.rankSort) { rank.sort = t.dataset.rankSort; rank.limit = RANK_PAGE; rank.sel = null; Sfx.play('click'); renderRank(); return; }
+    if (t.dataset.rankVoie) { rank.voie = t.dataset.rankVoie; rank.limit = RANK_PAGE; rank.sel = null; Sfx.play('click'); renderRank(); return; }
     if (t.dataset.rankFrog) { rank.sel = rank.sel === t.dataset.rankFrog ? null : t.dataset.rankFrog; Sfx.play('click'); renderRank(); return; }
-    if (t.hasAttribute('data-rank-close')) { rank.sel = null; renderRank(); return; }
+    if (t.hasAttribute('data-rank-more')) { rank.limit += RANK_PAGE; Sfx.play('click'); renderRank(); return; }
+    if (t.hasAttribute('data-rank-mine')) {
+      var mi = rankedList().map(function (e) { return e.id; }).indexOf(Cloud.id);
+      rank.limit = Math.ceil((mi + 1) / RANK_PAGE) * RANK_PAGE; rank.sel = Cloud.id; renderRank();
+      var row = document.querySelector('.rk-row.is-current'); if (row) row.scrollIntoView({ block: 'center' });
+      return;
+    }
+    if (t.hasAttribute('data-rank-duels')) { rank.sort = 'reputation'; rank.limit = RANK_PAGE; rank.sel = null; showPage('rank'); return; }
     if (t.hasAttribute('data-rank-refresh')) { Sfx.play('click'); openRank(); return; }
     if (t.dataset.pickVoie) { if (!diving && state.pick !== t.dataset.pickVoie) { state.pick = t.dataset.pickVoie; Sfx.play('drip'); renderTree(); } return; }
     if (t.dataset.chooseVoie) { if (!diving) diveInto(t.dataset.chooseVoie); return; }

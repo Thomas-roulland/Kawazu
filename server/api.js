@@ -183,10 +183,11 @@ async function publish(frog, pseudo, before) {
   await store.hset(RANK, frog.id, entry);
 }
 
-// ---------- Dojo ----------
+// ---------- La Cascade des Duels (dans le code : « dojo ») ----------
 // Des duels entre les grenouilles des joueurs (le combat se joue dans le navigateur, contre la fiche de combat
 // de l'adversaire) : la victoire rapporte de la réputation, d'autant plus que l'adversaire est mieux classé.
 // Chaque lundi à minuit (heure de Paris), les dix premières en réputation reçoivent un cadeau.
+// On peut aussi affronter ses propres grenouilles (les « sœurs ») : chacune une fois par jour.
 const REP = 'reputation';
 const DUELS_PAR_JOUR = 10;
 const CADEAUX = [
@@ -264,15 +265,18 @@ async function dojoRoute(req, res, account, id, action, method) {
     const [rec, reps, fiches] = await Promise.all([dojoRecord(id), store.hgetall(REP), store.hgetall(RANK)]);
     const mine = +reps[id] || 0, me = fiches[id] || { niveau: 1 };
     const pool = Object.values(fiches).filter((e) => account.grenouilles.indexOf(e.id) < 0).map((e) => Object.assign({ rep: +reps[e.id] || 0 }, e));
+    const fought = rec.soeurs || {};
+    const sisters = Object.values(fiches).filter((e) => e.id !== id && account.grenouilles.indexOf(e.id) >= 0 && fought[e.id] !== rec.jour).map((e) => Object.assign({ rep: +reps[e.id] || 0, soeur: true }, e));
     const near = (a, b) => Math.abs(a.rep - mine) - Math.abs(b.rep - mine) || Math.abs(a.niveau - me.niveau) - Math.abs(b.niveau - me.niveau);
     // une plus forte, une plus faible, et la plus proche, au hasard parmi les ex æquo
     pool.sort(() => Math.random() - 0.5);
     const above = pool.filter((e) => e.rep > mine).sort((a, b) => a.rep - b.rep)[0], below = pool.filter((e) => e.rep < mine).sort((a, b) => b.rep - a.rep)[0];
     const picked = [above, below].filter(Boolean);
     pool.slice().sort(near).forEach((e) => { if (picked.length < 3 && picked.indexOf(e) < 0) picked.push(e); });
-    const cards = (await Promise.all(picked.map((e) => store.get('grenouille:' + e.id)))).map((frog, i) => frog && combatCard(frog, picked[i], picked[i].rep)).filter(Boolean);
-    cards.sort((a, b) => b.rep - a.rep);
-    rec.offerts = cards.map((k) => ({ id: k.id, nom: k.nom, pseudo: k.pseudo }));
+    const all = picked.concat(sisters.slice(0, 4));
+    const cards = (await Promise.all(all.map((e) => store.get('grenouille:' + e.id)))).map((frog, i) => frog && Object.assign(combatCard(frog, all[i], all[i].rep), all[i].soeur ? { soeur: true } : {})).filter(Boolean);
+    cards.sort((a, b) => (a.soeur ? 1 : 0) - (b.soeur ? 1 : 0) || b.rep - a.rep);
+    rec.offerts = cards.map((k) => ({ id: k.id, nom: k.nom, pseudo: k.pseudo, soeur: !!k.soeur }));
     await store.set('dojo:' + id, rec);
     return send(res, 200, { adversaires: cards });
   }
@@ -281,6 +285,11 @@ async function dojoRoute(req, res, account, id, action, method) {
     const opp = rec.offerts.filter((o) => o.id === b.adversaire)[0];
     if (!opp) return send(res, 400, { erreur: 'Cet adversaire n’est plus proposé : choisis-en un autre.' });
     if (rec.n >= DUELS_PAR_JOUR) return send(res, 429, { erreur: 'Plus de duels aujourd’hui : reviens demain !' });
+    if (opp.soeur) {
+      rec.soeurs = rec.soeurs || {};
+      if (rec.soeurs[opp.id] === rec.jour) return send(res, 400, { erreur: 'Tu as déjà affronté cette grenouille aujourd’hui.' });
+      rec.soeurs[opp.id] = rec.jour;
+    }
     const reps = await store.hgetall(REP), mine = +reps[id] || 0, theirs = +reps[opp.id] || 0, diff = theirs - mine, win = !!b.victoire;
     const myDelta = win ? clamp(Math.round(12 + diff / 8), 4, 30) : -clamp(Math.round(8 - diff / 10), 2, 15);
     const oppDelta = win ? -Math.ceil(myDelta / 2) : Math.ceil(-myDelta / 2);
@@ -339,7 +348,7 @@ async function route(req, res, p) {
     const [fiches, reps] = await Promise.all([store.hgetall(RANK), store.hgetall(REP)]);
     const all = Object.values(fiches), mine = me ? me.compte.grenouilles : [];
     all.forEach((e) => { e.moi = mine.indexOf(e.id) >= 0; e.rep = +reps[e.id] || 0; });
-    return send(res, 200, { grenouilles: all, joueurs: new Set(all.map((e) => e.pseudo)).size });
+    return send(res, 200, { grenouilles: all, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX } });
   }
 
   // tout le reste demande d'être connecté

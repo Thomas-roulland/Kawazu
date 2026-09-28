@@ -63,8 +63,31 @@ function albumClaim(save, ms) {
 function itemHint(id) {
   var it = ITEMS[id], f = it.from || {};
   if (f.tour) return 'Tour des Cent Sages, étage ' + f.tour;
-  if (f.dojo) return 'Dojo : podium du lundi';
+  if (f.dojo) return 'Cascade des duels : podium du lundi';
   if (f.album) return 'Album : tout découvrir';
   if (!it.drop) return 'Équipement de départ';
   return 'Butin ou boutique, dès ' + BIOMES[Math.min(BIOMES.length, ITEM_TIER[id] || 1) - 1].name;
 }
+
+// Les chapitres du livre : une famille par double page (les monstres par espèce, les objets par sorte)
+var ALBUM_CHAPTERS = (function () {
+  var mon = function (id, name, desc, pred) { return { id: id, cat: 'monstres', name: name, desc: desc, list: ALBUM_MONSTERS.filter(pred) }; };
+  var obj = function (id, name, desc, pred) { return { id: id, cat: 'objets', name: name, desc: desc, list: ALBUM_ITEMS.filter(function (i) { return pred(ITEMS[i]); }).sort(function (a, b) { return (ITEM_TIER[a] || 0) - (ITEM_TIER[b] || 0); }) }; };
+  var species = function (sp) { return function (m) { return m.kind === 'monstre' && m.species === sp; }; };
+  return [
+    mon('limons', 'Les Limons', 'Des tas de vase vivante qui rampent, engluent et ne lâchent rien. Il y en a dans presque toutes les terres.', species('limon')),
+    mon('moustiques', 'Les Moustiques', 'Des bestioles volantes et voraces. Certaines brillent, d’autres piquent comme des frelons.', species('moustique')),
+    mon('champis', 'Les Champis', 'Des champignons qui se préparent, puis chargent tête baissée.', species('champi')),
+    mon('chauves', 'Les Chauves-souris', 'Elles zigzaguent dans les grottes et aspirent la vie de qui s’approche.', species('chauvesouris')),
+    mon('boss', 'Les Boss des terres', 'Un par terre, au bout de ses dix étapes. Les vaincre ouvre la suite du monde.', function (m) { return m.kind === 'boss'; }),
+    mon('sages', 'Les Grands Sages', 'Les dix gardiens de la Tour des Cent Sages, un tous les dix étages.', function (m) { return m.kind === 'sage'; }),
+    obj('batons', 'Les Bâtons', 'Au corps à corps : chaque coup libère une onde de choc.', function (it) { return it.slot === 'arme' && it.kind === 'baton' && it.look.weapon === 'baton' && !it.reward; }),
+    obj('harpons', 'Les Harpons', 'Des coups d’estoc qui filent tout droit, très loin.', function (it) { return it.slot === 'arme' && it.look.weapon === 'harpon' && !it.reward; }),
+    obj('kunais', 'Les Kunaïs', 'À distance : lancés droit, parfois au travers des ennemis.', function (it) { return it.slot === 'arme' && it.kind === 'kunai' && !it.reward; }),
+    obj('tetes', 'Les Couvre-chefs', 'Chapeaux, feuilles et heaumes : ils se voient sur la tête.', function (it) { return it.slot === 'tete' && !it.reward; }),
+    obj('echarpes', 'Les Écharpes', 'Elles flottent au vent et changent de couleur sur la grenouille.', function (it) { return it.slot === 'echarpe' && !it.reward; }),
+    obj('ceintures', 'Les Ceintures', 'Nouées à la taille, parfois avec une breloque.', function (it) { return it.slot === 'ceinture' && !it.reward; }),
+    obj('anneaux', 'Les Anneaux', 'Petits, mais on les voit briller au doigt.', function (it) { return it.slot === 'anneau' && !it.reward; }),
+    obj('tresors', 'Les Trésors', 'Ni en boutique ni en butin : la tour, les duels de la cascade et l’album lui-même.', function (it) { return !!it.reward; })
+  ];
+})();

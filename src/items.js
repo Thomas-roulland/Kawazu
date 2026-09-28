@@ -179,15 +179,15 @@ var ITEMS = {
     desc: 'Cuir sombre et, pendue à la boucle, la dent d’un brochet vaincu.',
     colors: { 1: '#3e2a19', 2: '#241810', 3: '#5a3e25', 4: '#efe6a8' }, belt: ['#3e2a19', '#b8ad6e'], charm: '#efe6a8', look: { belt: true, charm: true }
   },
-  // récompenses du dojo (jamais en boutique ni en butin)
+  // récompenses des duels de la cascade (jamais en boutique ni en butin)
   ceinture_champion: {
     slot: 'ceinture', name: 'Ceinture du champion', icon: 'ceinture', stats: { force: 2, agilite: 2, vitalite: 2 }, drop: 0, reward: true,
-    desc: 'Remise chaque lundi à la première grenouille du dojo. Soie noire, boucle d’or en forme de grenouille.',
+    desc: 'Remise chaque lundi à la première grenouille des duels de la cascade. Soie noire, boucle d’or en forme de grenouille.',
     colors: { 1: '#1a1c2c', 2: '#0b0c14', 3: '#3a3c4c', 4: '#f3d27a' }, belt: ['#22243a', '#f3d27a'], charm: '#f3d27a', look: { belt: true, charm: true }
   },
   ceinture_dojo: {
-    slot: 'ceinture', name: 'Ceinture du dojo', icon: 'ceinture', stats: { force: 1, agilite: 2 }, drop: 0, reward: true,
-    desc: 'Pour les grenouilles du podium du dojo : une ceinture pourpre nouée à la façon des maîtres.',
+    slot: 'ceinture', name: 'Ceinture de la cascade', icon: 'ceinture', stats: { force: 1, agilite: 2 }, drop: 0, reward: true,
+    desc: 'Pour les grenouilles du podium des duels : une ceinture pourpre, trempée dans l’eau de la cascade.',
     colors: { 1: '#7a2a4a', 2: '#4a1a2e', 3: '#a84a6a', 4: '#cfd8dc' }, belt: ['#7a2a4a', '#cfd8dc'], look: { belt: true }
   },
   perle_rosee: {
