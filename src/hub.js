@@ -1126,7 +1126,7 @@
   }
 
   // ---------- Classement ----------
-  // Une grande liste gravée dans la pierre : les 50 premières grenouilles, puis la suite à la demande. Cinq façons
+  // Une liste simple et sobre : les 50 premières grenouilles, puis la suite à la demande. Cinq façons
   // de trier (aventure, niveau, succès, tour, duels), un filtre par voie, et un clic sur une ligne déplie sa fiche.
   var rank = { data: null, joueurs: 0, duels: null, loading: false, error: '', sort: 'aventure', voie: 'toutes', sel: null, limit: 50 };
   var RANK_PAGE = 50;
@@ -1162,24 +1162,6 @@
     var h = Math.floor(Date.now() / 3600e3) - vu;
     return h <= 0 ? 'dans l’heure' : (h < 24 ? 'il y a ' + h + ' h' : 'il y a ' + Math.floor(h / 24) + ' j');
   }
-  // La pierre du fond : des blocs gris, des joints sombres, un peu de mousse (dessinée une fois, en pixel art)
-  (function stone() {
-    var c = document.createElement('canvas'), x2 = c.getContext('2d');
-    c.width = 48; c.height = 48;
-    var greys = ['#5a6064', '#62686c', '#555b5f', '#6a7074', '#5e6468'];
-    for (var row = 0; row < 4; row++) {
-      for (var col = -1; col < 3; col++) {
-        var bx = col * 24 + (row % 2 ? 12 : 0), by = row * 12, g = greys[Math.floor(hash(row, col + 1, 51) * greys.length)];
-        x2.fillStyle = '#2e3234'; x2.fillRect(bx, by, 24, 12);
-        x2.fillStyle = g; x2.fillRect(bx + 1, by + 1, 22, 10);
-        x2.fillStyle = 'rgba(255, 255, 255, 0.1)'; x2.fillRect(bx + 1, by + 1, 22, 1);
-        x2.fillStyle = 'rgba(0, 0, 0, 0.2)'; x2.fillRect(bx + 1, by + 10, 22, 1);
-      }
-    }
-    for (var n = 0; n < 70; n++) { x2.fillStyle = hash(n, 2, 51) < 0.5 ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.08)'; x2.fillRect(Math.floor(hash(n, 3, 51) * 48), Math.floor(hash(n, 4, 51) * 48), 1, 1); }
-    for (var m = 0; m < 6; m++) { x2.fillStyle = '#4e7a4a'; x2.fillRect(Math.floor(hash(m, 5, 51) * 46), Math.floor(hash(m, 6, 51) * 4) * 12 + 11, 2, 1); }
-    $('page-rank').style.setProperty('--stone', 'url(' + c.toDataURL() + ')');
-  })();
   function openRank() {
     if (!Cloud.id) { rank.data = null; renderRank(); return; }
     rank.loading = true; rank.error = '';
@@ -1349,7 +1331,7 @@
   // ---------- La scène de la cascade : les deux grenouilles sur leurs rochers ----------
   // Ta grenouille sur le rocher de gauche, l'adversaire choisi (ou l'arbre d'entraînement) sur celui de droite,
   // animées dans le décor. Au-dessus de chacune, une plaque à son nom ; en bas, sa fiche. Le journal est en haut.
-  var CZ = { meX: 96, foeX: 304, rock: 161 };
+  var CZ = { meX: 96, foeX: 304, rock: 161, K: 3 }; // K : le décor est dessiné en triple, les sprites au quadruple (2/3 de la taille des combats)
   var TREE_IMGS = SPECIES.arbre.frames.map(function (f) { return stringsToCanvas(f, SPECIES.arbre.pal); });
   function currentFoe() {
     var list = dojo.foes || [];
@@ -1358,19 +1340,23 @@
     return list[dojo.pick];
   }
   function drawCascade(now) {
-    var cv = $('dojo-bg'), x2 = cv.getContext('2d');
-    if (cv.width !== CascadeScene.W) { cv.width = CascadeScene.W; cv.height = CascadeScene.H; }
+    var cv = $('dojo-bg'), x2 = cv.getContext('2d'), K = CZ.K;
+    if (cv.width !== CascadeScene.W * K) { cv.width = CascadeScene.W * K; cv.height = CascadeScene.H * K; }
     x2.imageSmoothingEnabled = false;
+    x2.setTransform(K, 0, 0, K, 0, 0);
     x2.drawImage(CascadeScene.backdrop(), 0, 0);
     CascadeScene.fx(x2, now);
-    var f = Math.floor(now / 500) % 2, shadow = function (cx, w) { x2.fillStyle = 'rgba(0, 0, 0, 0.3)'; x2.beginPath(); x2.ellipse(cx, CZ.rock - 1, w, 4, 0, 0, Math.PI * 2); x2.fill(); };
-    if (HERO_IMG) { shadow(CZ.meX, 22); x2.drawImage(HERO_IMG.profil[f], CZ.meX - 32, CZ.rock - 64, 64, 64); }
-    if (dojo.tab === 'arbre') { shadow(CZ.foeX, 30); x2.drawImage(TREE_IMGS[Math.floor(now / 700) % 2], CZ.foeX - 48, CZ.rock - 96, 96, 96); return; }
+    x2.setTransform(1, 0, 0, 1, 0, 0);
+    // à partir d'ici, en pixels du canvas : un sprite de 32 px dessiné en 128 (= 2/3 de sa taille en combat)
+    var f = Math.floor(now / 500) % 2, feet = CZ.rock * K;
+    var shadow = function (cx, w) { x2.fillStyle = 'rgba(0, 0, 0, 0.3)'; x2.beginPath(); x2.ellipse(cx * K, feet - 3, w, 10, 0, 0, Math.PI * 2); x2.fill(); };
+    if (HERO_IMG) { shadow(CZ.meX, 46); x2.drawImage(HERO_IMG.profil[f], CZ.meX * K - 64, feet - 128, 128, 128); }
+    if (dojo.tab === 'arbre') { shadow(CZ.foeX, 64); x2.drawImage(TREE_IMGS[Math.floor(now / 700) % 2], CZ.foeX * K - 96, feet - 192, 192, 192); return; }
     var foe = currentFoe();
     if (foe) {
-      var fg = dojoFighter(foe), sz = Math.round(64 * fg.size);
-      shadow(CZ.foeX, 22 * fg.size);
-      x2.drawImage(fg.imgs.idle[f], CZ.foeX - sz / 2, CZ.rock - sz, sz, sz);
+      var fg = dojoFighter(foe), sz = Math.round(128 * fg.size / 32) * 32 || 128;
+      shadow(CZ.foeX, 46 * fg.size);
+      x2.drawImage(fg.imgs.idle[f], CZ.foeX * K - sz / 2, feet - sz, sz, sz);
     }
   }
   // d'un point du décor (400×225, affiché « cover ») à la page
@@ -1397,8 +1383,8 @@
   function renderDojo() {
     var tabs = [['duels', 'Duels'], ['arbre', 'Entraînement']];
     $('dojo-tabs').innerHTML = tabs.map(function (t) { return '<button role="tab" data-dojo-tab="' + t[0] + '" aria-selected="' + (dojo.tab === t[0]) + '">' + t[1] + '</button>'; }).join('');
-    var body = $('dojo-body'), d = dojo.data, html = plate('me', CZ.meX, CZ.rock - 64, escapeHtml(save.hero.name) + ' · niv. ' + save.level);
-    if (dojo.tab === 'arbre') html += plate('foe', CZ.foeX, CZ.rock - 98, 'Arbre d’entraînement') + renderTraining();
+    var body = $('dojo-body'), d = dojo.data, html = plate('me', CZ.meX, CZ.rock - 44, escapeHtml(save.hero.name) + ' · niv. ' + save.level);
+    if (dojo.tab === 'arbre') html += plate('foe', CZ.foeX, CZ.rock - 66, 'Arbre d’entraînement') + renderTraining();
     else if (!Cloud.id) html += needAccount('Les duels');
     else if (!d) html += '<div class="panel cz-center"><p>' + (dojo.error ? escapeHtml(dojo.error) + ' <button class="btn btn-ghost" data-dojo-reload>Réessayer</button>' : 'Les grenouilles gagnent leurs rochers…') + '</p></div>';
     else html += renderDuels(d);
@@ -1438,7 +1424,7 @@
     if (!dojo.foes) return html + '<section class="panel cz-foe"><p class="muted">Des grenouilles s’approchent de la cascade…</p></section>';
     if (!foe) return html + '<section class="panel cz-foe"><p class="muted">Personne à défier pour l’instant : invite des amis à créer leur grenouille, ou crée-toi une deuxième grenouille pour l’affronter (une fois par jour).</p><button class="btn btn-ghost" data-dojo-foes>Chercher encore</button></section>';
     var fg = dojoFighter(foe), st = repStakes(foe.rep), mine = myFight();
-    html += plate('foe', CZ.foeX, CZ.rock - Math.round(64 * fg.size), escapeHtml(foe.nom) + ' · niv. ' + foe.niveau);
+    html += plate('foe', CZ.foeX, CZ.rock - Math.round(43 * fg.size) - 1, escapeHtml(foe.nom) + ' · niv. ' + foe.niveau);
     html += '<section class="panel cz-foe' + (foe.soeur ? ' sister' : '') + '">' +
       '<div class="cz-nav"><button data-foe-step="-1" aria-label="Adversaire précédent"' + (n > 1 ? '' : ' disabled') + '>◀</button><span>ADVERSAIRE ' + (dojo.pick + 1) + ' / ' + n + '</span><button data-foe-step="1" aria-label="Adversaire suivant"' + (n > 1 ? '' : ' disabled') + '>▶</button><button class="link" data-dojo-foes>Nouveaux</button></div>' +
       '<div class="cz-who"><div><b>' + escapeHtml(foe.nom) + '</b><span>' + escapeHtml(foe.pseudo) + ' · niveau ' + foe.niveau + '</span></div>' + dojoVoie(foe) + '<span class="cz-foerep">' + foe.rep + ' rép.</span></div>' +
@@ -1539,7 +1525,7 @@
         '<span class="tfl-num">' + f + '</span>' +
         (card ? '<img class="px tfl-sage" src="' + portraitOf(card) + '" alt="" style="left:' + (dx - 12 * S) + 'px;top:' + 8 * S + 'px;width:' + 24 * S + 'px;height:' + 24 * S + 'px">' : '<span class="tfl-q" style="left:' + (dx - 6 * S) + 'px;top:' + 16 * S + 'px;width:' + 12 * S + 'px">?</span>') +
         (prize ? '<img class="px tfl-prize" src="' + iconUrls[prize] + '" alt="" title="' + ITEMS[prize].name + '">' : '') +
-        (f === next && save.tower < TOWER_FLOORS ? '<img class="px tfl-frog" src="' + me + '" alt="Ta grenouille" style="width:' + 20 * S + 'px;height:' + 20 * S + 'px;top:' + 11 * S + 'px">' : '') + '</button>';
+        (f === next && save.tower < TOWER_FLOORS ? '<span class="tfl-here">TU ES ICI</span>' : '') + '</button>';
     });
     $('tower-col').innerHTML = html;
     renderTowerSheet();

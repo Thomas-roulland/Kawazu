@@ -95,7 +95,7 @@ Les **lucioles** sont la monnaie du jeu.
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée
   dans un bassin entre deux falaises d’où tombent des **cascades animées** ; le ciel change tous les dix étages et
   les étages du haut se perdent dans les nuages. La molette fait monter et descendre la vue ; chaque
-  étage montre son sage devant la porte, et ta grenouille attend sur le balcon de l’étage à conquérir. La fiche de
+  étage montre son sage devant la porte, et un repère « TU ES ICI » désigne l’étage à conquérir. La fiche de
   l’étage choisi donne le sage (force comparée à la tienne, sorts, récompense) et tout ce que la tour a déjà rapporté
   (lucioles, XP, et les dix trésors, obtenus ou à gagner).
   Chaque étage est gardé par un **ancien sage grenouille**, un vrai combattant (niveau, points, voie, dalles du
@@ -123,7 +123,7 @@ Les **lucioles** sont la monnaie du jeu.
   Moustiques, Champis, Chauves-souris, Boss des terres, Grands Sages ; Bâtons, Harpons, Kunaïs, Couvre-chefs,
   Écharpes, Ceintures, Anneaux, Trésors. Chaque créature (dans ses trois raretés) et chaque objet y est une
   **carte à collectionner** au cadre de sa rareté ; une carte pas encore trouvée montre son dos et un indice.
-- **Classement** : une **liste gravée dans la pierre**, les **50 premières** grenouilles puis « Afficher la suite »
+- **Classement** : une liste simple et sobre, aux couleurs du jeu : les **50 premières** grenouilles puis « Afficher la suite »
   (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
@@ -142,8 +142,8 @@ Les **lucioles** sont la monnaie du jeu.
 
 ## Le combat
 
-L’arène fait 400×225 pixels : la caméra est reculée, on voit tout le décor, et elle recule encore un peu au début
-de chaque combat (effet de dézoom).
+L’arène fait 400×225 pixels et ne remplit pas tout l’écran : elle est cadrée au centre, entourée de son propre décor
+flouté. Les combattants paraissent moins gros, les secousses restent douces.
 
 Duel 1 contre 1 au tour par tour, en plein écran. L’Agilité décide qui commence.
 

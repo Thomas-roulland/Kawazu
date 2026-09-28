@@ -6,9 +6,9 @@
 // ses sorts, son souffle, ses coups au corps à corps ou au kunaï, choisis par l'ordinateur), ou l'arbre
 // d'entraînement (fight.turns tours, puis le bilan des dégâts). fight.settle(victoire) donne le texte du résultat.
 var BattleScene = (function () {
-  // L'arène fait 400×225 pixels et les combattants gardent leur taille : la caméra est plus reculée, on voit
-  // plus de décor. Au début du combat, elle recule encore un peu depuis un plan serré (effet de dézoom).
-  var W = 400, H = 225, GROUND = 165, MARGIN = 64, introT = 0;
+  // L'arène fait 400×225 pixels ; elle ne remplit pas tout l'écran : elle est cadrée au centre, entourée de son
+  // propre décor flouté. Les combattants paraissent ainsi moins gros, et les secousses restent douces.
+  var W = 400, H = 225, GROUND = 165, MARGIN = 64;
   var $ = function (id) { return document.getElementById(id); };
   var canvas = $('bt-canvas');
   var ctx = canvas.getContext('2d');
@@ -23,10 +23,11 @@ var BattleScene = (function () {
   var busy = false, over = false, raf = 0, token = 0;
   var tweens = [], floaters = [], particles = [], shots = [], shake = 0;
 
-  // Le décor remplit tout l'écran (quitte à rogner les bords), sans jamais couper les deux combattants
+  // La scène tient dans l'écran, un peu en retrait, à une échelle arrondie au quart (les pixels restent nets)
   function resize() {
     var box = $('battle'), bw = box.clientWidth, bh = box.clientHeight;
-    var s = Math.min(Math.max(bw / W, bh / H), bw / 360);
+    var s = Math.max(1, Math.floor(Math.min(bw / W, bh / H) * 0.8 * 4) / 4);
+    if (bw < 900) s = bw / W; // petit écran : toute la largeur
     canvas.style.width = W * s + 'px';
     canvas.style.height = H * s + 'px';
     canvas.style.left = Math.round((bw - W * s) / 2) + 'px';
@@ -655,11 +656,9 @@ var BattleScene = (function () {
   }
 
   function draw(now) {
-    var sx = Math.round((Math.random() - 0.5) * shake), sy = Math.round((Math.random() - 0.5) * shake);
+    var sx = Math.round((Math.random() - 0.5) * shake * 0.5), sy = Math.round((Math.random() - 0.5) * shake * 0.5); // des secousses douces
     ctx.save();
     ctx.translate(sx, sy);
-    var zi = Math.max(0, 1 - (now - introT) / 800); // le dézoom d'ouverture
-    if (zi > 0) { var zz = 1 + 0.22 * zi * zi; ctx.translate(W / 2, GROUND - 30); ctx.scale(zz, zz); ctx.translate(-W / 2, -(GROUND - 30)); }
     ctx.drawImage(bg, 0, 0, W, H, 0, 0, W, H);
     if (fight.bgFx) fight.bgFx(ctx, now); // un décor animé (l'eau de la cascade)
     if (fight.weather && fight.weather.id !== 'clair') drawWeather(now);
@@ -787,9 +786,10 @@ var BattleScene = (function () {
     E = Object.assign({}, en, { hp: en.maxHp, x: W - MARGIN - size, homeX: W - MARGIN - size, flash: 0, turn: 0, stun: 0, poison: 0, poisonDmg: 0, charging: false, enraged: false, dead: false,
       y: 0, frame: 0, fx: 0, palm: 0, alpha: 1, cds: {}, souffle: 1, guard: 0, buff: 0, shadow: false, shadowCrit: false });
     tweens = []; floaters = []; particles = []; shots = []; shake = 0;
-    busy = true; over = false; introT = performance.now();
+    busy = true; over = false;
     bg = f.backdrop || buildBackground(BIOMES[f.biomeIndex]);
     $('battle').style.background = f.backdrop ? '#1a1108' : BIOMES[f.biomeIndex].pal.groundDark;
+    $('battle').style.setProperty('--bt-bg', 'url(' + bg.toDataURL() + ')');
     buildHero();
     buildEnemyImgs(E);
     $('bt-log').innerHTML = '';
