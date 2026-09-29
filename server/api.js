@@ -45,9 +45,12 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['cradopaud', 'grenousse', 'tarpaud', 'tartard', 'amphinobi', 'gamatatsu', 'gamakichi', 'gamaken', 'fukasaku', 'gamabunta']);
+const ALL_SKINS = SKINS.concat(['gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
+// les skins renommés : une sauvegarde pas encore relue par le jeu les porte encore sous leur ancien nom
+const RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
+  gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
 // la peau portée : celle de la sauvegarde si elle est connue, sinon celle de la création
-const skinOfFrog = (f) => { const k = f.save && f.save.hero && f.save.hero.skin; return ALL_SKINS.indexOf(k) >= 0 ? k : f.peau; };
+const skinOfFrog = (f) => { const s = f.save && f.save.hero && f.save.hero.skin, k = RENAMED_SKINS[s] || s; return ALL_SKINS.indexOf(k) >= 0 ? k : f.peau; };
 const ON_VERCEL = !!process.env.VERCEL;
 const SECURE = ON_VERCEL || process.env.COOKIE_SECURE === '1'; // cookie réservé à HTTPS
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;

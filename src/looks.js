@@ -193,11 +193,11 @@ function paintSkin(g, fx, view) {
     if (front) range(2, 29).forEach(function (x) { onBody(22, x, 'D'); onBody(23, x, 'W'); });
     else range(10, 26).forEach(function (x) { onBody(20, x, 'D'); onBody(21, x, 'W'); });
   }
-  // les mains et les pieds : sombres avec le doigt du milieu orange (doigts), jaunes (mains-claires), gants blancs (gants)
-  var hands = has('doigts') ? 'D' : (has('mains-claires') ? 'c' : (has('gants') ? 'S' : ''));
+  // les mains et les pieds : sombres avec le doigt du milieu clair (doigts), couleur du ventre (mains-claires), gants (G)
+  var hands = has('doigts') ? 'D' : (has('mains-claires') ? 'c' : (has('gants') ? 'G' : ''));
   if (hands) {
-    if (front) { each([[24, 3], [24, 4]], function (y, x) { P(y, x, hands); }); if (has('gants')) each([[23, 3], [23, 4]], function (y, x) { P(y, x, 'S'); }); if (has('doigts')) P(24, 4, 'O'); }
-    else if (view === 'side') { range(17, 21).forEach(function (x) { if (at(24, x) === 'l') put(24, x, hands); }); if (has('gants')) range(17, 20).forEach(function (x) { put(23, x, 'S'); }); if (has('doigts')) put(24, 19, 'O'); }
+    if (front) { each([[24, 3], [24, 4]], function (y, x) { P(y, x, hands); }); if (has('gants')) each([[23, 3], [23, 4]], function (y, x) { P(y, x, 'G'); }); if (has('doigts')) P(24, 4, 'O'); }
+    else if (view === 'side') { range(17, 21).forEach(function (x) { if (at(24, x) === 'l') put(24, x, hands); }); if (has('gants')) range(17, 20).forEach(function (x) { put(23, x, 'G'); }); if (has('doigts')) put(24, 19, 'O'); }
     else { [25, 26, 27].forEach(function (x) { if (isSkin(at(20, x))) put(20, x, hands); }); if (has('doigts')) put(20, 27, 'O'); }
     if (has('doigts')) for (var fx0 = 0; fx0 < W; fx0++) if (at(30, fx0) === 'l') put(30, fx0, 'D'); // et les orteils
   }
@@ -213,7 +213,7 @@ function paintSkin(g, fx, view) {
   if (has('taches-ventre') && face) each([[25, 12], [26, 12], [26, 13], [27, 11]], function (y, x) { B(y, x, 'U'); });
   if (has('courbes-ventre') && face) each([[25, 11], [26, 12], [27, 12], [28, 11]], function (y, x) { B(y, x, 'U'); });
 
-  // la mèche en boucle sur la tête (D)
+  // la pousse en vrille sur la tête (D)
   if (has('boucle')) {
     if (front) each([[7, 16], [6, 16], [5, 16], [4, 16], [3, 16], [2, 16], [1, 17], [0, 18], [0, 19], [1, 20], [2, 20], [3, 19], [2, 18]], function (y, x) { put(y, x, 'D'); });
     else each([[7, 12], [6, 12], [5, 12], [4, 12], [3, 12], [2, 11], [1, 10], [1, 9], [2, 8], [3, 8], [4, 9], [3, 10]], function (y, x) { put(y, x, 'D'); });
@@ -265,7 +265,7 @@ function paintSkin(g, fx, view) {
     }
   }
   // un signe blanc dans le dos de la veste
-  if (has('kanji') && view === 'back') ['W.WW', 'WWW.', 'W.WW'].forEach(function (row, i) { row.split('').forEach(function (ch, j) { if (ch === 'W') put(23 + i, 14 + j, 'W'); }); });
+  if (has('signe-dos') && view === 'back') ['W.WW', 'WWW.', 'W.WW'].forEach(function (row, i) { row.split('').forEach(function (ch, j) { if (ch === 'W') put(23 + i, 14 + j, 'W'); }); });
   // la cape (V, liseré W) et son col montant
   if (has('cape')) {
     if (view === 'back') { // elle tombe des épaules jusqu'aux pieds, avec son col
@@ -275,8 +275,8 @@ function paintSkin(g, fx, view) {
     else if (front) { range(14, 18).forEach(function (y) { A(y, 1, 'V'); A(y, 0, 'k'); }); range(19, 27).forEach(function (y) { [1, 2].forEach(function (x) { B(y, x, 'V'); }); }); P(27, 1, 'W'); P(27, 2, 'W'); }
     else range(11, 27).forEach(function (y) { var x0 = 0; while (x0 < W && at(y, x0) === '.') x0++; for (var x = Math.max(3, x0 - 4); x < x0; x++) put(y, x, x === Math.max(3, x0 - 4) ? 'k' : (y === 27 ? 'W' : 'V')); });
   }
-  // la ceinture de tissu blanc (W), par-dessus la ceinture portée
-  if (has('ceinture-blanche')) {
+  // l'obi, une ceinture de tissu (W), par-dessus la ceinture portée
+  if (has('obi')) {
     if (front) range(6, 25).forEach(function (x) { onBody(24, x, 'W'); });
     else range(10, 26).forEach(function (x) { onBody(23, x, 'W'); });
   }

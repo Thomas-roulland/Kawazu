@@ -121,11 +121,11 @@ Les **lucioles** sont la monnaie du jeu.
 - **Skins** : une cabane en plein écran (planches, fenêtre ronde sous la lune, lanternes, portants de kimonos) ; la
   grenouille est **au milieu**, sur son tapis, et **essaie** le skin choisi (de face, de profil ou de dos, avec son
   équipement). **Trois skins par jour** sont en vente, tirés parmi les 10 et les mêmes pour tout le monde (renouvelés
-  à minuit) : Cradopaud, Grenousse, Tarpaud, Tartard, Amphinobi (des grenouilles à la Pokémon) et Gamatatsu,
-  Gamakichi, Gamaken, Fukasaku, Gamabunta (les crapauds du mont, à la Naruto), de 1 000 à 3 000 lucioles. Chacun a ses
-  signes : la langue rose d’Amphinobi nouée en écharpe, la collerette de bulles de Grenousse, le masque et les poches
-  de Cradopaud, la mèche de Tarpaud, la spirale et les gants de Tartard, la veste bleue, la pipe et la cicatrice de
-  Gamabunta, le kimono noir et le bouclier de Gamaken, la touffe et la cape de Fukasaku… Les skins achetés et les
+  à minuit) : Gloupoison, Écumette, Pousse-Mare, Cogneur, Ombre-Lame, Grignote, Rouquin, Rempart, Maître Mousse et
+  Parrain Vasard, de 1 000 à 3 000 lucioles. Chacun a ses signes : le masque, les joues gonflées et les doigts luisants
+  de Gloupoison, la collerette d’écume d’Écumette, la vrille de Pousse-Mare, les gants rouges et la ceinture de
+  Cogneur, le masque de nuit et le foulard violet d’Ombre-Lame, les gilets de Grignote et de Rouquin, les cornes, l’obi
+  et le bouclier de Rempart, la touffe et la cape de Maître Mousse, la pipe et la cicatrice du Parrain… Les skins achetés et les
   6 couleurs de départ se portent depuis la garde-robe. Le skin se voit partout (même en mode Ermite), jusqu’au
   classement et aux clans. Les anciennes peaux ont été remboursées.
 - **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.

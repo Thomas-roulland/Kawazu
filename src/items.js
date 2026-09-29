@@ -360,39 +360,43 @@ var EXTRA_SKINS = {
 };
 // Les skins : chers, et vendus trois par jour (voir skinsOfDay). Leurs couleurs de peau (g, m, l, c), la palette de
 // leurs signes (pal, voir paintSkin dans looks.js), leurs signes (fx) et, pour certains, l'écharpe qu'ils imposent
-// (scarf : la langue d'Amphinobi, la collerette de bulles de Grenousse). Ils se voient aussi en mode Ermite.
+// (scarf : la collerette d'Écumette, le long foulard d'Ombre-Lame). Ils se voient aussi en mode Ermite.
 var PREMIUM_SKINS = {
-  cradopaud: { name: 'Cradopaud', price: 1200, g: '#1f2f6a', m: '#3a56b8', l: '#6a86e0', c: '#5a74cc',
-    pal: { e: '#f3d23a', U: '#14141f', O: '#f0892a', D: '#1a1c2c', W: '#f4f4e8' }, fx: ['yeux', 'cernes', 'masque', 'poches', 'bandes', 'doigts'],
-    desc: 'Bleu nuit, les joues gonflées de poison et les doigts orange. Son rire sonne comme un glouglou de vase.' },
-  grenousse: { name: 'Grenousse', price: 1000, g: '#2a78b0', m: '#5ab4ea', l: '#a0dcff', c: '#e8f6ff', scarf: ['#f4fbff', '#b8d0e8'],
-    pal: { e: '#f3dc4a', U: '#1f4a8a' }, fx: ['yeux', 'reflet', 'raie', 'bulles', 'bulles-nez'],
-    desc: 'Bleu ciel, emmitouflée dans sa collerette de bulles. Elle a l’air distraite… elle ne l’est jamais.' },
-  tarpaud: { name: 'Tarpaud', price: 1100, g: '#2e7a2a', m: '#5ab83a', l: '#9ae05a', c: '#f3e27a',
-    pal: { O: '#f8a0b8', U: '#3a8a2a', D: '#3a5a8a' }, fx: ['poches', 'spirale', 'boucle', 'mains-claires'],
-    desc: 'Le roi des mares : vert tendre, ventre jaune, et la mèche bouclée qui prouve son rang.' },
-  tartard: { name: 'Tartard', price: 1300, g: '#1f4a9a', m: '#3a70d8', l: '#7aa8f0', c: '#f4f6fa',
-    pal: { U: '#1a1c2c' }, fx: ['spirale', 'gants', 'colere'],
-    desc: 'Tout en muscles, gants blancs aux poings et spirale sur le ventre. Il traverse les lacs d’une traite.' },
-  amphinobi: { name: 'Amphinobi', price: 2000, g: '#141a4a', m: '#26307a', l: '#3f4ea8', c: '#f0e0a0', scarf: ['#f28a9a', '#c85a70'],
-    pal: { e: '#e0343a' }, fx: ['yeux', 'pupille-blanche', 'menton', 'triangles', 'crete'],
-    desc: 'Le grand ninja des eaux : bleu d’encre, yeux rouges, et sa longue langue rose nouée autour du cou.' },
-  gamatatsu: { name: 'Gamatatsu', price: 1200, g: '#a87a1a', m: '#f0c050', l: '#ffe08a', c: '#fff2c8',
-    pal: { U: '#f07a2a', V: '#2a4aa0', W: '#1a2a6a' }, fx: ['cernes', 'levres', 'courbes-ventre', 'veste'],
-    desc: 'Le cadet des crapauds du mont, jaune et tout rond, les yeux cerclés d’orange. Il pense surtout au goûter.' },
-  gamakichi: { name: 'Gamakichi', price: 1400, g: '#a8480a', m: '#f07a1a', l: '#ffb050', c: '#ffd8a8',
-    pal: { U: '#5a2a7a', V: '#2a4aa0', W: '#1a2a6a' }, fx: ['cernes', 'levres', 'taches-ventre', 'veste'],
-    desc: 'L’aîné, orange vif marqué de violet, dans sa veste bleue. Grande gueule, grand cœur.' },
-  gamaken: { name: 'Gamaken', price: 1800, g: '#8a1e48', m: '#d8487a', l: '#f282aa', c: '#f4b8cc',
-    pal: { U: '#1a1a24', V: '#1a1a24', W: '#f4f4f0', T: '#d8c8a0', G: '#8a7a5a' }, fx: ['cernes', 'cornes', 'veste', 'ceinture-blanche', 'bouclier'],
-    desc: 'Un géant rose aux cornes courtes, en kimono noir, son grand bouclier rond dans le dos. Maladroit, mais rien ne passe.' },
-  fukasaku: { name: 'Fukasaku', price: 2200, g: '#2e5a2a', m: '#5a9a4a', l: '#8ac070', c: '#dce4b0',
-    pal: { e: '#f3d23a', T: '#f4f4ee', V: '#6a3a2a', W: '#a0784a' }, fx: ['yeux', 'touffe', 'sourcils', 'barbiche', 'cape'],
-    desc: 'Le vieux sage du mont : touffe blanche, sourcils broussailleux et longue cape. Il en sait plus qu’il n’en dit.' },
-  gamabunta: { name: 'Gamabunta', price: 3000, g: '#6a1e1e', m: '#a8423a', l: '#d06a5a', c: '#e89a88',
-    pal: { U: '#ee3a2a', V: '#1f2a5a', W: '#e8e8f0', T: '#4a2e1a', O: '#ff8a2a', G: '#c0c0cc', K: '#3a0a0a' }, fx: ['cernes', 'levres', 'veste', 'kanji', 'pipe', 'cicatrice'],
-    desc: 'Le chef des crapauds du mont : peau de rouille, veste bleue, pipe au bec et cicatrice sur l’œil. Il ne se déplace pas pour rien.' }
+  gloupoison: { name: 'Gloupoison', price: 1200, g: '#4a1a7a', m: '#7a3ab8', l: '#a86ae0', c: '#c89ae8',
+    pal: { e: '#f3d23a', U: '#14141f', O: '#9ae03a', D: '#1a1c2c' }, fx: ['yeux', 'cernes', 'masque', 'poches', 'doigts'],
+    desc: 'Violet vénéneux, les joues gonflées de jus de mousse et le bout des doigts qui luit. Personne ne lui serre la main.' },
+  ecumette: { name: 'Écumette', price: 1000, g: '#2a8a7a', m: '#4ac0a8', l: '#9ae8d8', c: '#e8fff8', scarf: ['#f4fffc', '#b0e0d8'],
+    pal: { U: '#1f6a6a' }, fx: ['reflet', 'raie', 'bulles', 'bulles-nez'],
+    desc: 'Couleur d’eau claire, emmitouflée dans une collerette d’écume qui ne crève jamais.' },
+  poussemare: { name: 'Pousse-Mare', price: 1100, g: '#3a7a1a', m: '#7ac83a', l: '#b8f07a', c: '#fff0c0',
+    pal: { O: '#f8a0b8', D: '#2e6a1a' }, fx: ['poches', 'boucle', 'mains-claires'],
+    desc: 'Vert tendre comme une jeune pousse, et une vrille lui a poussé sur la tête. Elle dit que ça porte bonheur.' },
+  cogneur: { name: 'Cogneur', price: 1300, g: '#3a4a5a', m: '#6a7a8a', l: '#a0b0c0', c: '#d8dde2',
+    pal: { G: '#d8342a', D: '#c9412f', W: '#f4f4e8' }, fx: ['gants', 'colere', 'bandes'],
+    desc: 'Gris comme un galet de rivière, gants rouges et ceinture de champion. Il ne recule jamais.' },
+  ombrelame: { name: 'Ombre-Lame', price: 2000, g: '#1a1a24', m: '#3e3e50', l: '#5a5a70', c: '#8a8aa0', scarf: ['#7a4ab0', '#4a2a70'],
+    pal: { e: '#f0c040', U: '#0e0e16' }, fx: ['yeux', 'cernes', 'masque'],
+    desc: 'Gris de cendre, masque de nuit et long foulard violet. On ne l’entend pas arriver.' },
+  grignote: { name: 'Grignote', price: 1200, g: '#a87a1a', m: '#f0c050', l: '#ffe08a', c: '#fff2c8',
+    pal: { U: '#8a4a1a', V: '#3a7a3a', W: '#1f4a1f' }, fx: ['cernes', 'levres', 'courbes-ventre', 'veste'],
+    desc: 'Jaune et tout rond, dans son gilet vert. Il a toujours une libellule de côté pour le goûter.' },
+  rouquin: { name: 'Rouquin', price: 1400, g: '#a8480a', m: '#f07a1a', l: '#ffb050', c: '#ffd8a8',
+    pal: { U: '#4a2410', V: '#a8201a', W: '#e0b43a' }, fx: ['cernes', 'levres', 'taches-ventre', 'veste'],
+    desc: 'Orange flamboyant, gilet rouge liseré d’or. Grande gueule, grand cœur.' },
+  rempart: { name: 'Rempart', price: 1800, g: '#1f5a6a', m: '#3a8aa0', l: '#7ac0d0', c: '#c8e8ee',
+    pal: { U: '#10202a', V: '#5a3a22', W: '#e0b43a', T: '#b8a878', G: '#6a5a3a' }, fx: ['cernes', 'cornes', 'veste', 'obi', 'bouclier'],
+    desc: 'Bleu d’étang profond, cornes courtes, obi doré et grand bouclier de bronze dans le dos. Rien ne passe.' },
+  maitremousse: { name: 'Maître Mousse', price: 2200, g: '#2e5a2a', m: '#5a9a4a', l: '#8ac070', c: '#dce4b0',
+    pal: { e: '#f3d23a', T: '#f4f4ee', V: '#2a3a6a', W: '#a0a8c0' }, fx: ['yeux', 'touffe', 'sourcils', 'barbiche', 'cape'],
+    desc: 'Le plus vieux sage de la mare : touffe blanche, sourcils broussailleux et cape bleu nuit. Il en sait plus qu’il n’en dit.' },
+  parrain: { name: 'Parrain Vasard', price: 3000, g: '#3a3a1a', m: '#6a6a2a', l: '#9a9a4a', c: '#c8c08a',
+    pal: { U: '#d8a030', V: '#7a1a1a', W: '#e0b43a', T: '#3a2412', O: '#ff8a2a', G: '#c0c0cc', K: '#2a1a0a' }, fx: ['cernes', 'levres', 'veste', 'signe-dos', 'pipe', 'cicatrice'],
+    desc: 'Le patron de la vase : peau d’olive, gilet bordeaux, pipe au bec et une vieille cicatrice. Il ne se déplace pas pour rien.' }
 };
+// Les skins renommés (la sauvegarde garde ceux qu'on a achetés, sous leur nouveau nom)
+var RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
+  gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
+var skinId = function (id) { return RENAMED_SKINS[id] || id; };
 // Les skins d'avant (retirés) : ceux qu'on avait achetés sont remboursés
 var RETIRED_SKINS = { fraise: 1000, dendrobate: 1200, tigre: 1400, sakura: 1600, verre: 1800, lune: 2200, braise: 2500, or: 4000 };
 function skinOf(id) { return SKINS[id] || PREMIUM_SKINS[id] || EXTRA_SKINS[id] || SKINS.marais; }
@@ -870,8 +874,10 @@ function parseSave(data) {
   save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
   save.tower = Math.min(100, int(data.tower, 0) || 0);
   if (typeof data.shopDay === 'string') { save.shopDay = data.shopDay.slice(0, 12); save.rerolls = Math.min(SHOP_REROLL_MAX, int(data.rerolls, 0) || 0); }
+  if (data.hero) data.hero.skin = skinId(data.hero.skin);
   if (Array.isArray(data.skins)) {
-    save.skins = data.skins.filter(function (id) { return PREMIUM_SKINS[id]; });
+    data.skins = data.skins.map(skinId);
+    save.skins = data.skins.filter(function (id, i) { return PREMIUM_SKINS[id] && data.skins.indexOf(id) === i; });
     var back = data.skins.filter(function (id) { return RETIRED_SKINS[id]; }), refund = back.reduce(function (s, id) { return s + RETIRED_SKINS[id]; }, 0);
     if (refund) { save.gold += refund; if (save.hero) save.notice = 'Les skins ont été refaits : ' + (back.length > 1 ? 'tes anciens skins te sont remboursés' : 'ton ancien skin t’est remboursé') + ' (' + refund + ' lucioles). Trois nouveaux skins t’attendent chaque jour !'; }
   }
