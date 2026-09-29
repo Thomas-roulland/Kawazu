@@ -57,7 +57,7 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 ## Le menu
 
 Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique), **les aventures**
-(Carte du monde, Tour des Sages, Cascade des duels, Les Mares) et **la collection** (Album, Classement). En bas : sauvegarde, son (touche M).
+(Carte du monde, Tour des Sages, Cascade des duels, Clans) et **la collection** (Album, Classement). En bas : sauvegarde, son (touche M).
 Les **lucioles** sont la monnaie du jeu.
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
@@ -146,18 +146,20 @@ Les **lucioles** sont la monnaie du jeu.
     2e et 3e, puis 150 et 100 lucioles. Le classement des duels est dans la page Classement (onglet Duels).
   - **Entraînement** : l’**arbre d’entraînement**, 10 tours pour tester équipement, points et sorts, immobile ou
     qui riposte, puis le bilan (dégâts, par tour, meilleur coup, critiques, dégâts reçus). Sans récompense ni limite.
-- **Les Mares** (avec un compte) : les guildes du marais. On **fonde** une mare (300 lucioles, un nom et un emblème)
-  ou on en **rejoint** une, jusqu’à **10 grenouilles** ; un chef qui part laisse sa place, une mare vide disparaît.
+- **Clans** (avec un compte) : les guildes du marais. On **fonde** un clan (300 lucioles, un nom et un emblème)
+  ou on en **rejoint** un, jusqu’à **10 grenouilles** ; un chef qui part laisse sa place, un clan vide disparaît.
+  Le **chef** peut **exclure** une grenouille (deux clics) : elle l’apprend en revenant et ne peut pas revenir avant 3 jours.
   - **L’Alpha** : une créature géante (Limon Alpha, Frelon Alpha, Champi Titan, Chauve-souris Alpha, Héron Alpha,
-    puis leurs versions II, III…) aux **PV partagés** par toute la mare (20 000, puis ×1,6 à chaque Alpha abattu).
+    puis leurs versions II, III…) aux **PV partagés** par tout le clan (20 000, puis ×1,6 à chaque Alpha abattu).
     Chaque grenouille l’attaque **2 fois par jour**, pendant **10 tours** : ses dégâts comptent, même à terre ou en
-    fuyant. Sa force de frappe suit le niveau de celle qui l’attaque (une mare mêle petits et grands niveaux), un peu
-    plus à chaque Alpha, et il s’enrage sous la moitié de ses PV. Quand il tombe, **toute la mare** reçoit sa part
-    (300 lucioles, +200 par Alpha, et 30 % d’un niveau d’XP) et de la renommée ; un Alpha plus fort arrive.
-  - **Les joutes** : **3 par jour**, contre la grenouille d’une autre mare (niveau proche), jouée par l’ordinateur
-    avec son vrai équipement. Victoire : +6 renommée pour sa mare (−2 pour l’autre) ; défaite : +1.
-  - La page montre la mare (membres et leurs dégâts), l’Alpha, les joutes, le classement des mares par renommée et
-    le journal.
+    fuyant. Sa force de frappe suit le niveau de celle qui l’attaque (un clan mêle petits et grands niveaux), un peu
+    plus à chaque Alpha, et il s’enrage sous la moitié de ses PV. Quand il tombe, **chaque grenouille du clan qui l’a
+    attaqué** reçoit sa part (300 lucioles, +200 par Alpha, et 30 % d’un niveau d’XP) : rejoindre un clan juste avant
+    la chute, sans combattre, ne rapporte rien. Le clan gagne de la renommée, et un Alpha plus fort arrive.
+  - **Les joutes** : **3 par jour**, contre la grenouille d’un autre clan (niveau proche), jouée par l’ordinateur
+    avec son vrai équipement. Victoire : +6 renommée pour son clan (−2 pour l’autre) ; défaite : +1.
+  - La page montre le clan (membres, leurs dégâts sur l’Alpha en cours, qui a sa part), l’Alpha, les joutes, le
+    classement des clans par renommée et le journal.
 - **Album** : un grand **livre** à feuilleter : la page tourne vraiment autour de la reliure (flèches, touches ← →, ou les
   marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets).
   Le sommaire donne les chapitres et les **récompenses** à réclamer (paliers de découvertes : lucioles, XP, et au
@@ -224,7 +226,7 @@ puissance des voies.
 - `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
 - `src/tower.js` : la Tour des Cent Sages (les sages, leurs récompenses, la pagode et ses cascades, l’arène) ; `src/album.js` : le bestiaire, les objets, les chapitres du livre et les paliers
-- `src/cascade.js` : le décor de la Cascade des duels (page et arène, eau animée) ; les duels eux-mêmes sont dans `src/hub.js` et `src/battle.js` (et côté serveur, les routes `/api/dojo`) ; les Mares sont dans `src/hub.js` (et `/api/mares` côté serveur), leurs Alphas dans `src/worlds.js`
+- `src/cascade.js` : le décor de la Cascade des duels (page et arène, eau animée) ; les duels eux-mêmes sont dans `src/hub.js` et `src/battle.js` (et côté serveur, les routes `/api/dojo`) ; les Clans sont dans `src/hub.js` (et `/api/clans` côté serveur), leurs Alphas dans `src/worlds.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, ondes de choc, kunaï lancé, espèces de monstres

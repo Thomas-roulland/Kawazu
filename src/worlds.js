@@ -114,8 +114,8 @@ function stageFight(save, w, st) {
   };
 }
 
-// ---------- Les Alphas des mares : des créatures géantes aux PV partagés par toute une mare ----------
-// Cinq Alphas qui reviennent, de plus en plus forts (rang : combien la mare en a déjà abattu). biome : le décor du combat.
+// ---------- Les Alphas des clans : des créatures géantes aux PV partagés par tout un clan ----------
+// Cinq Alphas qui reviennent, de plus en plus forts (rang : combien le clan en a déjà abattu). biome : le décor du combat.
 var ALPHAS = [
   { species: 'limon', name: 'Limon Alpha', scale: 2.6, biome: 0, pal: { 1: '#1a1a2a', 2: '#3a2a4a', 3: '#6a4a8a', g: '#ff4a4a', w: '#ffe0e0' } },
   { species: 'moustique', name: 'Frelon Alpha', scale: 3.6, biome: 1, pal: { a: '#ffb040', 2: '#3a1a0a', 3: '#e07a1a', r: '#ff2a2a' } },
@@ -125,8 +125,8 @@ var ALPHAS = [
 ];
 // Les PV d'un Alpha (la même règle que le serveur, server/api.js)
 function alphaHp(rang) { return Math.round(20000 * Math.pow(1.6, rang)); }
-// Sa force de frappe suit le niveau de la grenouille qui l'attaque (une mare mêle petits et grands niveaux), un peu plus
-// à chaque Alpha abattu ; seuls ses PV, partagés par la mare, sont les mêmes pour tous.
+// Sa force de frappe suit le niveau de la grenouille qui l'attaque (un clan mêle petits et grands niveaux), un peu plus
+// à chaque Alpha abattu ; seuls ses PV, partagés par le clan, sont les mêmes pour tous.
 var ALPHA_DMG = 1.6; // réglé au simulateur : on tient les 10 tours contre le premier Alpha, moins face à un Alpha enragé (sous la moitié de ses PV)
 function alphaOf(rang, heroLevel) {
   var a = ALPHAS[rang % ALPHAS.length], cycle = Math.floor(rang / ALPHAS.length), lvl = Math.max(1, heroLevel || 1);

@@ -47,8 +47,8 @@
       { k: '#1a1c2c', 3: '#5a6a60', b: '#4fb0d8', w: '#e8fbff' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
-    mare: [['', '', '....kkkkkkkk', '..kkbbbbbbbbkk', '.kbbwbbbbbbbbbk', 'kbbbbkkkkkbbbbk', 'kbbbkgggggkbbbk', 'kbbkgglgggpkbbk', 'kbbkgggg.gkbbbk', 'kbbbkggg.kbbbbk', '.kbbbkkkkbbbwbk', '..kkbbbbbbbbkk', '....kkkkkkkk'],
-      { k: '#1a1c2c', b: '#3a7fc9', w: '#bfe8ff', g: '#4e9a45', l: '#8fce52', p: '#ff9ac0' }],
+    clan: [['...kk', '..kyyk', '...kkkkkkkkkkk', '...kpk22222222k', '...kpk2gg22gg2k', '...kpk2gwggwg2k', '...kpk2gggggg2k', '...kpk22gggg22k', '...kpk22222222k', '...kpk2k2222k2k', '...kpkk.k22k.kk', '...kpk...kk', '...kpk', '...kpk', '...kpk', '...kkk'],
+      { k: '#1a1c2c', y: '#e0b43a', p: '#7a5634', 2: '#c9412f', g: '#4e9a45', w: '#f4f4e8' }],
     onde: [['....kkk', '...k333kk', '...kk1133k', '.....kk113k', '.......kk13k', '........k13k', '.........k13k', '.........k13k', '.........k13k', '........k13k', '.......kk13k', '.....kk113k', '...kk1133k', '...k333kk', '....kkk'],
       { k: '#1a1c2c', 1: '#3fbf8a', 3: '#c8f0d8' }],
     pied: [['', '......kkkk', '.....kmmmmk', '.....kmmmlk', '.....kmmmlk', '....kmmmmlk', '....kmmmmk', '...kmmmmmk', '..kmmmmmmk', '.kmlmmmmmmkkk', 'kmlmmmmmmmmmmk', 'kmmmlmmmlmmlmk', '.kkkkkkkkkkkkk'],
@@ -1531,7 +1531,7 @@
       if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
       var xp = g.xpNiveau ? Math.round(xpForLevel(save.level) * g.xpNiveau) : 0, lv = xp ? gainXp(save, xp) : 0;
       save.gifts.push(g.id);
-      if (g.source === 'mare') notice('L’Alpha n° ' + (g.rang + 1) + ' de ta mare « ' + g.mare + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      if (g.source === 'clan') notice('L’Alpha n° ' + (g.rang + 1) + ' de ton clan « ' + g.clan + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
     });
     if (fresh.length) { save.gifts = save.gifts.slice(-50); persist(); Sfx.play('levelup'); renderAll(); }
@@ -1695,28 +1695,30 @@
     });
   }
 
-  // ---------- Les Mares : les guildes du marais ----------
-  // Une mare réunit jusqu'à 10 grenouilles de joueurs. Ensemble, elles affrontent un Alpha aux PV partagés (deux assauts
-  // de 10 tours par jour chacune) ; quand il tombe, toute la mare reçoit un cadeau et un Alpha plus fort arrive.
-  // Les joutes opposent une grenouille à celle d'une autre mare, pour la renommée. Tout passe par /api/mares/<grenouille>.
-  var mares = { data: null, loading: false, error: '', foe: null, emb: 0, leaving: 0 };
+  // ---------- Les Clans : les guildes du marais ----------
+  // Un clan réunit jusqu'à 10 grenouilles de joueurs. Ensemble, elles affrontent un Alpha aux PV partagés (deux assauts
+  // de 10 tours par jour chacune) ; quand il tombe, chaque grenouille du clan qui l'a attaqué reçoit sa part, et un
+  // Alpha plus fort arrive. Les joutes opposent une grenouille à celle d'un autre clan, pour la renommée. Le chef peut
+  // exclure une grenouille. Tout passe par /api/clans/<grenouille>.
+  var clans = { data: null, loading: false, error: '', foe: null, emb: 0, leaving: 0, kicking: null };
   var EMBLEMS = ['#c9412f', '#e0b43a', '#4e9a45', '#3a7fc9', '#8a4ab0', '#e07a2a', '#2aa090', '#d9e1e6'];
-  var MARE_PRICE = 300;
+  var CLAN_PRICE = 300;
   var fmtN = function (n) { return Math.max(0, Math.round(n)).toLocaleString('fr-FR'); };
-  var mareApi = function (method, path, body) {
-    return fetch('/api/mares/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+  var nth = function (n) { return n === 1 ? '1er' : n + 'e'; };
+  var clanApi = function (method, path, body) {
+    return fetch('/api/clans/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
   };
-  function emblem(m, big) { return '<span class="mare-emb' + (big ? ' big' : '') + '" style="--e:' + EMBLEMS[m.embleme || 0] + '">' + escapeHtml((m.nom || '?').charAt(0).toUpperCase()) + '</span>'; }
+  function emblem(m, big) { return '<span class="clan-emb' + (big ? ' big' : '') + '" style="--e:' + EMBLEMS[m.embleme || 0] + '">' + escapeHtml((m.nom || '?').charAt(0).toUpperCase()) + '</span>'; }
   var alphaImgs = {};
   function alphaImg(rang) { // l'Alpha, en grand, dans ses couleurs
     var a = alphaOf(rang, save.level), key = rang % ALPHAS.length;
     if (!alphaImgs[key]) { var s = SPECIES[a.species]; alphaImgs[key] = stringsToCanvas(s.frames[0], Object.assign({}, s.pal, a.pal)).toDataURL(); }
     return alphaImgs[key];
   }
-  // le décor : une mare la nuit, ses nénuphars et ses roseaux (dessiné une fois)
-  function drawMaresBg() {
-    var c = $('mares-bg');
+  // le décor : la mare où se réunissent les clans, la nuit, ses nénuphars et ses roseaux (dessiné une fois)
+  function drawClansBg() {
+    var c = $('clans-bg');
     if (c.width === 320) return;
     c.width = 320; c.height = 180;
     var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
@@ -1739,96 +1741,101 @@
       if (k % 4 === 0) { x.fillStyle = '#5a3a1a'; x.fillRect(rx - 1, 180 - h, 3, 5); }
     }
   }
-  function openMares() {
-    drawMaresBg();
-    renderMares();
-    if (Cloud.id) loadMares();
+  function openClans() {
+    drawClansBg();
+    renderClans();
+    if (Cloud.id) loadClans();
   }
-  function loadMares() {
-    mares.loading = true;
-    Cloud.flush().then(function () { return mareApi('GET', ''); }).then(function (d) {
-      mares.data = d; mares.loading = false; mares.error = '';
+  function loadClans() {
+    clans.loading = true;
+    Cloud.flush().then(function () { return clanApi('GET', ''); }).then(function (d) {
+      clans.data = d; clans.loading = false; clans.error = '';
+      if (d.exclu) notice('Ta grenouille a été exclue du clan « ' + d.exclu + ' » par son chef.', true);
       applyGifts(d.cadeaux);
-      if (state.page === 'mares') renderMares();
-    }, function (e) { mares.loading = false; mares.error = e.message; if (state.page === 'mares') renderMares(); });
+      if (state.page === 'clans') renderClans();
+    }, function (e) { clans.loading = false; clans.error = e.message; if (state.page === 'clans') renderClans(); });
   }
-  function renderMares() {
-    var box = $('mares-body');
+  function renderClans() {
+    var box = $('clans-body');
     if (!Cloud.id) {
-      box.innerHTML = '<div class="panel mr-center"><h2>JOUE AVEC UN COMPTE</h2><p>Les mares réunissent les grenouilles des joueurs : crée un compte depuis l’accueil pour en fonder une ou en rejoindre une.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
+      box.innerHTML = '<div class="panel cl-center"><h2>JOUE AVEC UN COMPTE</h2><p>Les clans réunissent les grenouilles des joueurs : crée un compte depuis l’accueil pour en fonder un ou en rejoindre un.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
       return;
     }
-    var d = mares.data;
-    if (!d) { box.innerHTML = '<div class="panel mr-center"><p>' + (mares.error ? escapeHtml(mares.error) + ' <button class="btn btn-ghost" data-mares-reload>Réessayer</button>' : 'Les grenouilles se rassemblent autour des mares…') + '</p></div>'; return; }
-    box.innerHTML = d.mare ? renderMyMare(d) : renderNoMare(d);
+    var d = clans.data;
+    if (!d) { box.innerHTML = '<div class="panel cl-center"><p>' + (clans.error ? escapeHtml(clans.error) + ' <button class="btn btn-ghost" data-clans-reload>Réessayer</button>' : 'Les clans se rassemblent autour de la mare…') + '</p></div>'; return; }
+    box.innerHTML = d.clan ? renderMyClan(d) : renderNoClan(d);
   }
-  function mareList(d, mineId, limit) {
-    return d.liste.length ? '<ul class="mr-list">' + d.liste.slice(0, limit).map(function (m, i) {
-      return '<li class="' + (m.id === mineId ? 'is-mine' : '') + '"><span class="mr-pos">' + (i + 1) + '</span>' + emblem(m) +
-        '<span class="mr-name"><b>' + escapeHtml(m.nom) + '</b><small>Chef : ' + escapeHtml(m.chef || '?') + ' · Alpha n° ' + (m.rang + 1) + '</small></span>' +
-        '<span class="mr-meta">' + m.renommee + '<small>renommée</small></span><span class="mr-meta">' + m.membres + ' / ' + d.max + '<small>grenouilles</small></span>' +
-        (mineId === undefined ? '<button class="btn btn-ghost" data-mare-join="' + m.id + '"' + (m.membres >= d.max ? ' disabled' : '') + '>Rejoindre</button>' : '') + '</li>';
-    }).join('') + '</ul>' : '<p class="muted">Aucune mare pour l’instant : fonde la première !</p>';
+  function clanList(d, mineId, limit) {
+    return d.liste.length ? '<ul class="cl-list">' + d.liste.slice(0, limit).map(function (m, i) {
+      return '<li class="' + (m.id === mineId ? 'is-mine' : '') + '"><span class="cl-pos">' + (i + 1) + '</span>' + emblem(m) +
+        '<span class="cl-name"><b>' + escapeHtml(m.nom) + '</b><small>Chef : ' + escapeHtml(m.chef || '?') + ' · Alpha n° ' + (m.rang + 1) + '</small></span>' +
+        '<span class="cl-meta">' + m.renommee + '<small>renommée</small></span><span class="cl-meta">' + m.membres + ' / ' + d.max + '<small>grenouilles</small></span>' +
+        (mineId === undefined ? '<button class="btn btn-ghost" data-clan-join="' + m.id + '"' + (m.membres >= d.max ? ' disabled' : '') + '>Rejoindre</button>' : '') + '</li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun clan pour l’instant : fonde le premier !</p>';
   }
-  function renderNoMare(d) {
-    return '<header class="panel mr-head"><div><h1>LES MARES DU MARAIS</h1><p>Fonde ta mare ou rejoins-en une : ensemble, abattez des Alphas géants et joutez contre les autres mares.</p></div></header>' +
-      '<div class="mr-cols two">' +
-      '<section class="panel mr-found"><h2>FONDER UNE MARE</h2><p>Jusqu’à ' + d.max + ' grenouilles par mare. Il en coûte ' + MARE_PRICE + ' lucioles.</p>' +
-      '<label class="mr-field"><span>Son nom</span><input id="mare-name" maxlength="24" placeholder="La Mare des Roseaux" autocomplete="off"></label>' +
-      '<span class="mr-label">Son emblème</span><div class="mr-embs" role="radiogroup" aria-label="Son emblème">' + EMBLEMS.map(function (c, i) { return '<button role="radio" aria-checked="' + (mares.emb === i) + '" aria-label="Couleur ' + (i + 1) + '" data-mare-emb="' + i + '" style="--e:' + c + '"></button>'; }).join('') + '</div>' +
-      '<button class="btn" data-mare-found' + (save.gold < MARE_PRICE ? ' disabled' : '') + '>Fonder la mare · ' + MARE_PRICE + ' lucioles</button>' +
-      (save.gold < MARE_PRICE ? '<p class="muted">Il te manque ' + (MARE_PRICE - save.gold) + ' lucioles.</p>' : '') + '</section>' +
-      '<section class="panel mr-all"><h2>LES MARES</h2>' + mareList(d, undefined, 30) + '</section></div>';
+  function renderNoClan(d) {
+    return '<header class="panel cl-head"><div><h1>CLANS</h1><p>Fonde ton clan ou rejoins-en un : ensemble, abattez des Alphas géants et affrontez les autres clans.</p></div></header>' +
+      '<div class="cl-cols two">' +
+      '<section class="panel cl-found"><h2>FONDER UN CLAN</h2><p>Jusqu’à ' + d.max + ' grenouilles par clan. Il en coûte ' + CLAN_PRICE + ' lucioles.</p>' +
+      '<label class="cl-field"><span>Son nom</span><input id="clan-name" maxlength="24" placeholder="Le Clan des Roseaux" autocomplete="off"></label>' +
+      '<span class="cl-label">Son emblème</span><div class="cl-embs" role="radiogroup" aria-label="Son emblème">' + EMBLEMS.map(function (c, i) { return '<button role="radio" aria-checked="' + (clans.emb === i) + '" aria-label="Couleur ' + (i + 1) + '" data-clan-emb="' + i + '" style="--e:' + c + '"></button>'; }).join('') + '</div>' +
+      '<button class="btn" data-clan-found' + (save.gold < CLAN_PRICE ? ' disabled' : '') + '>Fonder le clan · ' + CLAN_PRICE + ' lucioles</button>' +
+      (save.gold < CLAN_PRICE ? '<p class="muted">Il te manque ' + (CLAN_PRICE - save.gold) + ' lucioles.</p>' : '') + '</section>' +
+      '<section class="panel cl-all"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, undefined, 30) + '</section></div>';
   }
-  function mareEvent(j) {
+  function clanEvent(j) {
     var n = '<b>' + escapeHtml(j.nom || '?') + '</b>';
-    if (j.type === 'fondee') return n + ' a fondé la mare.';
-    if (j.type === 'arrivee') return n + ' a rejoint la mare.';
-    if (j.type === 'depart') return n + ' a quitté la mare.';
+    if (j.type === 'fonde') return n + ' a fondé le clan.';
+    if (j.type === 'arrivee') return n + ' a rejoint le clan.';
+    if (j.type === 'depart') return n + ' a quitté le clan.';
+    if (j.type === 'exclusion') return n + ' a exclu <b>' + escapeHtml(j.cible || '?') + '</b> du clan.';
     if (j.type === 'raid') return n + ' a infligé <b>' + fmtN(j.deg) + '</b> dégâts à l’Alpha.';
-    if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + '.';
-    if (j.type === 'joute') return n + (j.victoire ? ' a battu ' : ' a perdu contre ') + escapeHtml(j.adverse) + ' (' + escapeHtml(j.mareAdverse) + ') : +' + j.gain + ' renommée.';
-    if (j.type === 'joute-subie') return escapeHtml(j.adverse) + ' (' + escapeHtml(j.mareAdverse) + ')' + (j.victoire ? ' a été repoussée par ' : ' a battu ') + n + '.';
+    if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + (j.parts ? ' · ' + j.parts + ' part' + (j.parts > 1 ? 's' : '') : '') + '.';
+    if (j.type === 'joute') return n + (j.victoire ? ' a battu ' : ' a perdu contre ') + escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ') : +' + j.gain + ' renommée.';
+    if (j.type === 'joute-subie') return j.victoire ? n + ' a repoussé ' + escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ').' : escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ') a battu ' + n + '.';
     return '';
   }
-  function renderMyMare(d) {
-    var m = d.mare, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100), foe = mares.foe;
-    var members = m.membres.slice().sort(function (x, y) { return y.contribution - x.contribution; });
-    return '<header class="panel mr-head">' + emblem(m, true) + '<div><h1>' + escapeHtml(m.nom).toUpperCase() + '</h1>' +
-      '<p>Chef : <b>' + escapeHtml(m.chefNom || '?') + '</b> · ' + m.membres.length + ' / ' + d.max + ' grenouilles · <b>' + m.renommee + '</b> renommée' + (m.rangMares ? ' · ' + (m.rangMares === 1 ? '1re' : m.rangMares + 'e') + ' des mares' : '') + '</p></div>' +
-      '<button class="btn btn-ghost' + (mares.leaving ? ' is-armed' : '') + '" data-mare-leave>' + (mares.leaving ? 'Confirmer : quitter' : 'Quitter la mare') + '</button></header>' +
-      '<div class="mr-cols">' +
-      '<section class="panel mr-alpha"><h2>L’ALPHA N° ' + (m.raid.rang + 1) + '</h2>' +
-      '<div class="mr-alpha-art"><img class="px" src="' + alphaImg(m.raid.rang) + '" alt=""></div>' +
-      '<b class="mr-alpha-name">' + a.name + '</b><small class="muted">niveau ' + a.level + ' · ' + m.raid.vaincus + ' Alpha' + (m.raid.vaincus > 1 ? 's' : '') + ' abattu' + (m.raid.vaincus > 1 ? 's' : '') + '</small>' +
-      '<div class="mr-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(m.raid.pv) + ' / ' + fmtN(m.raid.pvMax) + ' PV</em></div>' +
-      '<p class="mr-help">Ses PV sont partagés par toute la mare. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP pour chaque grenouille de la mare.</p>' +
-      '<button class="btn" data-mare-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button></section>' +
-      '<section class="panel mr-members"><h2>LA MARE · ' + m.membres.length + ' / ' + d.max + '</h2><ul>' + members.map(function (e) {
-        return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="mr-name"><b>' + escapeHtml(e.nom) + (e.id === m.chef ? ' <i>CHEF</i>' : '') + '</b><small>' + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
-          dojoVoie(e) + '<span class="mr-meta">' + fmtN(e.contribution) + '<small>dégâts</small></span></li>';
-      }).join('') + '</ul></section>' +
-      '<div class="mr-side">' +
-      '<section class="panel mr-joute"><h2>LES JOUTES · ' + d.joutes + ' / ' + d.joutesMax + '</h2><p class="mr-help">Défie une grenouille d’une autre mare : +6 renommée pour ta mare si tu gagnes, +1 sinon.</p>' +
-      (foe ? '<div class="mr-foe"><img class="px" src="' + portraitOf(foe) + '" alt=""><span class="mr-name"><b>' + escapeHtml(foe.nom) + '</b><small>' + escapeHtml(foe.mare) + ' · niv. ' + foe.niveau + '</small></span>' + dojoVoie(foe) + '</div><button class="btn" data-mare-joute' + (d.joutes > 0 ? '' : ' disabled') + '>Jouter ▶</button>' : '') +
-      '<button class="btn btn-ghost" data-mare-foe' + (d.joutes > 0 ? '' : ' disabled') + '>' + (d.joutes > 0 ? (foe ? 'Un autre adversaire' : 'Chercher un adversaire') : 'Plus de joute aujourd’hui') + '</button></section>' +
-      '<section class="panel mr-rank"><h2>LES MARES</h2>' + mareList(d, m.id, 8) + '</section>' +
-      '<section class="panel mr-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + mareEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
+  function renderMyClan(d) {
+    var m = d.clan, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100), foe = clans.foe;
+    var chief = m.chef === Cloud.id, mine = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { part: 0 };
+    var members = m.membres.slice().sort(function (x, y) { return y.part - x.part || y.contribution - x.contribution; });
+    return '<header class="panel cl-head">' + emblem(m, true) + '<div><h1>' + escapeHtml(m.nom).toUpperCase() + '</h1>' +
+      '<p>Chef : <b>' + escapeHtml(m.chefNom || '?') + '</b> · ' + m.membres.length + ' / ' + d.max + ' grenouilles · <b>' + m.renommee + '</b> renommée' + (m.place ? ' · ' + nth(m.place) + ' des clans' : '') + '</p></div>' +
+      '<button class="btn btn-ghost' + (clans.leaving ? ' is-armed' : '') + '" data-clan-leave>' + (clans.leaving ? 'Confirmer : quitter' : 'Quitter le clan') + '</button></header>' +
+      '<div class="cl-cols">' +
+      '<section class="panel cl-alpha"><h2>L’ALPHA N° ' + (m.raid.rang + 1) + '</h2>' +
+      '<div class="cl-alpha-art"><img class="px" src="' + alphaImg(m.raid.rang) + '" alt=""></div>' +
+      '<b class="cl-alpha-name">' + a.name + '</b><small class="muted">' + m.raid.vaincus + ' Alpha' + (m.raid.vaincus > 1 ? 's' : '') + ' abattu' + (m.raid.vaincus > 1 ? 's' : '') + ' par le clan</small>' +
+      '<div class="cl-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(m.raid.pv) + ' / ' + fmtN(m.raid.pvMax) + ' PV</em></div>' +
+      '<p class="cl-help">Ses PV sont partagés par tout le clan. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP pour chaque grenouille qui l’a attaqué.</p>' +
+      (mine.part ? '<p class="cl-part is-in">Ta part est assurée : ' + fmtN(mine.part) + ' dégâts sur cet Alpha.</p>' : '<p class="cl-part">Attaque cet Alpha au moins une fois pour avoir ta part quand il tombera.</p>') +
+      '<button class="btn" data-clan-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button></section>' +
+      '<section class="panel cl-members"><h2>LE CLAN · ' + m.membres.length + ' / ' + d.max + '</h2><ul' + (chief ? ' class="can-kick"' : '') + '>' + members.map(function (e) {
+        var kick = chief && e.id !== m.chef ? '<button class="cl-kick' + (clans.kicking === e.id ? ' is-armed' : '') + '" data-clan-kick="' + e.id + '" aria-label="Exclure ' + escapeHtml(e.nom) + '">' + (clans.kicking === e.id ? 'Exclure ?' : '✕') + '</button>' : (chief ? '<span></span>' : '');
+        return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (e.id === m.chef ? '<i>CHEF</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
+          dojoVoie(e) + '<span class="cl-meta' + (e.part ? '' : ' is-zero') + '">' + (e.part ? fmtN(e.part) : '—') + '<small>' + (e.part ? 'sur cet Alpha' : 'pas de part') + '</small></span>' + kick + '</li>';
+      }).join('') + '</ul>' + (chief ? '<p class="cl-help">Tu es le chef : ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : '') + '</section>' +
+      '<div class="cl-side">' +
+      '<section class="panel cl-joute"><h2>LES JOUTES · ' + d.joutes + ' / ' + d.joutesMax + '</h2><p class="cl-help">Défie une grenouille d’un autre clan : +6 renommée pour ton clan si tu gagnes, +1 sinon.</p>' +
+      (foe ? '<div class="cl-foe"><img class="px" src="' + portraitOf(foe) + '" alt=""><span class="cl-name"><b>' + escapeHtml(foe.nom) + '</b><small>' + escapeHtml(foe.clan) + ' · niv. ' + foe.niveau + '</small></span>' + dojoVoie(foe) + '</div><button class="btn" data-clan-joute' + (d.joutes > 0 ? '' : ' disabled') + '>Jouter ▶</button>' : '') +
+      '<button class="btn btn-ghost" data-clan-foe' + (d.joutes > 0 ? '' : ' disabled') + '>' + (d.joutes > 0 ? (foe ? 'Un autre adversaire' : 'Chercher un adversaire') : 'Plus de joute aujourd’hui') + '</button></section>' +
+      '<section class="panel cl-rank"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, m.id, 8) + '</section>' +
+      '<section class="panel cl-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
       '</div></div>';
   }
   // L'assaut contre l'Alpha : un combat de quelques tours contre ses PV partagés, dans son pays
   function raidFight(d) {
-    var r = d.mare.raid, a = alphaOf(r.rang, save.level);
+    var r = d.clan.raid, a = alphaOf(r.rang, save.level);
     var fight = {
-      kind: 'raid', title: d.mare.nom + ' · assaut contre ' + a.name, biomeIndex: a.biome, turns: d.tours, done: 0,
+      kind: 'raid', title: d.clan.nom + ' · assaut contre ' + a.name, biomeIndex: a.biome, turns: d.tours, done: 0,
       stats: { total: 0, hits: 0, crits: 0, best: 0, taken: 0 }, intro: a.name + ' se dresse devant toi : ' + d.tours + ' tours pour lui arracher le plus de PV possible !',
       enemy: Object.assign({}, a, { maxHp: r.pvMax, hp0: r.pv }),
       settle: function () {
         fight.settled = true;
-        return mareApi('POST', '/raid', { degats: fight.stats.total }).then(function (res) {
-          d.raids = res.restants; d.mare.raid.pv = res.pv; d.mare.raid.pvMax = res.pvMax; d.mare.raid.rang = res.rang;
+        return clanApi('POST', '/raid', { degats: fight.stats.total }).then(function (res) {
+          d.raids = res.restants; d.clan.raid.pv = res.pv; d.clan.raid.pvMax = res.pvMax; d.clan.raid.rang = res.rang;
           return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts à l’Alpha</p>' +
-            (res.vaincu !== null ? '<p class="bt-unlock">L’Alpha n° ' + (res.vaincu + 1) + ' est tombé ! Toute la mare reçoit sa récompense, et un Alpha plus fort arrive.</p>'
+            (res.vaincu !== null ? '<p class="bt-unlock">L’Alpha n° ' + (res.vaincu + 1) + ' est tombé ! Chaque grenouille du clan qui l’a attaqué reçoit sa part, et un Alpha plus fort arrive.</p>'
               : '<p>Il lui reste ' + fmtN(res.pv) + ' PV sur ' + fmtN(res.pvMax) + '.</p>') +
             '<p class="muted">Assauts restants aujourd’hui : ' + res.restants + '.</p>';
         });
@@ -1838,22 +1845,22 @@
   }
   function jouteFight(card) {
     return {
-      kind: 'joute', title: 'Joute contre ' + card.nom + ' (' + card.mare + ')', backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
-      intro: card.nom + ', de la mare « ' + card.mare + ' », accepte la joute !',
+      kind: 'joute', title: 'Joute contre ' + card.nom + ' (' + card.clan + ')', backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
+      intro: card.nom + ', du clan « ' + card.clan + ' », accepte la joute !',
       settle: function (win) {
-        return mareApi('POST', '/joute', { adversaire: card.id, victoire: win }).then(function (r) {
-          if (mares.data) mares.data.joutes = r.restants;
+        return clanApi('POST', '/joute', { adversaire: card.id, victoire: win }).then(function (r) {
+          if (clans.data) clans.data.joutes = r.restants;
           var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
           if (xp) persist();
           if (levels) Sfx.play('levelup');
-          return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">+' + r.gain + ' renommée pour ta mare</p>' + (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '') +
+          return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">+' + r.gain + ' renommée pour ton clan</p>' + (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '') +
             '<p class="muted">Joutes restantes aujourd’hui : ' + r.restants + '.</p>';
         });
       }
     };
   }
-  function mareAction(p) { // une action, puis on recharge la mare
-    return p.then(function () { loadMares(); }, function (e) { notice(e.message); });
+  function clanAction(p) { // une action, puis on recharge le clan
+    return p.then(function () { loadClans(); }, function (e) { notice(e.message); });
   }
 
   // ---------- La Tour des Cent Sages ----------
@@ -2080,14 +2087,14 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'mares', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
     if (page === 'map') renderWorldMap();
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
-    if (page === 'mares') openMares();
+    if (page === 'clans') openClans();
     if (page === 'tower') openTower();
     if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
@@ -2123,10 +2130,10 @@
       settleDuel(fight.card, false).then(function () { notice('Tu as quitté le duel : il compte comme une défaite.'); if (state.page === 'dojo') renderDojo(); }, function () {});
     }
     // quitter un assaut : ses dégâts comptent quand même (sans coup porté, l'assaut n'est pas perdu) ; quitter une joute : une défaite
-    if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadMares(); }, function () {});
-    if (fight.kind === 'joute' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté la joute : elle compte comme une défaite.'); loadMares(); }, function () {});
-    var atMare = fight.kind === 'raid' || fight.kind === 'joute';
-    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : (atMare ? 'mares' : 'map')));
+    if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadClans(); }, function () {});
+    if (fight.kind === 'joute' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté la joute : elle compte comme une défaite.'); loadClans(); }, function () {});
+    var atClan = fight.kind === 'raid' || fight.kind === 'joute';
+    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map')));
     startTick();
   }
 
@@ -2161,30 +2168,38 @@
       }
       return;
     }
-    if (t.dataset.mareEmb) { mares.emb = +t.dataset.mareEmb; Sfx.play('click'); document.querySelectorAll('[data-mare-emb]').forEach(function (e) { e.setAttribute('aria-checked', String(e === t)); }); return; } // sans redessiner : le nom tapé reste
-    if (t.hasAttribute('data-mares-reload')) { mares.error = ''; loadMares(); return; }
-    if (t.hasAttribute('data-mare-found')) {
-      var mname = ($('mare-name').value || '').trim();
-      if (mname.length < 3) { notice('Le nom de la mare doit faire au moins 3 caractères.'); return; }
-      if (save.gold < MARE_PRICE) return;
+    if (t.dataset.clanEmb) { clans.emb = +t.dataset.clanEmb; Sfx.play('click'); document.querySelectorAll('[data-clan-emb]').forEach(function (e) { e.setAttribute('aria-checked', String(e === t)); }); return; } // sans redessiner : le nom tapé reste
+    if (t.hasAttribute('data-clans-reload')) { clans.error = ''; loadClans(); return; }
+    if (t.hasAttribute('data-clan-found')) {
+      var cname = ($('clan-name').value || '').trim();
+      if (cname.length < 3) { notice('Le nom du clan doit faire au moins 3 caractères.'); return; }
+      if (save.gold < CLAN_PRICE) return;
       Sfx.play('click');
-      mareApi('POST', '/fonder', { nom: mname, embleme: mares.emb }).then(function () { save.gold -= MARE_PRICE; persist(); renderSidebar(); Sfx.play('levelup'); notice('La mare « ' + mname + ' » est fondée ! Invite tes amis à la rejoindre.'); loadMares(); }, function (err) { notice(err.message); });
+      clanApi('POST', '/fonder', { nom: cname, embleme: clans.emb }).then(function () { save.gold -= CLAN_PRICE; persist(); renderSidebar(); Sfx.play('levelup'); notice('Le clan « ' + cname + ' » est fondé ! Invite tes amis à le rejoindre.'); loadClans(); }, function (err) { notice(err.message); });
       return;
     }
-    if (t.dataset.mareJoin) { Sfx.play('click'); mareAction(mareApi('POST', '/rejoindre', { mare: t.dataset.mareJoin })); return; }
-    if (t.hasAttribute('data-mare-leave')) {
-      if (!mares.leaving) { mares.leaving = setTimeout(function () { mares.leaving = 0; renderMares(); }, 4000); renderMares(); return; }
-      clearTimeout(mares.leaving); mares.leaving = 0; mares.foe = null;
-      mareAction(mareApi('POST', '/quitter'));
+    if (t.dataset.clanJoin) { Sfx.play('click'); clanAction(clanApi('POST', '/rejoindre', { clan: t.dataset.clanJoin })); return; }
+    if (t.hasAttribute('data-clan-leave')) {
+      if (!clans.leaving) { clans.leaving = setTimeout(function () { clans.leaving = 0; renderClans(); }, 4000); renderClans(); return; }
+      clearTimeout(clans.leaving); clans.leaving = 0; clans.foe = null;
+      clanAction(clanApi('POST', '/quitter'));
       return;
     }
-    if (t.hasAttribute('data-mare-raid')) { if (mares.data && mares.data.raids > 0) { Sfx.play('click'); startFight(raidFight(mares.data)); } return; }
-    if (t.hasAttribute('data-mare-foe')) {
+    if (t.dataset.clanKick) { // exclure : un premier clic arme le bouton, le second confirme
+      var kid = t.dataset.clanKick;
+      clearTimeout(clans.kickTimer);
+      if (clans.kicking !== kid) { clans.kicking = kid; clans.kickTimer = setTimeout(function () { clans.kicking = null; renderClans(); }, 4000); Sfx.play('click'); renderClans(); return; }
+      clans.kicking = null;
+      clanAction(clanApi('POST', '/exclure', { membre: kid }));
+      return;
+    }
+    if (t.hasAttribute('data-clan-raid')) { if (clans.data && clans.data.raids > 0) { Sfx.play('click'); startFight(raidFight(clans.data)); } return; }
+    if (t.hasAttribute('data-clan-foe')) {
       Sfx.play('click');
-      Cloud.flush().then(function () { return mareApi('GET', '/joute'); }).then(function (r) { mares.foe = r.adversaire; if (!r.adversaire) notice('Aucune grenouille d’une autre mare à défier pour l’instant.'); renderMares(); }, function (err) { notice(err.message); });
+      Cloud.flush().then(function () { return clanApi('GET', '/joute'); }).then(function (r) { clans.foe = r.adversaire; if (!r.adversaire) notice('Aucune grenouille d’un autre clan à défier pour l’instant.'); renderClans(); }, function (err) { notice(err.message); });
       return;
     }
-    if (t.hasAttribute('data-mare-joute')) { if (mares.foe) { var jf = jouteFight(mares.foe); mares.foe = null; startFight(jf); } return; }
+    if (t.hasAttribute('data-clan-joute')) { if (clans.foe) { var jf = jouteFight(clans.foe); clans.foe = null; startFight(jf); } return; }
     if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
     if (t.dataset.foeStep) { dojo.pick += +t.dataset.foeStep; Sfx.play('click'); renderDojo(); return; }

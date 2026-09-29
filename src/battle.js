@@ -1175,7 +1175,7 @@ var BattleScene = (function () {
     await wait(600);
     settle(true);
   }
-  // la fin d'un combat du dojo, de la tour ou d'une mare : le texte vient de fight.settle (réputation, XP, dégâts…)
+  // la fin d'un combat du dojo, de la tour ou d'un clan : le texte vient de fight.settle (réputation, XP, dégâts…)
   async function settle(win) {
     fight.settled = true;
     var html;
@@ -1183,7 +1183,7 @@ var BattleScene = (function () {
     var title = fight.kind === 'raid' ? (E.hp <= 0 ? 'L’Alpha est tombé !' : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
     showEnd(win, html, title, fight.kind === 'tour'
       ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
-      : [['back', fight.kind === 'raid' || fight.kind === 'joute' ? 'Retour à la mare' : 'Retour à la cascade']]);
+      : [['back', fight.kind === 'raid' || fight.kind === 'joute' ? 'Retour au clan' : 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
   function showEnd(win, html, title, buttons) {
