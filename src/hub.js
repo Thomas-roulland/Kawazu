@@ -1326,17 +1326,18 @@
     return skinFaces[id];
   }
   // la grenouille dans un skin, avec ce qu'elle porte : face, profil et dos (deux images chacun)
-  function tryOnFrames(id) {
-    var key = id + '|' + playerHermit + '|' + JSON.stringify(save.equip);
+  function tryOnFrames(id) { // (en mode Ermite aussi, la grenouille montre le skin : on voit ce qu'il donnera)
+    var key = id + '|' + JSON.stringify(save.equip);
     if (!skinFrames[key]) {
-      var saved = heroSkin;
-      heroSkin = skinOf(id);
+      var saved = [heroSkin, playerHermit];
+      heroSkin = skinOf(id); playerHermit = false;
       var f = frogFrames(save.equip);
       skinFrames[key] = { face: f.face, profil: f.profil, dos: f.dos };
-      heroSkin = saved;
+      heroSkin = saved[0]; playerHermit = saved[1];
     }
     return skinFrames[key];
   }
+  var lucioles = function (n) { return n.toLocaleString('fr-FR') + ' lucioles'; };
   // le décor : planches, poutre, fenêtre ronde sous la lune, lanternes, portants chargés de kimonos, tapis
   function buildSkinsBg() {
     var c = document.createElement('canvas'); c.width = SK_W; c.height = SK_H;
@@ -1421,17 +1422,18 @@
   function renderSkins() {
     var day = skinsOfDay(), id = state.tryOn, sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id, today = day.indexOf(id) >= 0;
     var card = function (sid) {
-      var s = PREMIUM_SKINS[sid], have = ownsSkin(sid), on = save.hero.skin === sid;
+      var s = PREMIUM_SKINS[sid], have = ownsSkin(sid), on = save.hero.skin === sid && !playerHermit;
       return '<button class="sk-day' + (state.tryOn === sid ? ' is-selected' : '') + (have ? ' is-mine' : '') + (!have && save.gold < s.price ? ' is-poor' : '') + '" data-skin-try="' + sid + '">' +
-        '<img class="px" src="' + skinFace(sid) + '" alt=""><b>' + s.name + '</b><small>' + (on ? 'porté' : (have ? 'à toi' : s.price + ' lucioles')) + '</small></button>';
+        '<img class="px" src="' + skinFace(sid) + '" alt=""><b>' + s.name + '</b><small>' + (on ? 'porté' : (have ? 'à toi' : lucioles(s.price))) + '</small></button>';
     };
     var tile = function (sid) {
       return '<button class="sk-own' + (state.tryOn === sid ? ' is-selected' : '') + (save.hero.skin === sid ? ' is-worn' : '') + '" data-skin-try="' + sid + '" title="' + skinOf(sid).name + '"><img class="px" src="' + skinFace(sid) + '" alt=""></button>';
     };
     var owned = save.skins.filter(function (sid) { return PREMIUM_SKINS[sid]; });
-    var action = worn ? '<p class="sk-state">Tu le portes.</p>'
+    var action = playerHermit ? '<p class="sk-miss">En mode Ermite, ta grenouille garde sa peau d’Ermite : pas de skin pour l’instant.</p>'
+      : worn ? '<p class="sk-state">Tu le portes.</p>'
       : mine ? '<button class="btn" data-skin-wear="' + id + '">Porter</button>'
-      : today ? '<button class="btn" data-skin-buy="' + id + '"' + (save.gold < sk.price ? ' disabled' : '') + '>Acheter · ' + sk.price + ' lucioles</button>' + (save.gold < sk.price ? '<p class="sk-miss">Il te manque ' + (sk.price - save.gold) + ' lucioles.</p>' : '')
+      : today ? '<button class="btn" data-skin-buy="' + id + '"' + (save.gold < sk.price ? ' disabled' : '') + '>Acheter · ' + lucioles(sk.price) + '</button>' + (save.gold < sk.price ? '<p class="sk-miss">Il te manque ' + lucioles(sk.price - save.gold) + '.</p>' : '')
       : '<p class="sk-state">Pas en vente aujourd’hui.</p>';
     $('skins-ui').innerHTML =
       '<header class="sk-head"><h1>SKINS</h1><p>Trois skins par jour · les suivants dans <b>' + untilMidnight() + '</b></p></header>' +
@@ -2531,10 +2533,10 @@
     }
     if (t.dataset.skinTry) { state.tryOn = t.dataset.skinTry; Sfx.play('click'); renderSkins(); return; }
     if (t.dataset.skinView) { state.skinView = t.dataset.skinView; Sfx.play('click'); renderSkins(); return; }
-    if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear)) { wearSkin(t.dataset.skinWear); Sfx.play('pickup'); renderSkins(); } return; }
+    if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear) && !playerHermit) { wearSkin(t.dataset.skinWear); Sfx.play('pickup'); renderSkins(); } return; }
     if (t.dataset.skinBuy) { // seulement un skin du jour
       var sid = t.dataset.skinBuy, sk = PREMIUM_SKINS[sid];
-      if (sk && !ownsSkin(sid) && skinsOfDay().indexOf(sid) >= 0 && save.gold >= sk.price) {
+      if (sk && !playerHermit && !ownsSkin(sid) && skinsOfDay().indexOf(sid) >= 0 && save.gold >= sk.price) {
         save.gold -= sk.price; save.skins.push(sid); Sfx.play('levelup'); wearSkin(sid); renderSkins();
         notice(sk.name + ' est à toi ! Tu le portes déjà : il se voit partout, en combat comme au classement.');
       }

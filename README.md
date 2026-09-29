@@ -122,12 +122,13 @@ Les **lucioles** sont la monnaie du jeu.
   grenouille est **au milieu**, sur son tapis, et **essaie** le skin choisi (de face, de profil ou de dos, avec son
   équipement). **Trois skins par jour** sont en vente, tirés parmi les 10 et les mêmes pour tout le monde (renouvelés
   à minuit) : Gloupoison, Écumette, Pousse-Mare, Cogneur, Ombre-Lame, Grignote, Rouquin, Rempart, Maître Mousse et
-  Parrain Vasard, de 1 000 à 3 000 lucioles. Chacun a ses signes : le masque, les joues gonflées et les doigts luisants
+  Parrain Vasard, très chers : de 45 000 à 60 000 lucioles. Chacun a ses signes : le masque, les joues gonflées et les doigts luisants
   de Gloupoison, la collerette d’écume d’Écumette, la vrille de Pousse-Mare, les gants rouges et la ceinture de
   Cogneur, le masque de nuit et le foulard violet d’Ombre-Lame, les gilets de Grignote et de Rouquin, les cornes, l’obi
   et le bouclier de Rempart, la touffe et la cape de Maître Mousse, la pipe et la cicatrice du Parrain… Les skins achetés et les
-  6 couleurs de départ se portent depuis la garde-robe. Le skin se voit partout (même en mode Ermite), jusqu’au
-  classement et aux clans. Les anciennes peaux ont été remboursées.
+  6 couleurs de départ se portent depuis la garde-robe. Le skin se voit partout, jusqu’au classement et aux clans.
+  En mode Ermite, pour l’instant, la grenouille garde sa peau d’Ermite : elle voit les skins mais ne peut ni en
+  acheter ni en changer. Les anciennes peaux ont été remboursées.
 - **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.
   La tour est une **pagode dessinée en pixel art** étage par étage (toits de tuiles de jade aux coins relevés, murs
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée

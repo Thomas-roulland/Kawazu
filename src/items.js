@@ -334,7 +334,7 @@ function lookFor(equip) {
   var w = weaponOf(equip);
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
-  look.skin = heroSkin.fx || null; // les signes du skin (même en mode Ermite)
+  look.skin = !playerHermit && heroSkin.fx || null; // les signes du skin (pas en mode Ermite, pour l'instant)
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }
@@ -360,36 +360,37 @@ var EXTRA_SKINS = {
 };
 // Les skins : chers, et vendus trois par jour (voir skinsOfDay). Leurs couleurs de peau (g, m, l, c), la palette de
 // leurs signes (pal, voir paintSkin dans looks.js), leurs signes (fx) et, pour certains, l'écharpe qu'ils imposent
-// (scarf : la collerette d'Écumette, le long foulard d'Ombre-Lame). Ils se voient aussi en mode Ermite.
+// (scarf : la collerette d'Écumette, le long foulard d'Ombre-Lame). Très chers : autour de 50 000 lucioles.
+// Pas en mode Ermite pour l'instant : l'Ermite garde sa peau orange et ne peut pas changer de skin.
 var PREMIUM_SKINS = {
-  gloupoison: { name: 'Gloupoison', price: 1200, g: '#4a1a7a', m: '#7a3ab8', l: '#a86ae0', c: '#c89ae8',
+  gloupoison: { name: 'Gloupoison', price: 50000, g: '#4a1a7a', m: '#7a3ab8', l: '#a86ae0', c: '#c89ae8',
     pal: { e: '#f3d23a', U: '#14141f', O: '#9ae03a', D: '#1a1c2c' }, fx: ['yeux', 'cernes', 'masque', 'poches', 'doigts'],
     desc: 'Violet vénéneux, les joues gonflées de jus de mousse et le bout des doigts qui luit. Personne ne lui serre la main.' },
-  ecumette: { name: 'Écumette', price: 1000, g: '#2a8a7a', m: '#4ac0a8', l: '#9ae8d8', c: '#e8fff8', scarf: ['#f4fffc', '#b0e0d8'],
+  ecumette: { name: 'Écumette', price: 45000, g: '#2a8a7a', m: '#4ac0a8', l: '#9ae8d8', c: '#e8fff8', scarf: ['#f4fffc', '#b0e0d8'],
     pal: { U: '#1f6a6a' }, fx: ['reflet', 'raie', 'bulles', 'bulles-nez'],
     desc: 'Couleur d’eau claire, emmitouflée dans une collerette d’écume qui ne crève jamais.' },
-  poussemare: { name: 'Pousse-Mare', price: 1100, g: '#3a7a1a', m: '#7ac83a', l: '#b8f07a', c: '#fff0c0',
+  poussemare: { name: 'Pousse-Mare', price: 45000, g: '#3a7a1a', m: '#7ac83a', l: '#b8f07a', c: '#fff0c0',
     pal: { O: '#f8a0b8', D: '#2e6a1a' }, fx: ['poches', 'boucle', 'mains-claires'],
     desc: 'Vert tendre comme une jeune pousse, et une vrille lui a poussé sur la tête. Elle dit que ça porte bonheur.' },
-  cogneur: { name: 'Cogneur', price: 1300, g: '#3a4a5a', m: '#6a7a8a', l: '#a0b0c0', c: '#d8dde2',
+  cogneur: { name: 'Cogneur', price: 50000, g: '#3a4a5a', m: '#6a7a8a', l: '#a0b0c0', c: '#d8dde2',
     pal: { G: '#d8342a', D: '#c9412f', W: '#f4f4e8' }, fx: ['gants', 'colere', 'bandes'],
     desc: 'Gris comme un galet de rivière, gants rouges et ceinture de champion. Il ne recule jamais.' },
-  ombrelame: { name: 'Ombre-Lame', price: 2000, g: '#1a1a24', m: '#3e3e50', l: '#5a5a70', c: '#8a8aa0', scarf: ['#7a4ab0', '#4a2a70'],
+  ombrelame: { name: 'Ombre-Lame', price: 55000, g: '#1a1a24', m: '#3e3e50', l: '#5a5a70', c: '#8a8aa0', scarf: ['#7a4ab0', '#4a2a70'],
     pal: { e: '#f0c040', U: '#0e0e16' }, fx: ['yeux', 'cernes', 'masque'],
     desc: 'Gris de cendre, masque de nuit et long foulard violet. On ne l’entend pas arriver.' },
-  grignote: { name: 'Grignote', price: 1200, g: '#a87a1a', m: '#f0c050', l: '#ffe08a', c: '#fff2c8',
+  grignote: { name: 'Grignote', price: 45000, g: '#a87a1a', m: '#f0c050', l: '#ffe08a', c: '#fff2c8',
     pal: { U: '#8a4a1a', V: '#3a7a3a', W: '#1f4a1f' }, fx: ['cernes', 'levres', 'courbes-ventre', 'veste'],
     desc: 'Jaune et tout rond, dans son gilet vert. Il a toujours une libellule de côté pour le goûter.' },
-  rouquin: { name: 'Rouquin', price: 1400, g: '#a8480a', m: '#f07a1a', l: '#ffb050', c: '#ffd8a8',
+  rouquin: { name: 'Rouquin', price: 50000, g: '#a8480a', m: '#f07a1a', l: '#ffb050', c: '#ffd8a8',
     pal: { U: '#4a2410', V: '#a8201a', W: '#e0b43a' }, fx: ['cernes', 'levres', 'taches-ventre', 'veste'],
     desc: 'Orange flamboyant, gilet rouge liseré d’or. Grande gueule, grand cœur.' },
-  rempart: { name: 'Rempart', price: 1800, g: '#1f5a6a', m: '#3a8aa0', l: '#7ac0d0', c: '#c8e8ee',
+  rempart: { name: 'Rempart', price: 55000, g: '#1f5a6a', m: '#3a8aa0', l: '#7ac0d0', c: '#c8e8ee',
     pal: { U: '#10202a', V: '#5a3a22', W: '#e0b43a', T: '#b8a878', G: '#6a5a3a' }, fx: ['cernes', 'cornes', 'veste', 'obi', 'bouclier'],
     desc: 'Bleu d’étang profond, cornes courtes, obi doré et grand bouclier de bronze dans le dos. Rien ne passe.' },
-  maitremousse: { name: 'Maître Mousse', price: 2200, g: '#2e5a2a', m: '#5a9a4a', l: '#8ac070', c: '#dce4b0',
+  maitremousse: { name: 'Maître Mousse', price: 60000, g: '#2e5a2a', m: '#5a9a4a', l: '#8ac070', c: '#dce4b0',
     pal: { e: '#f3d23a', T: '#f4f4ee', V: '#2a3a6a', W: '#a0a8c0' }, fx: ['yeux', 'touffe', 'sourcils', 'barbiche', 'cape'],
     desc: 'Le plus vieux sage de la mare : touffe blanche, sourcils broussailleux et cape bleu nuit. Il en sait plus qu’il n’en dit.' },
-  parrain: { name: 'Parrain Vasard', price: 3000, g: '#3a3a1a', m: '#6a6a2a', l: '#9a9a4a', c: '#c8c08a',
+  parrain: { name: 'Parrain Vasard', price: 60000, g: '#3a3a1a', m: '#6a6a2a', l: '#9a9a4a', c: '#c8c08a',
     pal: { U: '#d8a030', V: '#7a1a1a', W: '#e0b43a', T: '#3a2412', O: '#ff8a2a', G: '#c0c0cc', K: '#2a1a0a' }, fx: ['cernes', 'levres', 'veste', 'signe-dos', 'pipe', 'cicatrice'],
     desc: 'Le patron de la vase : peau d’olive, gilet bordeaux, pipe au bec et une vieille cicatrice. Il ne se déplace pas pour rien.' }
 };
@@ -403,7 +404,7 @@ function skinOf(id) { return SKINS[id] || PREMIUM_SKINS[id] || EXTRA_SKINS[id] |
 
 // Couleurs du héros selon sa peau et son équipement
 function paletteFor(basePal, equip) {
-  var skin = playerHermit && !heroSkin.fx ? HERMIT_SKIN : heroSkin; // un skin l'emporte sur l'orange de l'Ermite
+  var skin = playerHermit ? HERMIT_SKIN : heroSkin; // l'Ermite garde sa peau orange (les skins viendront plus tard pour lui)
   var pal = Object.assign({}, basePal, { g: skin.g, m: skin.m, l: skin.l, c: skin.c }, skin.pal || {});
   // Ermite : iris jaune (E), pupille en barre, marques rouge-orangé autour des yeux (Z)
   if (playerHermit) { pal.E = '#f3d23a'; pal.Z = '#b8321a'; }
