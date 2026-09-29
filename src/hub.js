@@ -421,6 +421,7 @@
     if (!e || expeditionLeft(save) > 0) return;
     var loot = rollLoot(save, e.w + 1, e.item);
     if (loot) save.owned.push(loot);
+    e.gold = clanGold(e.gold); e.xp = clanXp(e.xp); // avec les bonus du clan
     save.gold += e.gold;
     var levels = gainXp(save, e.xp);
     save.expedition = null;
@@ -1813,7 +1814,7 @@
     return dojoApi('POST', '/duel', { adversaire: card.id, victoire: win }).then(function (r) {
       if (dojo.data) { dojo.data.rep = r.rep; dojo.data.restants = r.restants; dojo.data[win ? 'victoires' : 'defaites']++; }
       dojo.foes = (dojo.foes || []).filter(function (c) { return c.id !== card.id; });
-      var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
+      var xp = win ? clanXp(Math.max(5, Math.round(xpForLevel(save.level) * 0.1))) : 0, levels = xp ? gainXp(save, xp) : 0;
       if (xp) persist();
       if (levels) Sfx.play('levelup');
       return '<p class="bt-rep ' + (r.delta >= 0 ? 'up' : 'down') + '">' + (r.delta >= 0 ? '+' : '−') + Math.abs(r.delta) + ' réputation <span>(' + r.rep + ' en tout)</span></p>' +
@@ -1926,10 +1927,41 @@
     clans.loading = true;
     Cloud.flush().then(function () { return clanApi('GET', ''); }).then(function (d) {
       clans.data = d; clans.loading = false; clans.error = '';
+      setClanBonus(d.bonus);
       if (d.exclu) notice('Ta grenouille a été exclue du clan « ' + d.exclu + ' » par son chef.', true);
       applyGifts(d.cadeaux);
       if (state.page === 'clans') renderClans();
     }, function (e) { clans.loading = false; clans.error = e.message; if (state.page === 'clans') renderClans(); });
+  }
+  // les bonus du clan, gardés dans la sauvegarde (le jeu les applique à ses gains, même hors ligne)
+  function setClanBonus(b) {
+    b = { xp: (b && b.xp) || 0, lucioles: (b && b.lucioles) || 0 };
+    var cur = save.clanBonus || {};
+    if (cur.xp === b.xp && cur.lucioles === b.lucioles) return;
+    save.clanBonus = b; clanBonus = b; persist();
+  }
+  function refreshClan() { // à l'arrivée en jeu : les bonus du clan à jour, et ses cadeaux
+    if (!Cloud.id) return;
+    clanApi('GET', '').then(function (d) { clans.data = d; setClanBonus(d.bonus); applyGifts(d.cadeaux); }, function () {});
+  }
+  // le butin : le trésor, les deux bonus (le chef les améliore) et les dons
+  var BONUS_INFO = { xp: { name: 'Savoir du clan', what: 'd’XP', ico: '★' }, lucioles: { name: 'Bourse du clan', what: 'de lucioles', ico: '◆' } };
+  function renderLoot(d, m, chief) {
+    var b = d.butin, me = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { don: 0 };
+    var top = m.membres.filter(function (e) { return e.don > 0; }).sort(function (x, y) { return y.don - x.don; })[0];
+    var row = function (k) {
+      var lvl = m.bonus[k], cost = b.couts[k], pips = '';
+      for (var i = 0; i < b.max; i++) pips += '<i' + (i < lvl ? ' class="on"' : '') + '></i>';
+      return '<div class="cl-bonus"><span class="cl-bonus-ico ' + k + '">' + BONUS_INFO[k].ico + '</span><div><b>' + BONUS_INFO[k].name + '</b>' +
+        '<small>+' + Math.round(lvl * b.pas * 100) + ' % ' + BONUS_INFO[k].what + ' pour tout le clan · niveau ' + lvl + ' / ' + b.max + '</small><span class="cl-pips">' + pips + '</span></div>' +
+        (lvl >= b.max ? '<span class="cl-bonus-max">MAX</span>' : (chief ? '<button class="btn" data-clan-bonus="' + k + '"' + (m.tresor < cost ? ' disabled' : '') + '>+' + Math.round(b.pas * 100) + ' % · ' + fmtN(cost) + '</button>' : '<span class="cl-bonus-cost">' + fmtN(cost) + '</span>')) + '</div>';
+    };
+    return '<section class="panel cl-loot"><h2>LE BUTIN DU CLAN</h2>' +
+      '<p class="cl-treasure"><b>' + fmtN(m.tresor) + '</b> lucioles dans le trésor</p>' + row('xp') + row('lucioles') +
+      '<p class="cl-help">Le trésor se remplit de vos dons et du butin : l’Alpha en cours y versera ' + fmtN(b.alpha) + ' lucioles, une guerre gagnée ' + fmtN(b.guerre) + '. ' +
+      (chief ? 'Tu es le chef : c’est toi qui améliores les bonus.' : 'Le chef s’en sert pour améliorer les bonus.') + '</p>' +
+      '<div class="cl-don"><span class="cl-label">Donner</span>' + [100, 1000, 10000].map(function (n) { return '<button class="btn btn-ghost" data-clan-don="' + n + '"' + (save.gold < n ? ' disabled' : '') + '>' + fmtN(n) + '</button>'; }).join('') + '</div>' +
+      '<p class="cl-help">Tes dons : ' + fmtN(me.don) + ' lucioles' + (top ? ' · le plus généreux : <b>' + escapeHtml(top.nom) + '</b> (' + fmtN(top.don) + ')' : '') + '</p></section>';
   }
   function renderClans() {
     var box = $('clans-body');
@@ -1967,9 +1999,11 @@
     if (j.type === 'depart') return n + ' a quitté le clan.';
     if (j.type === 'exclusion') return n + ' a exclu <b>' + escapeHtml(j.cible || '?') + '</b> du clan.';
     if (j.type === 'raid') return n + ' a infligé <b>' + fmtN(j.deg) + '</b> dégâts à l’Alpha.';
-    if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + (j.parts ? ' · ' + j.parts + ' part' + (j.parts > 1 ? 's' : '') : '') + '.';
+    if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + (j.parts ? ' · ' + j.parts + ' part' + (j.parts > 1 ? 's' : '') : '') + (j.butin ? ' · +' + fmtN(j.butin) + ' au trésor' : '') + '.';
     if (j.type === 'guerre') return j.declaree ? n + ' a déclaré la guerre au clan <b>' + escapeHtml(j.contre) + '</b> !' : 'Le clan <b>' + escapeHtml(j.contre) + '</b> nous a déclaré la guerre !';
-    if (j.type === 'guerre-fin') return 'Guerre contre <b>' + escapeHtml(j.contre) + '</b> : ' + RESULT[j.resultat] + ' (' + j.nous + ' à ' + j.eux + ').';
+    if (j.type === 'guerre-fin') return 'Guerre contre <b>' + escapeHtml(j.contre) + '</b> : ' + RESULT[j.resultat] + ' (' + j.nous + ' à ' + j.eux + ')' + (j.butin ? ' · +' + fmtN(j.butin) + ' au trésor' : '') + '.';
+    if (j.type === 'don') return n + ' a donné <b>' + fmtN(j.montant) + '</b> lucioles au trésor.';
+    if (j.type === 'bonus') return n + ' a amélioré le ' + BONUS_INFO[j.bonus].name + ' : +' + Math.round(j.niveau * 2) + ' % ' + BONUS_INFO[j.bonus].what + '.';
     return '';
   }
   function warEvent(j) {
@@ -2026,7 +2060,7 @@
         return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (e.id === m.chef ? '<i>CHEF</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
           dojoVoie(e) + '<span class="cl-meta' + (e.part ? '' : ' is-zero') + '">' + (e.part ? fmtN(e.part) : '—') + '<small>' + (e.part ? 'sur cet Alpha' : 'pas de part') + '</small></span>' + kick + '</li>';
       }).join('') + '</ul>' + (chief ? '<p class="cl-help">Tu es le chef : ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : '') + '</section>' +
-      '<div class="cl-side">' + (d.guerre ? '' : renderWarPick(d, m, chief)) +
+      '<div class="cl-side">' + renderLoot(d, m, chief) + (d.guerre ? '' : renderWarPick(d, m, chief)) +
       '<section class="panel cl-rank"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, m.id, 8) + '</section>' +
       '<section class="panel cl-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
       '</div></div>';
@@ -2058,7 +2092,7 @@
       intro: card.nom + ', du clan « ' + card.clan + ' », défend les couleurs de son clan !',
       settle: function (win) {
         return clanApi('POST', '/combat', { adversaire: card.id, victoire: win }).then(function (r) {
-          var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
+          var xp = win ? clanXp(Math.max(5, Math.round(xpForLevel(save.level) * 0.1))) : 0, levels = xp ? gainXp(save, xp) : 0;
           if (xp) persist();
           if (levels) Sfx.play('levelup');
           return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">' + (win ? '+' + r.gain + ' point' + (r.gain > 1 ? 's' : '') + ' pour ton clan' : 'Aucun point cette fois') + '</p>' +
@@ -2094,6 +2128,7 @@
     if (!win) return '<p>' + escapeHtml(card.nom) + ' reste debout. Monte de niveau, change d’équipement ou de sorts, et reviens !</p>';
     if (f <= save.tower) return '<p>Épreuve réussie à nouveau. L’étage était déjà conquis : pas de nouvelle récompense.</p>';
     var r = towerRewards(f), levels;
+    r = Object.assign({}, r, { gold: clanGold(r.gold), xp: clanXp(r.xp) }); // avec les bonus du clan
     save.tower = f;
     save.gold += r.gold;
     levels = gainXp(save, r.xp);
@@ -2420,6 +2455,16 @@
       clanAction(clanApi('POST', '/guerre', { cible: cib }));
       return;
     }
+    if (t.dataset.clanDon) { // un don au trésor : le serveur le prend sur la sauvegarde, le jeu aussi
+      var don = +t.dataset.clanDon;
+      if (save.gold < don) return;
+      Sfx.play('click');
+      Cloud.flush().then(function () { return clanApi('POST', '/don', { montant: don }); }).then(function () {
+        save.gold -= don; persist(); renderSidebar(); Sfx.play('pickup'); notice('Merci ! ' + fmtN(don) + ' lucioles versées au trésor du clan.'); loadClans();
+      }, function (err) { notice(err.message); });
+      return;
+    }
+    if (t.dataset.clanBonus) { Sfx.play('levelup'); clanAction(clanApi('POST', '/ameliorer', { bonus: t.dataset.clanBonus })); return; }
     if (t.dataset.warAttack) {
       Sfx.play('click');
       var foeId = t.dataset.warAttack;
@@ -2632,6 +2677,7 @@
       else { save = newSave(); save.hero = { name: frog.nom, skin: frog.peau }; refreshShop(save); save.notice = welcome(frog.nom); } // grenouille toute neuve
       setPlayer(save); persist(); enterGame();
       loadDojo(); // les cadeaux du lundi, s'il y en a
+      refreshClan(); // les bonus du clan à jour
     }, function (e) { location.href = e.message === 'connexion' ? '/?connexion' : '/?grenouilles'; });
   }
 

@@ -173,6 +173,11 @@ Les **lucioles** sont la monnaie du jeu.
     1 point. À la fin, le clan qui a le plus de points gagne 30 renommée (10 chacun en cas d’égalité) ; ses combattants
     reçoivent 400 lucioles et de l’XP, ceux d’en face 100 lucioles. Deux clans attendent 3 jours avant de se refaire la
     guerre ; quitter un combat, c’est le perdre.
+  - **Le butin du clan** : un trésor, rempli par les **dons** des membres (100, 1 000 ou 10 000 lucioles d’un clic) et
+    par une part du butin (chaque Alpha abattu y verse 500 lucioles, +300 par Alpha ; une guerre gagnée 2 000, une
+    égalité 500). Le chef s’en sert pour améliorer **deux bonus** : le **Savoir du clan** (XP) et la **Bourse du clan**
+    (lucioles), +2 % par niveau, 10 niveaux (+20 % au plus) ; un niveau coûte 2 000, puis 6 000, 12 000… 110 000.
+    Les bonus s’appliquent à tous les membres : combats, expéditions, tour, méditation, et l’XP des duels et des guerres.
   - La page montre le clan (membres, leurs dégâts sur l’Alpha en cours, qui a sa part), la guerre (le score, le temps
     qui reste, les grenouilles d’en face, son journal) ou les clans à défier, l’Alpha, le classement des clans par
     renommée et le journal.

@@ -28,6 +28,11 @@ var playerVoie = null;    // la voie de la grenouille chargée
 var playerTreeStats = {}; // stats données par les dalles du Temple
 var playerHermit = false; // mode Ermite : mains nues, peau orange, yeux de crapaud
 var playerLevel = 1;
+// Les bonus du clan (le butin : +2 % par niveau) sur l'XP et les lucioles gagnées ; gardés dans la sauvegarde,
+// mis à jour chaque fois que le jeu lit le clan
+var clanBonus = { xp: 0, lucioles: 0 };
+function clanXp(n) { return Math.round(n * (1 + clanBonus.xp)); }
+function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles)); }
 
 // À appeler quand la sauvegarde change (chargement, arbre, création) : met à jour les bonus globaux
 function setPlayer(save) {
@@ -35,6 +40,7 @@ function setPlayer(save) {
   playerVoie = chosenVoie(save);
   playerTreeStats = treeBonuses(save).stats;
   heroSkin = skinOf(save.hero && save.hero.skin);
+  clanBonus = save.clanBonus || { xp: 0, lucioles: 0 };
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
   playerLevel = save.level;
 }
@@ -810,6 +816,7 @@ function newSave() {
     meditation: null, // { since } : la grenouille médite au camp depuis ce moment
     shopDay: '', rerolls: 0, // le jour du dernier arrivage de l'étal, et les relances payées ce jour-là
     skins: [], // les skins achetés
+    clanBonus: { xp: 0, lucioles: 0 }, // les bonus de son clan
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 }
   };
@@ -883,6 +890,7 @@ function parseSave(data) {
     if (refund) { save.gold += refund; if (save.hero) save.notice = 'Les skins ont été refaits : ' + (back.length > 1 ? 'tes anciens skins te sont remboursés' : 'ton ancien skin t’est remboursé') + ' (' + refund + ' lucioles). Trois nouveaux skins t’attendent chaque jour !'; }
   }
   if (data.hero && PREMIUM_SKINS[data.hero.skin] && save.skins.indexOf(data.hero.skin) >= 0) save.hero.skin = data.hero.skin; // une peau achetée
+  if (data.clanBonus) save.clanBonus = { xp: Math.min(0.2, Math.max(0, +data.clanBonus.xp || 0)), lucioles: Math.min(0.2, Math.max(0, +data.clanBonus.lucioles || 0)) };
   if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};
   save.album = { monstres: {}, objets: [], paliers: [] };

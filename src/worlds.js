@@ -146,7 +146,7 @@ function meditationGain(save, now) {
   var m = save.meditation;
   if (!m) return null;
   var ms = Math.max(0, Math.min(MEDITATION_MAX_H * 3600e3, (now || Date.now()) - m.since)), h = ms / 3600e3, r = meditationRates(save.level);
-  return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: Math.floor(r.xp * h), gold: Math.floor(r.gold * h) };
+  return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: clanXp(Math.floor(r.xp * h)), gold: clanGold(Math.floor(r.gold * h)) }; // avec les bonus du clan
 }
 // Récolte ce qui a été gagné ; again : elle continue de méditer (au retour), sinon elle se lève
 function claimMeditation(save, again) {

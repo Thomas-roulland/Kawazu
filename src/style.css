@@ -1273,3 +1273,24 @@ button.wm-stage:hover { transform: scale(1.2); }
 .cl-war-log li b { color: #fff6d8; }
 .cl-war-log li small { flex-shrink: 0; font-size: 12px; color: #8fb8aa; }
 @media (max-width: 1100px) { .cl-war-grid { grid-template-columns: minmax(0, 1fr); } .cl-blason { flex-direction: column; } }
+
+/* le butin du clan */
+.cl-loot { gap: 10px; box-shadow: inset 0 0 0 2px rgba(224, 180, 58, 0.55), inset 0 0 0 4px #0f1512, 0 6px 16px rgba(0, 0, 0, 0.35); }
+.cl-treasure { margin: 0; font-size: 16px; color: #c8e0da; }
+.cl-treasure b { font-family: var(--pixel); font-size: 16px; color: var(--gold-2); text-shadow: 0 2px 0 #0b100d; }
+.cl-bonus { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px; background: rgba(0, 0, 0, 0.22); }
+.cl-bonus > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cl-bonus b { font-size: 16px; color: #fff6d8; }
+.cl-bonus small { font-size: 13px; color: #8fb8aa; }
+.cl-bonus-ico { display: grid; place-items: center; width: 34px; height: 34px; font-size: 20px; color: #2a1d0c; box-shadow: 0 0 0 2px #0b100d; }
+.cl-bonus-ico.xp { background: #8fce52; }
+.cl-bonus-ico.lucioles { background: var(--gold); }
+.cl-pips { display: flex; gap: 3px; }
+.cl-pips i { width: 12px; height: 6px; background: #1a2a28; box-shadow: inset 0 0 0 1px #2a4a44; }
+.cl-pips i.on { background: var(--gold); box-shadow: none; }
+.cl-bonus .btn { padding: 8px 10px; font-size: 8px; }
+.cl-bonus-max { font-family: var(--pixel); font-size: 9px; color: var(--gold-2); }
+.cl-bonus-cost { font-family: var(--pixel); font-size: 8px; color: #8fb8aa; }
+.cl-don { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cl-don .btn { padding: 8px 10px; font-size: 8px; }
+.bt-clan { font-size: 13px; color: #8fce52; }

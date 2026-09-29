@@ -21,6 +21,8 @@
 //                                                       (et sa guerre, ou les clans à qui la déclarer)
 //   POST /api/clans/:id/fonder { nom, blason }          fonde un clan ; POST .../rejoindre { clan } ; POST .../quitter
 //   POST /api/clans/:id/blason { blason }               le chef change le blason (icône, fond, motif)
+//   POST /api/clans/:id/don { montant }                 un don au trésor du clan (pris sur les lucioles de la grenouille)
+//   POST /api/clans/:id/ameliorer { bonus }             le chef améliore un bonus du clan (xp ou lucioles) avec le trésor
 //   POST /api/clans/:id/exclure { membre }              le chef exclut une grenouille (qui ne peut pas revenir avant 3 jours)
 //   POST /api/clans/:id/raid { degats }                 une attaque contre l'Alpha de son clan
 //   POST /api/clans/:id/guerre { cible }                le chef déclare la guerre à un autre clan (5 grenouilles au moins)
@@ -345,12 +347,18 @@ async function dojoRoute(req, res, account, id, action, method) {
 // gagne de la renommée, et ceux qui ont combattu reçoivent leur part. Deux clans attendent GUERRE_REPOS avant de se
 // refaire la guerre. Une guerre se termine quand quelqu'un la regarde après sa fin (settleWar).
 // Le chef peut exclure une grenouille : elle ne peut pas revenir avant EXCLU_JOURS jours.
+// Le butin : un trésor, rempli par les dons des membres et par une part du butin (chaque Alpha abattu, chaque guerre
+// gagnée) ; le chef s'en sert pour améliorer deux bonus, l'XP et les lucioles gagnées par tout le clan (BONUS_PAS par
+// niveau, BONUS_MAX niveaux ; un niveau coûte bonusCost). Le jeu applique ces bonus (voir clanBonus dans items.js).
 // Clés : clan:<id> (le clan), clans (tableau id -> résumé public), clan-de:<grenouille> -> id de son clan,
 // clan-jour:<grenouille> (ses attaques du jour contre l'Alpha), clan-exclu:<grenouille> (le nom du clan qui l'a
 // exclue, pour le lui dire une fois), guerre:<id> (une guerre et son journal).
 const CLANS = 'clans';
 const CLAN_MAX = 10, RAIDS_PAR_JOUR = 2, RAID_TOURS = 10, EXCLU_JOURS = 3;
 const BLASON = { icone: 5, fond: 8, motif: 6 }; // le nombre d'icônes, de fonds et de couleurs de motif (voir le jeu)
+const BONUS_MAX = 10, BONUS_PAS = 0.02, DON_MAX = 100000;
+const bonusCost = (n) => 1000 * (n + 1) * (n + 2); // 2 000, 6 000, 12 000… 110 000 pour le dixième niveau
+const alphaLoot = (rang) => 500 + 300 * rang, GUERRE_BUTIN = { victoire: 2000, nulle: 500, defaite: 0 };
 const GUERRE_MIN = 5, GUERRE_DUREE = +process.env.KAWAZU_GUERRE_MS || 24 * 3600e3, GUERRE_ATTAQUES = 3, GUERRE_REPOS = 3 * 86400e3; // (une guerre plus courte pour les tests)
 const alphaHp = (rang) => Math.round(20000 * Math.pow(1.6, rang)); // la même règle que le jeu (src/worlds.js)
 const parseBlason = (v) => { v = v && typeof v === 'object' ? v : {}; return { icone: num(v.icone, BLASON.icone - 1), fond: num(v.fond, BLASON.fond - 1), motif: num(v.motif, BLASON.motif - 1) }; };
@@ -358,7 +366,10 @@ const clanSummary = (m) => ({ id: m.id, nom: m.nom, blason: m.blason, membres: m
 async function saveClan(m) { await Promise.all([store.set('clan:' + m.id, m), store.hset(CLANS, m.id, clanSummary(m))]); }
 async function loadClan(id) {
   const m = id ? await store.get('clan:' + id) : null;
-  if (m) { m.blason = m.blason || { icone: 0, fond: num(m.embleme, BLASON.fond - 1), motif: 0 }; m.repos = m.repos || {}; m.guerre = m.guerre || null; }
+  if (m) {
+    m.blason = m.blason || { icone: 0, fond: num(m.embleme, BLASON.fond - 1), motif: 0 }; m.repos = m.repos || {}; m.guerre = m.guerre || null;
+    m.tresor = m.tresor || 0; m.bonus = m.bonus || { xp: 0, lucioles: 0 }; m.dons = m.dons || {};
+  }
   return m;
 }
 async function clanOf(frogId) { return loadClan(await store.get('clan-de:' + frogId)); }
@@ -393,10 +404,11 @@ async function settleWar(w) {
     if (!c) continue;
     const res = !winner ? 'nulle' : (winner === side ? 'victoire' : 'defaite');
     c.renommee += res === 'victoire' ? 30 : (res === 'nulle' ? 10 : 0);
+    c.tresor += GUERRE_BUTIN[res];
     if (c.guerre === w.id) c.guerre = null;
     c.repos[o.id] = Date.now();
     c.derniereGuerre = { contre: o.nom, resultat: res, nous: score(side), eux: score(other(side)), t: Date.now() };
-    clanLog(c, { type: 'guerre-fin', contre: o.nom, resultat: res, nous: score(side), eux: score(other(side)) });
+    clanLog(c, { type: 'guerre-fin', contre: o.nom, resultat: res, nous: score(side), eux: score(other(side)), butin: GUERRE_BUTIN[res] });
     const gift = { id: 'guerre-' + w.id.slice(0, 8) + '-' + side, source: 'guerre', clan: c.nom, contre: o.nom, resultat: res,
       lucioles: res === 'victoire' ? 400 : (res === 'nulle' ? 200 : 100), xpNiveau: res === 'victoire' ? 0.25 : 0 };
     const fought = w[side].membres.filter((f) => (w.attaques[f] || 0) > 0);
@@ -425,15 +437,18 @@ async function clanRoute(req, res, account, id, action, method) {
     const liste = Object.values(all).sort((a, b) => b.renommee - a.renommee || b.rang - a.rang);
     const out = {
       clan: null, liste: liste.slice(0, 30), max: CLAN_MAX, tours: RAID_TOURS, cadeaux: gifts || [], exclu: exclu || null,
-      raids: RAIDS_PAR_JOUR - day.raids, raidsMax: RAIDS_PAR_JOUR, guerreMin: GUERRE_MIN, guerre: null, cibles: []
+      raids: RAIDS_PAR_JOUR - day.raids, raidsMax: RAIDS_PAR_JOUR, guerreMin: GUERRE_MIN, guerre: null, cibles: [],
+      bonus: { xp: 0, lucioles: 0 }, butin: { max: BONUS_MAX, pas: BONUS_PAS, alpha: m ? alphaLoot(m.raid.rang) : alphaLoot(0), guerre: GUERRE_BUTIN.victoire }
     };
     if (exclu) await store.del('clan-exclu:' + id); // on ne le dit qu'une fois
     if (m) {
       out.clan = Object.assign({}, m, {
         bannis: undefined, repos: undefined,
-        membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0 }, fiches[f] || { id: f, nom: '?' })),
+        membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0, don: m.dons[f] || 0 }, fiches[f] || { id: f, nom: '?' })),
         place: liste.findIndex((x) => x.id === m.id) + 1
       });
+      out.bonus = { xp: m.bonus.xp * BONUS_PAS, lucioles: m.bonus.lucioles * BONUS_PAS }; // ce que le jeu applique
+      out.butin.couts = { xp: m.bonus.xp < BONUS_MAX ? bonusCost(m.bonus.xp) : 0, lucioles: m.bonus.lucioles < BONUS_MAX ? bonusCost(m.bonus.lucioles) : 0 };
       if (m.guerre) { const w = await store.get('guerre:' + m.guerre); if (w) out.guerre = warView(w, m, id, fiches); }
       else out.cibles = liste.filter((c) => c.id !== m.id && c.membres >= GUERRE_MIN && !(c.guerreFin > Date.now()) && !((m.repos[c.id] || 0) + GUERRE_REPOS > Date.now()))
         .map((c) => ({ id: c.id, nom: c.nom, blason: c.blason, membres: c.membres, renommee: c.renommee }));
@@ -448,7 +463,8 @@ async function clanRoute(req, res, account, id, action, method) {
     if (Object.values(all).some((x) => x.nom.toLowerCase() === nom.toLowerCase())) return send(res, 409, { erreur: 'Un clan porte déjà ce nom.' });
     const m = {
       id: crypto.randomUUID(), nom: nom, blason: parseBlason(b.blason), chef: id, chefNom: me.nom, membres: [id],
-      cree: Date.now(), renommee: 0, raid: { rang: 0, pv: alphaHp(0), pvMax: alphaHp(0), vaincus: 0, parts: {} }, contributions: {}, bannis: {}, repos: {}, guerre: null, journal: []
+      cree: Date.now(), renommee: 0, raid: { rang: 0, pv: alphaHp(0), pvMax: alphaHp(0), vaincus: 0, parts: {} }, contributions: {}, bannis: {}, repos: {}, guerre: null,
+      tresor: 0, bonus: { xp: 0, lucioles: 0 }, dons: {}, journal: []
     };
     clanLog(m, { type: 'fonde', nom: me.nom });
     await saveClan(m);
@@ -496,6 +512,28 @@ async function clanRoute(req, res, account, id, action, method) {
     await Promise.all([saveClan(left), store.set('clan-exclu:' + target, left.nom)]);
     return send(res, 200, { ok: true });
   }
+  if (action === 'don' && method === 'POST') { // un don au trésor : pris sur les lucioles de la grenouille
+    const b = await readBody(req, 4096), montant = Math.floor(+b.montant || 0), frog = await store.get('grenouille:' + id);
+    if (!(montant >= 1 && montant <= DON_MAX)) return send(res, 400, { erreur: 'Un don va de 1 à ' + DON_MAX.toLocaleString('fr-FR') + ' lucioles.' });
+    if (!frog || !frog.save || (frog.save.gold || 0) < montant) return send(res, 400, { erreur: 'Ta grenouille n’a pas assez de lucioles.' });
+    frog.save.gold -= montant; frog.modifie = Date.now();
+    m.tresor += montant; m.dons[id] = (m.dons[id] || 0) + montant;
+    if (montant >= 1000) clanLog(m, { type: 'don', nom: me.nom, montant: montant });
+    await Promise.all([store.set('grenouille:' + id, frog), saveClan(m)]);
+    return send(res, 200, { ok: true, tresor: m.tresor, or: frog.save.gold });
+  }
+  if (action === 'ameliorer' && method === 'POST') { // le chef améliore un bonus avec le trésor
+    const b = await readBody(req, 4096), k = b.bonus === 'xp' || b.bonus === 'lucioles' ? b.bonus : null;
+    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut dépenser le trésor.' });
+    if (!k) return send(res, 400, { erreur: 'Ce bonus n’existe pas.' });
+    if (m.bonus[k] >= BONUS_MAX) return send(res, 400, { erreur: 'Ce bonus est déjà au plus haut.' });
+    const cost = bonusCost(m.bonus[k]);
+    if (m.tresor < cost) return send(res, 400, { erreur: 'Il manque ' + (cost - m.tresor).toLocaleString('fr-FR') + ' lucioles au trésor.' });
+    m.tresor -= cost; m.bonus[k]++;
+    clanLog(m, { type: 'bonus', nom: me.nom, bonus: k, niveau: m.bonus[k] });
+    await saveClan(m);
+    return send(res, 200, { ok: true, tresor: m.tresor, bonus: m.bonus });
+  }
   if (action === 'raid' && method === 'POST') {
     const b = await readBody(req, 4096), day = await clanDay(id);
     if (day.raids >= RAIDS_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre l’Alpha aujourd’hui : reviens demain !' });
@@ -515,7 +553,8 @@ async function clanRoute(req, res, account, id, action, method) {
       const share = m.membres.filter((f) => r.parts[f] > 0);
       await Promise.all(share.map(async (f) => { const key = 'cadeaux:' + f, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }));
       m.renommee += 25 + 15 * r.rang;
-      clanLog(m, { type: 'alpha', rang: r.rang, nom: me.nom, parts: share.length });
+      m.tresor += alphaLoot(r.rang);
+      clanLog(m, { type: 'alpha', rang: r.rang, nom: me.nom, parts: share.length, butin: alphaLoot(r.rang) });
       r.rang++; r.vaincus++; r.pv = alphaHp(r.rang); r.pvMax = alphaHp(r.rang); r.parts = {};
     }
     await Promise.all([saveClan(m), store.set('clan-jour:' + id, day)]);
@@ -630,7 +669,7 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(dj[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return dojoRoute(req, res, account, dj[1], dj[2], method);
   }
-  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|blason|raid|guerre|defi|combat))?$/.exec(p);
+  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|blason|don|ameliorer|raid|guerre|defi|combat))?$/.exec(p);
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return clanRoute(req, res, account, cl[1], cl[2], method);

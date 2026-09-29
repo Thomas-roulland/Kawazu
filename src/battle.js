@@ -1212,8 +1212,9 @@ var BattleScene = (function () {
     var loot = rollLoot(save, tier, r.itemChance, fight.luck);
     if (loot) save.owned.push(loot);
     if (fight.albumId) albumKill(save, fight.albumId);
-    var levels = gainXp(save, r.xp);
-    save.gold += r.gold;
+    var xp = clanXp(r.xp), gold = clanGold(r.gold); // avec les bonus du clan
+    var levels = gainXp(save, xp);
+    save.gold += gold;
     var unlocked = null;
     if (save.progress[fight.biomeIndex] < fight.stage) {
       save.progress[fight.biomeIndex] = fight.stage;
@@ -1221,7 +1222,7 @@ var BattleScene = (function () {
     }
     writeSave(save);
     if (levels) sfx('levelup'); else if (loot) sfx('pickup');
-    showResult(true, { xp: r.xp, gold: r.gold, loot: loot, levels: levels, unlocked: unlocked });
+    showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked });
   }
 
   async function defeat() {
@@ -1241,7 +1242,7 @@ var BattleScene = (function () {
     var box = $('bt-result');
     var html = '<h2>' + (win ? 'Victoire !' : 'Défaite…') + '</h2>';
     if (win) {
-      html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
+      html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (clanBonus.xp || clanBonus.lucioles ? ' <small class="bt-clan">(clan : +' + Math.round(clanBonus.xp * 100) + ' % XP, +' + Math.round(clanBonus.lucioles * 100) + ' % lucioles)</small>' : '') + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
       if (info.loot) { var lr = RARITIES[rarityOf(info.loot)]; html += '<p class="bt-loot" style="--rar:' + lr.color + '"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b> <em>' + lr.name + '</em></p>'; }
       if (info.unlocked) html += '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
     } else {
