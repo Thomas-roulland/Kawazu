@@ -495,6 +495,21 @@
     var p = $('points');
     p.textContent = save.points > 0 ? save.points + (save.points > 1 ? ' points à répartir' : ' point à répartir') : 'Monte de niveau pour gagner des points';
     p.classList.toggle('has', save.points > 0);
+    // répartir à nouveau : tous les points déjà placés reviennent (gratuit, confirmé d'un second clic)
+    var spent = allocTotal(), rb = $('stats-reset');
+    rb.hidden = !spent;
+    rb.textContent = statsArmed ? 'Confirmer : récupérer ' + spent + ' point' + (spent > 1 ? 's' : '') : 'Répartir à nouveau';
+    rb.classList.toggle('is-armed', !!statsArmed);
+  }
+  var statsArmed = 0;
+  function allocTotal() { return Object.keys(save.alloc).reduce(function (s, k) { return s + save.alloc[k]; }, 0); }
+  function resetStats() {
+    var n = allocTotal();
+    if (!n) return;
+    Object.keys(save.alloc).forEach(function (k) { save.alloc[k] = 0; });
+    save.points += n;
+    setPlayer(save); persist(); Sfx.play('ladder'); renderAll();
+    notice('Tes ' + n + ' points de caractéristique te sont rendus : répartis-les à nouveau avec les « + ».');
   }
 
   // Icônes des caractéristiques (16×16) : cœur, patte palmée, impact, lotus
@@ -1973,6 +1988,10 @@
     if (t.dataset.exp) { if (save.meditation) endMeditation(false, 'Kawazu se lève pour partir en mission'); startExpedition(save, state.sheet.w, state.sheet.st, t.dataset.exp); persist(); renderStageSheet(); renderSidebar(); return; }
     if (t.dataset.arme) { if (!save.arme && VOIE_ARMES[chosenVoie(save)].indexOf(t.dataset.arme) >= 0) chooseArme(t.dataset.arme); return; }
     if (t.id === 'arme-change') { if (save.gold >= ARME_PRICE && save.arme) { save.gold -= ARME_PRICE; save.arme = null; persist(); Sfx.play('pickup'); renderAll(); } return; }
+    if (t.id === 'stats-reset') {
+      if (!statsArmed) { statsArmed = setTimeout(function () { statsArmed = 0; renderLevel(); }, 4000); renderLevel(); return; }
+      clearTimeout(statsArmed); statsArmed = 0; resetStats(); return;
+    }
     if (t.id === 'med-start') { save.meditation = { since: Date.now() }; persist(); Sfx.play('drip'); renderMeditation(); return; }
     if (t.id === 'med-stop') { endMeditation(false); return; }
     if (t.id === 'exp-claim' || (t.id === 'sb-expedition' && expeditionLeft(save) <= 0)) { claimExpedition(); return; }

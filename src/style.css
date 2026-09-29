@@ -151,6 +151,9 @@ button:focus-visible { outline: 3px solid var(--gold-2); outline-offset: 3px; }
 .views .tab { padding: 3px 8px; font-size: 13px; }
 .attr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
 .attr-head .points.has { animation: glow 1.4s ease-in-out infinite; }
+.attr-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.stats-reset { padding: 5px 10px; font-size: 8px; }
+.stats-reset.is-armed { color: #2a1d0c; background: var(--gold); border-color: var(--gold); }
 /* caractéristiques : une carte par stat, médaillon nénuphar, barre qui scintille */
 .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .scard {

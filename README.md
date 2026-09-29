@@ -72,6 +72,7 @@ Les **lucioles** sont la monnaie du jeu.
   ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** (PV, dégâts, critique,
   esquive, initiative, puissance et relance des sorts, passifs : chaque chiffre avec son calcul), les **hauts faits**
   et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance).
+  « **Répartir à nouveau** » rend gratuitement tous les points de caractéristique déjà placés (confirmé d’un second clic).
 - **La Voie** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
   flaques : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier et rendent les points,
   contre 80 lucioles). Chaque voie a ses **caractéristiques de départ**, un **attribut principal** (celui qui fait les
