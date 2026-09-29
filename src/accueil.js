@@ -11,7 +11,7 @@
   // ---------- La grenouille, dans ses différents habits ----------
   function frogSet(skin, equip, hermit) {
     var saved = [heroSkin, playerHermit];
-    heroSkin = SKINS[skin] || SKINS.marais; playerHermit = !!hermit;
+    heroSkin = skinOf(skin); playerHermit = !!hermit;
     var an = buildKawazuAnims(dressKawazu(sp, lookFor(equip))), pal = paletteFor(sp.PAL, equip);
     var imgs = function (frames) { return frames.map(function (g) { return g ? gridToCanvas(g, pal) : null; }); };
     var set = { face: imgs(an.idle.frames), side: imgs(an.idleRight.frames), atk: imgs(an.attack.frames), fx: imgs(an.attack.fx) };

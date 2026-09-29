@@ -334,6 +334,7 @@ function lookFor(equip) {
   var w = weaponOf(equip);
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
+  look.pattern = !playerHermit && heroSkin.pattern; // le motif de la peau (pas en mode Ermite)
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }
@@ -357,12 +358,25 @@ var EXTRA_SKINS = {
   corail: { name: 'Corail', g: '#9a3a4a', m: '#e0607a', l: '#ffa8b8', c: '#fff0f2' },
   nuit: { name: 'Nuit', g: '#241a3a', m: '#4a3a6b', l: '#8a78c0', c: '#e6e0f7' }
 };
-function skinOf(id) { return SKINS[id] || EXTRA_SKINS[id] || SKINS.marais; }
+// Les peaux de la garde-robe de Gamako : chères, et avec un motif (x, q : ses couleurs) peint sur la grenouille
+var PREMIUM_SKINS = {
+  cradopaud: { name: 'Cradopaud', price: 800, pattern: 'verrues', g: '#3e3a1a', m: '#6b6a2a', l: '#9a954a', c: '#d8cc8a', x: '#3a2e14', q: '#c8c070', desc: 'Couvert de verrues et fier de l’être. Il sent la vase de loin.' },
+  fraise: { name: 'Fraise des bois', price: 1000, pattern: 'bottes', g: '#8a1414', m: '#d8262a', l: '#ff6a5a', c: '#ffd0c8', x: '#2a50c9', desc: 'Rouge vif et pattes bleues, comme la petite grenouille des forêts de pluie.' },
+  dendrobate: { name: 'Dendrobate', price: 1200, pattern: 'taches', g: '#10307a', m: '#1f6ae0', l: '#6ab0ff', c: '#9ad0ff', x: '#0b0f1c', desc: 'Bleu électrique tacheté de noir : les prédateurs n’osent pas y toucher.' },
+  tigre: { name: 'Tigre des roseaux', price: 1400, pattern: 'rayures', g: '#8a4a0a', m: '#e08a1a', l: '#ffc060', c: '#fff0c8', x: '#2a1a0a', desc: 'Des rayures sombres sur fond orange : on ne la voit pas venir dans les roseaux.' },
+  amphinobi: { name: 'Amphinobi', price: 1500, pattern: 'masque', g: '#14141f', m: '#2a2a44', l: '#4a4a70', c: '#c9c4d8', x: '#c9412f', desc: 'La tenue des grenouilles ninjas : nuit d’encre et masque rouge sang.' },
+  sakura: { name: 'Sakura', price: 1600, pattern: 'taches', g: '#b85a7a', m: '#ff9ac0', l: '#ffd0e0', c: '#fff4f8', x: '#ffffff', desc: 'Rose comme les cerisiers du mont Kaeru, parsemée de pétales blancs.' },
+  verre: { name: 'Grenouille de verre', price: 1800, pattern: 'taches', g: '#5a9a7a', m: '#a8e0c0', l: '#e0fff0', c: '#f4fff8', x: '#f3d23a', desc: 'Presque transparente, avec de minuscules points d’or.' },
+  lune: { name: 'Lune d’argent', price: 2200, pattern: 'taches', g: '#6a7080', m: '#b8c0d0', l: '#eef2ff', c: '#ffffff', x: '#8a9ac8', desc: 'Pâle comme la lune des grottes, avec ses cratères bleutés.' },
+  braise: { name: 'Braise', price: 2500, pattern: 'rayures', g: '#1a0a08', m: '#3a1a14', l: '#6a2a1a', c: '#8a3a1a', x: '#ff7a1a', desc: 'Noire comme le charbon, fendue de lave qui rougeoie.' },
+  or: { name: 'Crapaud d’or', price: 4000, pattern: 'verrues', g: '#8a6a0a', m: '#e0b43a', l: '#fff0a0', c: '#fff8d8', x: '#fff6c0', q: '#b8862a', desc: 'La peau des empereurs du marais. Elle brille de mille lucioles.' }
+};
+function skinOf(id) { return SKINS[id] || PREMIUM_SKINS[id] || EXTRA_SKINS[id] || SKINS.marais; }
 
 // Couleurs du héros selon sa peau et son équipement
 function paletteFor(basePal, equip) {
   var skin = playerHermit ? HERMIT_SKIN : heroSkin;
-  var pal = Object.assign({}, basePal, { g: skin.g, m: skin.m, l: skin.l, c: skin.c });
+  var pal = Object.assign({}, basePal, { g: skin.g, m: skin.m, l: skin.l, c: skin.c, X: skin.x || skin.g, Q: skin.q || skin.l });
   // Ermite : iris jaune (E), pupille en barre, marques rouge-orangé autour des yeux (Z)
   if (playerHermit) { pal.E = '#f3d23a'; pal.Z = '#b8321a'; }
   var scarf = ITEMS[equip.echarpe];
@@ -764,6 +778,8 @@ function newSave() {
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
     tower: 0, // le plus haut étage vaincu de la Tour des Cent Sages
     meditation: null, // { since } : la grenouille médite au camp depuis ce moment
+    shopDay: '', rerolls: 0, // le jour du dernier arrivage de l'étal, et les relances payées ce jour-là
+    skins: [], // les peaux achetées à la garde-robe
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 }
   };
@@ -828,6 +844,9 @@ function parseSave(data) {
   save.ach = Array.isArray(data.ach) ? data.ach.filter(function (id) { return typeof id === 'string'; }) : null;
   save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
   save.tower = Math.min(100, int(data.tower, 0) || 0);
+  if (typeof data.shopDay === 'string') { save.shopDay = data.shopDay.slice(0, 12); save.rerolls = Math.min(SHOP_REROLL_MAX, int(data.rerolls, 0) || 0); }
+  if (Array.isArray(data.skins)) save.skins = data.skins.filter(function (id) { return PREMIUM_SKINS[id]; });
+  if (data.hero && PREMIUM_SKINS[data.hero.skin] && save.skins.indexOf(data.hero.skin) >= 0) save.hero.skin = data.hero.skin; // une peau achetée
   if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};
   save.album = { monstres: {}, objets: [], paliers: [] };

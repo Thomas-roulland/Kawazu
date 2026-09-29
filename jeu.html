@@ -125,6 +125,7 @@
             <span class="attr-actions"><button id="stats-reset" class="btn btn-ghost stats-reset" hidden></button><span id="points" class="points"></span></span>
           </div>
           <p id="stat-voie" class="stat-voie"></p>
+          <p id="stat-guide" class="stat-guide"></p>
           <div id="stats" class="stat-grid"></div>
           <section id="combat-stats" class="combat-stats"></section>
         </section>
@@ -183,12 +184,14 @@
       <canvas id="shop-scene" aria-label="La cabane de l’Aïeule Gamako"></canvas>
       <header class="shop-sign">
         <h1>CHEZ L’AÏEULE GAMAKO</h1>
-        <p>Marchande ancestrale · objets anciens et thés rares</p>
+        <p>Marchande ancestrale · objets anciens, thés rares et belles peaux</p>
+        <div class="shop-tabs" role="tablist"><button role="tab" data-shop-tab="etal">L’étal</button><button role="tab" data-shop-tab="peaux">La garde-robe</button></div>
         <button id="reroll" class="btn btn-ghost"></button>
       </header>
       <div class="bubble" id="gamako-says" role="status"></div>
       <aside id="shop-card" class="shop-card"></aside>
       <div id="stock" class="shop-wares"></div>
+      <div id="wardrobe" class="wardrobe" hidden></div>
     </section>
     <!-- La Tour des Cent Sages, au sommet du mont Kaeru -->
     <section id="page-tower" class="page" aria-label="Tour des Cent Sages" hidden>

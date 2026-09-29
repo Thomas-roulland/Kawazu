@@ -72,6 +72,8 @@ Les **lucioles** sont la monnaie du jeu.
   ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** (PV, dégâts, critique,
   esquive, initiative, puissance et relance des sorts, passifs : chaque chiffre avec son calcul), les **hauts faits**
   et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance).
+  Un bandeau dit où mettre ses points (l’**attribut principal**, en tête et en or, puis la **Vitalité** ; le reste est un bonus),
+  et « **Répartir pour moi** » place les points libres : 60 % dans l’attribut principal, 40 % en Vitalité.
   « **Répartir à nouveau** » rend gratuitement tous les points de caractéristique déjà placés (confirmé d’un second clic).
 - **La Voie** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
   flaques : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier et rendent les points,
@@ -112,8 +114,12 @@ Les **lucioles** sont la monnaie du jeu.
 - **Boutique** : l’intérieur de la cabane de l’Aïeule Gamako, en plein écran. Ses objets sont posés
   sur l’étal du comptoir ; la fiche de l’objet choisi se pose en bas, sur les planches du comptoir (stats comparées à ton
   équipement). Gamako parle en **animalese**, comme dans Animal Crossing (une petite syllabe chantée par lettre, la bulle
-  s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets (nouvel étal pour
-  25 lucioles) et le **Thé de l’oubli**, qui rend tous les points de voie.
+  s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets
+  et le **Thé de l’oubli**, qui rend tous les points de voie. L’étal se renouvelle **chaque jour** ; on peut le relancer
+  **5 fois par jour** au plus, et chaque relance coûte le double de la précédente (le prix de départ suit le niveau).
+  La **garde-robe** vend 10 peaux à motifs (Cradopaud, Fraise des bois, Dendrobate, Tigre des roseaux, Amphinobi, Sakura,
+  Grenouille de verre, Lune d’argent, Braise, Crapaud d’or : de 800 à 4 000 lucioles) ; les 6 couleurs de départ y sont
+  gratuites. La peau portée se voit partout, jusqu’au classement et à la cascade.
 - **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.
   La tour est une **pagode dessinée en pixel art** étage par étage (toits de tuiles de jade aux coins relevés, murs
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée

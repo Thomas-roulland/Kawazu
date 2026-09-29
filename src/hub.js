@@ -198,7 +198,8 @@
   function enterGame() {
     $('title').hidden = true;
     $('app').hidden = false;
-    if (!save.shop.length) { refreshShop(save); persist(); } else tidyShop(save);
+    if (!dailyShop(save)) tidyShop(save);
+    persist();
     state.sheet = null;
     buildHero();
     renderAll();
@@ -531,7 +532,7 @@
   function statRule(id) {
     var voie = chosenVoie(save), main = mainStat(voie), v = voieDef(voie), top = 'Ton attribut principal : +' + n1(BAL.dmgMain) + ' dégât à chaque coup par point. ';
     if (id === 'vitalite') return 'Chaque point : +' + BAL.hpVit + ' points de vie' + (v && v.hp !== 1 ? ', ×' + n1(v.hp) + ' (l’endurance de ta voie)' : '') + '.';
-    if (id === 'force') return main === 'force' ? top : 'Chaque point : +' + n1(BAL.offForce) + ' dégât à chaque coup (la Force n’est pas ton attribut principal).';
+    if (id === 'force') return main === 'force' ? top : 'Pour toi, la Force n’est qu’un bonus : +' + n1(BAL.offForce) + ' dégât par point, contre +' + n1(BAL.dmgMain * (v ? v.mult[main] : 1)) + ' par point placé en ' + STAT_NAME[main] + '.';
     if (id === 'agilite') return (main === 'agilite' ? top : '') + 'Critique, esquive et chances de jouer en premier, à rendement décroissant : il en faut plus à mesure que ton niveau monte.';
     return (main === 'esprit' ? top : '') + 'Puissance des sorts (jusqu’à +' + pc(BAL.spellMax) + ', à rendement décroissant) ; à ' + ESPRIT_STEPS.join(' et ') + ' points, les sorts se relancent un tour plus tôt.';
   }
@@ -552,16 +553,24 @@
     var main = mainStat(chosenVoie(save));
     $('stat-voie').innerHTML = v ? '<img src="' + armeIcon(v.id) + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.' + (VOIE_ARMES[v.id].length && !save.arme ? ' <b class="need-arme">Choisis ton arme au Temple !</b>' : '') + '</span>'
       : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1 et la Force fait tes dégâts. Choisis ta voie au Temple : elle te donne un attribut principal et multiplie tes points.</span>';
-    $('stats').innerHTML = STATS.map(function (st) {
+    // le conseil : l'attribut principal et la Vitalité d'abord ; un bouton pour répartir à sa place
+    var guide = 'Mets tes points surtout en <b>' + STAT_NAME[main] + '</b> (ton attribut principal : il fait tes dégâts' + (v ? ', ×2' : '') + ') et en <b>Vitalité</b> (tes PV' + (v ? ', ×1,5' : '') + '). ' +
+      (main === 'force' ? 'L’Agilité et l’Esprit sont des bonus.' : 'La Force ne donne presque rien pour toi' + (main === 'esprit' ? ' ; l’Agilité est un bonus.' : ' ; l’Esprit est un bonus.'));
+    $('stat-guide').innerHTML = '<span class="sg-ico">★</span><span>' + guide + '</span>' + (save.points > 0 ? '<button class="btn sg-auto" data-auto-points>Répartir pour moi</button>' : '');
+    // les cartes : l'attribut principal d'abord, puis la Vitalité, puis le reste
+    var order = [main, 'vitalite'].concat(STATS.map(function (s) { return s.id; }).filter(function (k) { return k !== main && k !== 'vitalite'; }));
+    $('stats').innerHTML = order.map(function (k) { return STATS.filter(function (s) { return s.id === k; })[0]; }).map(function (st) {
       var p = parts[st.id], seg = function (val, cls) { return val > 0 ? '<span class="' + cls + '" style="width:' + Math.min(100, val / scale * 100) + '%"></span>' : ''; };
       var bits = ['<span>Base <b>' + p.base + '</b></span>', '<span>Points <b>' + p.pts + (p.mult !== 1 ? ' ×' + n1(p.mult) + ' = ' + p.fromPts : '') + '</b></span>'];
       if (p.tree) bits.push('<span class="tree">Temple <b>+' + p.tree + '</b></span>');
       if (p.gear) bits.push('<span class="' + (p.gear < 0 ? 'st-down' : 'gear') + '">Objets <b>' + fmt(p.gear) + '</b></span>');
-      return '<div class="scard' + (st.id === main ? ' is-main' : '') + '" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + statRule(st.id) + '">' +
+      var role = st.id === main ? 'main' : (st.id === 'vitalite' ? 'reco' : 'minor');
+      return '<div class="scard is-' + role + '" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + statRule(st.id) + '">' +
+        (role === 'main' ? '<span class="scard-ribbon">★ ATTRIBUT PRINCIPAL · TES DÉGÂTS</span>' : (role === 'reco' ? '<span class="scard-ribbon reco">CONSEILLÉ · TES PV</span>' : '<span class="scard-ribbon minor">BONUS</span>')) +
         '<span class="scard-ico"><img src="' + STAT_ICON[st.id] + '" alt=""></span>' +
-        '<span class="scard-name">' + st.name.toUpperCase() + (st.id === main ? '<i class="scard-main">PRINCIPAL</i>' : '') + (p.mult !== 1 ? '<i class="scard-mult" title="Un point réparti vaut ' + n1(p.mult) + '">×' + n1(p.mult) + '</i>' : '') + '</span>' +
+        '<span class="scard-name">' + st.name.toUpperCase() + (p.mult !== 1 ? '<i class="scard-mult" title="Un point réparti vaut ' + n1(p.mult) + '">×' + n1(p.mult) + '</i>' : '') + '</span>' +
         '<span class="scard-val">' + p.total + '</span>' +
-        '<button class="scard-plus" data-stat="' + st.id + '"' + (save.points > 0 ? '' : ' hidden') + ' aria-label="Ajouter un point en ' + st.name + ' (+' + n1(p.mult) + ')">+</button>' +
+        '<button class="scard-plus' + (role === 'minor' ? ' quiet' : '') + '" data-stat="' + st.id + '"' + (save.points > 0 ? '' : ' hidden') + ' aria-label="Ajouter un point en ' + st.name + ' (+' + n1(p.mult) + ')">+</button>' +
         '<span class="scard-bar">' + seg(p.base, 'base') + seg(p.fromPts, 'own') + seg(p.tree, 'tree') + seg(p.gear, 'gear') + '</span>' +
         '<span class="scard-parts">' + bits.join('') + '</span>' +
         '<span class="scard-fx"><span>' + STAT_FX[st.id](pr, main, p) + '</span><small>' + statRule(st.id) + '</small></span></div>';
@@ -1252,8 +1261,16 @@
 
   // ---------- Boutique ----------
   function renderShop() {
-    $('reroll').textContent = 'Nouvel arrivage · ' + SHOP_REROLL + ' lucioles';
-    $('reroll').disabled = save.gold < SHOP_REROLL;
+    if (dailyShop(save)) persist(); // l'arrivage du jour
+    var tab = state.shopTab || 'etal';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-shop-tab]'), function (b) { b.setAttribute('aria-selected', b.dataset.shopTab === tab); });
+    var rr = rerollState(save), rb = $('reroll');
+    rb.hidden = tab !== 'etal';
+    rb.textContent = rr.left ? 'Nouvel arrivage · ' + rr.price + ' lucioles (' + rr.left + ' / ' + SHOP_REROLL_MAX + ')' : 'Plus d’arrivage aujourd’hui';
+    rb.title = 'L’étal se renouvelle tout seul chaque jour. Tu peux le relancer ' + SHOP_REROLL_MAX + ' fois par jour, et chaque relance coûte le double de la précédente.';
+    rb.disabled = !rr.left || save.gold < rr.price;
+    $('wardrobe').hidden = tab !== 'peaux'; $('stock').hidden = tab === 'peaux';
+    if (tab === 'peaux') return renderWardrobe();
     var items = save.shop.filter(function (id) { return id === TEA_ID || (!owns(id) && itemAvailable(save, id)); });
     if (items.indexOf(state.ware) < 0) state.ware = items[0] || null;
     $('stock').innerHTML = items.length ? items.map(function (id) {
@@ -1264,6 +1281,40 @@
     }).join('') : '<p class="empty-stock">L’étal est vide. Paie un nouvel arrivage pour voir d’autres trésors.</p>';
     renderShopCard();
     layoutShop();
+  }
+
+  // ---------- La garde-robe : les peaux (celles du départ, gratuites, et celles de Gamako, chères) ----------
+  var skinFaces = {};
+  function skinFace(id) { // la grenouille de face, dans cette peau (sans ce qu'elle porte)
+    if (!skinFaces[id]) {
+      var saved = [heroSkin, playerHermit];
+      heroSkin = skinOf(id); playerHermit = false;
+      skinFaces[id] = frogFrames(DEFAULT_EQUIP).face[0].toDataURL();
+      heroSkin = saved[0]; playerHermit = saved[1];
+    }
+    return skinFaces[id];
+  }
+  function ownsSkin(id) { return !!SKINS[id] || save.skins.indexOf(id) >= 0; }
+  function renderWardrobe() {
+    var ids = Object.keys(PREMIUM_SKINS).concat(Object.keys(SKINS));
+    if (!state.skin || ids.indexOf(state.skin) < 0) state.skin = Object.keys(PREMIUM_SKINS)[0];
+    var tile = function (id) {
+      var sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id;
+      return '<button class="wr-skin' + (PREMIUM_SKINS[id] ? ' premium' : '') + (state.skin === id ? ' is-selected' : '') + (worn ? ' is-worn' : '') + (!mine && save.gold < sk.price ? ' is-poor' : '') + '" data-skin-pick="' + id + '" title="' + sk.name + '">' +
+        '<img class="px" src="' + skinFace(id) + '" alt=""><b>' + sk.name + '</b><small>' + (worn ? 'portée' : (mine ? 'à toi' : sk.price + ' lucioles')) + '</small></button>';
+    };
+    $('shop-card').hidden = true;
+    var id = state.skin, sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id;
+    $('wardrobe').innerHTML = '<div class="wr-main"><h2>LA GARDE-ROBE DE GAMAKO</h2><div class="wr-grid">' + Object.keys(PREMIUM_SKINS).map(tile).join('') + '</div>' +
+      '<h3>COULEURS DE DÉPART · GRATUITES</h3><div class="wr-base">' + Object.keys(SKINS).map(tile).join('') + '</div></div><div class="wr-detail">' + '<div class="sc-id"><img class="px" src="' + skinFace(id) + '" alt=""><div><h3>' + sk.name + '</h3><span class="sc-kind">' + (PREMIUM_SKINS[id] ? 'Peau de la garde-robe' : 'Peau de départ') + '</span></div></div>' +
+      '<div class="sc-body"><p>' + (sk.desc || 'Une des couleurs du marais, gratuite.') + '</p><span class="sc-cur">' + (playerHermit ? 'En mode Ermite, la peau reste orange : elle se verra si tu quittes la voie de l’Ermite.' : 'Elle se voit partout : au camp, en combat, au classement et à la cascade.') + '</span></div>' +
+      (worn ? '<div class="sc-buy"><span class="sc-cur">Tu la portes.</span></div>'
+        : mine ? '<div class="sc-buy"><button class="btn" data-skin-wear="' + id + '">Porter</button></div>'
+        : '<div class="sc-buy"><button class="btn" data-skin-buy="' + id + '"' + (save.gold < sk.price ? ' disabled' : '') + '>Acheter<br><span>' + sk.price + ' lucioles</span></button>' + (save.gold < sk.price ? '<span class="sc-miss">Il te manque ' + (sk.price - save.gold) + ' lucioles.</span>' : '') + '</div>') + '</div>';
+    layoutShop();
+  }
+  function wearSkin(id) {
+    save.hero.skin = id; setPlayer(save); persist(); buildHero(); renderAll();
   }
 
   // La fiche de l'objet choisi : ce qu'il donne, comparé à ce que la grenouille porte, et le bouton d'achat
@@ -1988,6 +2039,13 @@
     if (t.dataset.exp) { if (save.meditation) endMeditation(false, 'Kawazu se lève pour partir en mission'); startExpedition(save, state.sheet.w, state.sheet.st, t.dataset.exp); persist(); renderStageSheet(); renderSidebar(); return; }
     if (t.dataset.arme) { if (!save.arme && VOIE_ARMES[chosenVoie(save)].indexOf(t.dataset.arme) >= 0) chooseArme(t.dataset.arme); return; }
     if (t.id === 'arme-change') { if (save.gold >= ARME_PRICE && save.arme) { save.gold -= ARME_PRICE; save.arme = null; persist(); Sfx.play('pickup'); renderAll(); } return; }
+    if (t.hasAttribute('data-auto-points')) {
+      var am = mainStat(chosenVoie(save)), n = save.points, toMain = Math.ceil(n * 0.6);
+      save.alloc[am] += toMain; save.alloc.vitalite += n - toMain; save.points = 0;
+      persist(); Sfx.play('point'); renderAll();
+      notice(toMain + ' points en ' + STAT_NAME[am] + ' et ' + (n - toMain) + ' en Vitalité.');
+      return;
+    }
     if (t.id === 'stats-reset') {
       if (!statsArmed) { statsArmed = setTimeout(function () { statsArmed = 0; renderLevel(); }, 4000); renderLevel(); return; }
       clearTimeout(statsArmed); statsArmed = 0; resetStats(); return;
@@ -2015,7 +2073,19 @@
       setPlayer(save); persist(); Sfx.play('pickup'); buildHero(); renderAll();
       return;
     }
-    if (t.id === 'reroll') { if (save.gold >= SHOP_REROLL) { save.gold -= SHOP_REROLL; refreshShop(save); persist(); gamakoSay('Un nouvel arrivage, tout frais de la vase !'); renderAll(); } return; }
+    if (t.id === 'reroll') {
+      var rr = rerollState(save);
+      if (rr.left && save.gold >= rr.price) { save.gold -= rr.price; refreshShop(save); save.shopDay = dayKey(); save.rerolls = rr.n + 1; persist(); gamakoSay(rr.left > 1 ? 'Un nouvel arrivage, tout frais de la vase ! Le prochain te coûtera le double.' : 'C’est mon dernier arrivage de la journée, têtard. Reviens demain.'); renderAll(); }
+      return;
+    }
+    if (t.dataset.shopTab) { state.shopTab = t.dataset.shopTab; if (state.shopTab === 'peaux') gamakoSay('Ma garde-robe… des peaux rares, cousues sous la lune. Elles ne sont pas données.'); renderShop(); return; }
+    if (t.dataset.skinPick) { state.skin = t.dataset.skinPick; renderShop(); return; }
+    if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear)) { wearSkin(t.dataset.skinWear); gamakoSay('Elle te va comme une seconde peau. Forcément.'); } return; }
+    if (t.dataset.skinBuy) {
+      var sid = t.dataset.skinBuy, sk = PREMIUM_SKINS[sid];
+      if (sk && !ownsSkin(sid) && save.gold >= sk.price) { save.gold -= sk.price; save.skins.push(sid); Sfx.play('pickup'); wearSkin(sid); gamakoSay(sk.name + ' ! Fais-la briller, et n’en parle à personne.'); }
+      return;
+    }
     if (t.id === 'sell-btn') {
       var sid2 = state.selected;
       save.gold += sellPrice(sid2);

@@ -130,6 +130,22 @@ function palmFx(r, filled, rays, dotted) {
   return g;
 }
 
+// Le motif d'une peau de la garde-robe, peint sur la peau de la grenouille (m, l, g) : X et Q en sont les couleurs.
+// view : 'front' (face, dos, à terre) ou 'side' (profil, attaque)
+function paintPattern(g, kind, view) {
+  for (var y = 0; y < g.length; y++) for (var x = 0; x < g[y].length; x++) {
+    var ch = g[y][x];
+    if (ch !== 'm' && ch !== 'l' && ch !== 'g') continue;
+    var put = '';
+    if (kind === 'taches') put = (x * 7 + y * 13) % 11 === 0 || (x * 3 + y * 5) % 17 === 0 ? 'X' : '';
+    else if (kind === 'rayures') put = y > 8 && (x + y) % 6 < 2 ? 'X' : '';
+    else if (kind === 'masque') put = view === 'front' ? (y >= 5 && y <= 8 ? 'X' : '') : (y >= 4 && y <= 7 && x >= 12 ? 'X' : '');
+    else if (kind === 'verrues') put = (x * 5 + y * 3) % 9 === 0 ? 'X' : ((x * 5 + y * 3) % 13 === 0 ? 'Q' : '');
+    else if (kind === 'bottes') put = y >= 26 ? 'X' : '';
+    if (put) g[y][x] = put;
+  }
+}
+
 // Coup de pied : la jambe avant se lève et se tend à hauteur de hanche, le pied en avant (orteils relevés)
 function kickPose(g) {
   var a = g.map(function (r) { return r.slice(); });
@@ -145,6 +161,7 @@ function dressKawazu(sp, look) {
   var c = function (g) { return g.map(function (r) { return r.slice(); }); };
   var out = Object.assign({}, sp);
   var main = c(sp.main), side = c(sp.side), back = c(sp.back), atk = c(sp.atk), ko = c(sp.ko);
+  if (look.pattern) { [main, back, ko].forEach(function (g) { paintPattern(g, look.pattern, 'front'); }); [side, atk].forEach(function (g) { paintPattern(g, look.pattern, 'side'); }); }
   var set = function (g, y, x, ch) { if (g[y] && x >= 0 && x < g[y].length) g[y][x] = ch; };
   var hermit = null;
 

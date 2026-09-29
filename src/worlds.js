@@ -161,7 +161,20 @@ function expeditionLeft(save) { return save.expedition ? Math.max(0, save.expedi
 // ---------- Boutique de l'Aïeule Gamako ----------
 var TEA_ID = 'the_oubli';
 var TEA = { name: 'Thé de l’oubli', price: 80, desc: 'Une tisane amère : oublie ta voie et tout le Temple, et rend les points.' };
-var SHOP_SIZE = 5, SHOP_REROLL = 25;
+var SHOP_SIZE = 5, SHOP_REROLL = 25, SHOP_REROLL_MAX = 5;
+// Le jour du joueur (« 2026-9-29 ») : l'étal se renouvelle tout seul chaque jour
+function dayKey(t) { var d = t ? new Date(t) : new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+// Les relances du jour : SHOP_REROLL_MAX au plus, et chacune coûte le double de la précédente (le prix suit le niveau)
+function rerollState(save) {
+  var n = save.shopDay === dayKey() ? (save.rerolls || 0) : 0;
+  return { n: n, left: Math.max(0, SHOP_REROLL_MAX - n), price: Math.round((SHOP_REROLL + 4 * save.level) * Math.pow(2, n)) };
+}
+// Un nouvel arrivage chaque jour (gratuit) ; renvoie vrai s'il vient d'arriver
+function dailyShop(save) {
+  if (save.shopDay === dayKey() && save.shop.length) return false;
+  refreshShop(save); save.shopDay = dayKey(); save.rerolls = 0;
+  return true;
+}
 
 function shopTier(save) {
   var maxTier = 1;

@@ -32,6 +32,10 @@ const crypto = require('crypto');
 const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
+// avec les peaux de la garde-robe (achetées dans le jeu)
+const ALL_SKINS = SKINS.concat(['cradopaud', 'fraise', 'dendrobate', 'tigre', 'amphinobi', 'sakura', 'verre', 'lune', 'braise', 'or']);
+// la peau portée : celle de la sauvegarde si elle est connue, sinon celle de la création
+const skinOfFrog = (f) => { const k = f.save && f.save.hero && f.save.hero.skin; return ALL_SKINS.indexOf(k) >= 0 ? k : f.peau; };
 const ON_VERCEL = !!process.env.VERCEL;
 const SECURE = ON_VERCEL || process.env.COOKIE_SECURE === '1'; // cookie réservé à HTTPS
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -152,7 +156,7 @@ async function summary(id) {
   const progress = Array.isArray(s.progress) ? s.progress : [];
   let monde = 0;
   progress.forEach((p, i) => { if (i === 0 || progress[i - 1] >= 10) monde = i; });
-  return { id: id, nom: f.nom, peau: f.peau, niveau: s.level || 1, voie: s.voie || null, monde: monde, etape: progress[monde] || 0, modifie: f.modifie };
+  return { id: id, nom: f.nom, peau: skinOfFrog(f), niveau: s.level || 1, voie: s.voie || null, monde: monde, etape: progress[monde] || 0, modifie: f.modifie };
 }
 const summaries = async (account) => (await Promise.all(account.grenouilles.map(summary))).filter(Boolean);
 
@@ -168,7 +172,7 @@ function rankEntry(frog, pseudo) {
   const equip = {};
   if (s.equip && typeof s.equip === 'object') Object.keys(s.equip).slice(0, 8).forEach((slot) => { if (typeof s.equip[slot] === 'string') equip[slot.slice(0, 16)] = s.equip[slot].slice(0, 32); });
   return {
-    id: frog.id, nom: frog.nom, peau: frog.peau, pseudo: pseudo,
+    id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: pseudo,
     niveau: num(s.level || 1, 999), xp: num(s.xp, 1e9), voie: typeof s.voie === 'string' ? s.voie.slice(0, 12) : null,
     progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0),
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
@@ -248,7 +252,7 @@ function combatCard(frog, entry, points) {
   ['vitalite', 'agilite', 'force', 'esprit'].forEach((k) => { alloc[k] = num(s.alloc && s.alloc[k], 999); });
   if (!alloc.esprit && s.alloc) alloc.esprit = num(s.alloc.souffle, 999); // une partie d'avant l'Esprit
   return {
-    id: frog.id, nom: frog.nom, peau: frog.peau, pseudo: entry.pseudo, niveau: num(s.level || 1, 999), rep: points,
+    id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: entry.pseudo, niveau: num(s.level || 1, 999), rep: points,
     voie: entry.voie, equip: entry.equip, alloc: alloc, tree: strs(s.tree, 80), deck: strs(s.deck, 4), items: equippedItems(s, entry.equip)
   };
 }
