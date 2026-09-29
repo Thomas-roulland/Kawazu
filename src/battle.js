@@ -150,7 +150,7 @@ var BattleScene = (function () {
       $('bt-enemy-hp').style.width = '100%';
       $('bt-enemy-hptext').textContent = 'Dégâts : ' + fight.stats.total;
     } else {
-      $('bt-enemy-lvl').textContent = 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : ' · DUEL') : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
+      $('bt-enemy-lvl').textContent = fight.kind === 'raid' ? 'Niv. ' + E.level + ' · ALPHA · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'joute' ? ' · JOUTE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
       $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
       $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
     }
@@ -1069,6 +1069,7 @@ var BattleScene = (function () {
     if (fight.kind === 'arbre') { fight.done++; renderHud(); if (fight.done >= fight.turns) return trainingEnd(); }
     if (P.hp <= 0) return defeat();
     if (E.hp <= 0) return victory();
+    if (fight.kind === 'raid') { fight.done++; renderHud(); if (fight.done >= fight.turns) return raidEnd(); } // l'assaut a ses tours comptés
     turnEnd(P, E);
     await wait(300);
     enemyTurn();
@@ -1165,14 +1166,24 @@ var BattleScene = (function () {
       (fight.riposte ? row('Dégâts reçus', st.taken) + row('PV restants', Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp) : '') + '</ul>' +
       '<p class="muted">Change d’équipement, de caractéristiques ou de sorts au camp, puis reviens comparer.</p>', 'Entraînement terminé', [['again', 'Recommencer'], ['back', 'Retour à la cascade']]);
   }
-  // la fin d'un combat du dojo : le texte vient de fight.settle (réputation, XP…)
+  // la fin de l'assaut contre l'Alpha : les tours sont écoulés
+  async function raidEnd() {
+    over = true;
+    renderHud();
+    sfx('ladder');
+    log('Fin de l’assaut !', 'hero');
+    await wait(600);
+    settle(true);
+  }
+  // la fin d'un combat du dojo, de la tour ou d'une mare : le texte vient de fight.settle (réputation, XP, dégâts…)
   async function settle(win) {
     fight.settled = true;
     var html;
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
-    showEnd(win, html, null, fight.kind === 'tour'
+    var title = fight.kind === 'raid' ? (E.hp <= 0 ? 'L’Alpha est tombé !' : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
+    showEnd(win, html, title, fight.kind === 'tour'
       ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
-      : [['back', 'Retour à la cascade']]);
+      : [['back', fight.kind === 'raid' || fight.kind === 'joute' ? 'Retour à la mare' : 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
   function showEnd(win, html, title, buttons) {
@@ -1408,7 +1419,7 @@ var BattleScene = (function () {
       blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, hilt: weapon.colors && weapon.colors[4], imgs: heroImgs()
     }, 1, MARGIN);
     var en = f.enemy, size = enemySize(en);
-    E = arm(Object.assign({}, en, { hp: en.maxHp, turn: 0, charging: false, enraged: false, monster: en.frog ? null : monsterImgs(en) }), -1, W - MARGIN - size);
+    E = arm(Object.assign({}, en, { hp: en.hp0 != null ? en.hp0 : en.maxHp, turn: 0, charging: false, enraged: false, monster: en.frog ? null : monsterImgs(en) }), -1, W - MARGIN - size);
     [P, E].forEach(function (fi) {
       if (fi.pas.shield) fi.shield = Math.round(fi.maxHp * fi.pas.shield);
       if (fi === P && f.weather && f.weather.startCd) P.skills.forEach(function (s) { if (s.cd) P.cds[s.id] = f.weather.startCd + 1; }); // canicule : les sorts commencent en relance
@@ -1428,7 +1439,7 @@ var BattleScene = (function () {
     resize();
     if (f.kind === 'duel') log('Duel à la cascade contre ' + E.name + ', la grenouille de ' + E.pseudo + ' (niv. ' + E.level + ') !', 'danger');
     else if (f.kind === 'arbre') log('L’arbre d’entraînement t’attend : ' + f.turns + ' tours pour tout essayer.', 'hero');
-    else if (f.kind === 'tour') log(f.intro, 'danger');
+    else if (f.intro) log(f.intro, 'danger');
     else log('Un ' + E.name + ' (niv. ' + E.level + ') barre la route !', 'danger');
     if (E.rarity === 'rare') log('Une créature rare : plus coriace, et un meilleur butin !', 'hero');
     if (E.rarity === 'epique') log('Une créature ÉPIQUE ! Rare de la croiser… son butin l’est aussi.', 'hero');

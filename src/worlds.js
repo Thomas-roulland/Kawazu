@@ -114,6 +114,29 @@ function stageFight(save, w, st) {
   };
 }
 
+// ---------- Les Alphas des mares : des créatures géantes aux PV partagés par toute une mare ----------
+// Cinq Alphas qui reviennent, de plus en plus forts (rang : combien la mare en a déjà abattu). biome : le décor du combat.
+var ALPHAS = [
+  { species: 'limon', name: 'Limon Alpha', scale: 2.6, biome: 0, pal: { 1: '#1a1a2a', 2: '#3a2a4a', 3: '#6a4a8a', g: '#ff4a4a', w: '#ffe0e0' } },
+  { species: 'moustique', name: 'Frelon Alpha', scale: 3.6, biome: 1, pal: { a: '#ffb040', 2: '#3a1a0a', 3: '#e07a1a', r: '#ff2a2a' } },
+  { species: 'champi', name: 'Champi Titan', scale: 2.8, biome: 2, pal: { 1: '#2a1a4a', w: '#ff4a8a', 2: '#b8a8c8' } },
+  { species: 'chauvesouris', name: 'Chauve-souris Alpha', scale: 2.8, biome: 3, pal: { 1: '#1a0a1a', 2: '#4a1a3a', r: '#ffd040' } },
+  { species: 'heron', name: 'Héron Alpha', scale: 1.3, biome: 5, pal: { w: '#3a3a4a', g: '#1a1a2a', G: '#0a0a14', y: '#ff4a2a' } }
+];
+// Les PV d'un Alpha (la même règle que le serveur, server/api.js)
+function alphaHp(rang) { return Math.round(20000 * Math.pow(1.6, rang)); }
+// Sa force de frappe suit le niveau de la grenouille qui l'attaque (une mare mêle petits et grands niveaux), un peu plus
+// à chaque Alpha abattu ; seuls ses PV, partagés par la mare, sont les mêmes pour tous.
+var ALPHA_DMG = 1.6; // réglé au simulateur : on tient les 10 tours contre le premier Alpha, moins face à un Alpha enragé (sous la moitié de ses PV)
+function alphaOf(rang, heroLevel) {
+  var a = ALPHAS[rang % ALPHAS.length], cycle = Math.floor(rang / ALPHAS.length), lvl = Math.max(1, heroLevel || 1);
+  return {
+    name: a.name + (cycle ? ' ' + ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.min(9, cycle)] : ''), species: a.species, pal: a.pal, scale: a.scale, biome: a.biome,
+    level: lvl, rank: 'boss', behavior: SPECIES[a.species].behavior, maxHp: alphaHp(rang),
+    dmg: Math.round((2 + 0.95 * lvl) * MONSTER_POWER.dmg * ALPHA_DMG * (1 + 0.06 * Math.min(10, rang))), agi: 6 + lvl * 0.6, dodge: 0.05
+  };
+}
+
 // ---------- Méditation au camp : la grenouille médite sur un nénuphar, même quand on n'est pas là ----------
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.

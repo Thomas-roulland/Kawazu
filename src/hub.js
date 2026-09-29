@@ -47,6 +47,8 @@
       { k: '#1a1c2c', 3: '#5a6a60', b: '#4fb0d8', w: '#e8fbff' }],
     rank: [['', '...kkkkkkkkkk', '.kkk44333333kkk', 'k..k43333333k..k', 'k..k43333333k..k', '.k.k43333333k.k', '..kk43333333kk', '....k433333k', '.....k3333k', '......k33k', '......k33k', '.....k3333k', '....kkkkkkkk', '....k222222k', '....kkkkkkkk'],
       { k: '#1a1c2c', 3: '#e0b43a', 4: '#fff6b0', 2: '#7a5634' }],
+    mare: [['', '', '....kkkkkkkk', '..kkbbbbbbbbkk', '.kbbwbbbbbbbbbk', 'kbbbbkkkkkbbbbk', 'kbbbkgggggkbbbk', 'kbbkgglgggpkbbk', 'kbbkgggg.gkbbbk', 'kbbbkggg.kbbbbk', '.kbbbkkkkbbbwbk', '..kkbbbbbbbbkk', '....kkkkkkkk'],
+      { k: '#1a1c2c', b: '#3a7fc9', w: '#bfe8ff', g: '#4e9a45', l: '#8fce52', p: '#ff9ac0' }],
     onde: [['....kkk', '...k333kk', '...kk1133k', '.....kk113k', '.......kk13k', '........k13k', '.........k13k', '.........k13k', '.........k13k', '........k13k', '.......kk13k', '.....kk113k', '...kk1133k', '...k333kk', '....kkk'],
       { k: '#1a1c2c', 1: '#3fbf8a', 3: '#c8f0d8' }],
     pied: [['', '......kkkk', '.....kmmmmk', '.....kmmmlk', '.....kmmmlk', '....kmmmmlk', '....kmmmmk', '...kmmmmmk', '..kmmmmmmk', '.kmlmmmmmmkkk', 'kmlmmmmmmmmmmk', 'kmmmlmmmlmmlmk', '.kkkkkkkkkkkkk'],
@@ -1527,8 +1529,10 @@
     fresh.forEach(function (g) {
       save.gold += g.lucioles || 0;
       if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
+      var xp = g.xpNiveau ? Math.round(xpForLevel(save.level) * g.xpNiveau) : 0, lv = xp ? gainXp(save, xp) : 0;
       save.gifts.push(g.id);
-      notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
+      if (g.source === 'mare') notice('L’Alpha n° ' + (g.rang + 1) + ' de ta mare « ' + g.mare + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
     });
     if (fresh.length) { save.gifts = save.gifts.slice(-50); persist(); Sfx.play('levelup'); renderAll(); }
     if ((list || []).length) dojoApi('POST', '/cadeaux', { ids: list.map(function (g) { return g.id; }) }).catch(function () {});
@@ -1689,6 +1693,167 @@
         (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '<p>' + escapeHtml(card.nom) + ' garde sa place. Change d’équipement ou de sorts, et retente ta chance !</p>') +
         '<p class="muted">Duels restants aujourd’hui : ' + r.restants + '.</p>';
     });
+  }
+
+  // ---------- Les Mares : les guildes du marais ----------
+  // Une mare réunit jusqu'à 10 grenouilles de joueurs. Ensemble, elles affrontent un Alpha aux PV partagés (deux assauts
+  // de 10 tours par jour chacune) ; quand il tombe, toute la mare reçoit un cadeau et un Alpha plus fort arrive.
+  // Les joutes opposent une grenouille à celle d'une autre mare, pour la renommée. Tout passe par /api/mares/<grenouille>.
+  var mares = { data: null, loading: false, error: '', foe: null, emb: 0, leaving: 0 };
+  var EMBLEMS = ['#c9412f', '#e0b43a', '#4e9a45', '#3a7fc9', '#8a4ab0', '#e07a2a', '#2aa090', '#d9e1e6'];
+  var MARE_PRICE = 300;
+  var fmtN = function (n) { return Math.max(0, Math.round(n)).toLocaleString('fr-FR'); };
+  var mareApi = function (method, path, body) {
+    return fetch('/api/mares/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
+  };
+  function emblem(m, big) { return '<span class="mare-emb' + (big ? ' big' : '') + '" style="--e:' + EMBLEMS[m.embleme || 0] + '">' + escapeHtml((m.nom || '?').charAt(0).toUpperCase()) + '</span>'; }
+  var alphaImgs = {};
+  function alphaImg(rang) { // l'Alpha, en grand, dans ses couleurs
+    var a = alphaOf(rang, save.level), key = rang % ALPHAS.length;
+    if (!alphaImgs[key]) { var s = SPECIES[a.species]; alphaImgs[key] = stringsToCanvas(s.frames[0], Object.assign({}, s.pal, a.pal)).toDataURL(); }
+    return alphaImgs[key];
+  }
+  // le décor : une mare la nuit, ses nénuphars et ses roseaux (dessiné une fois)
+  function drawMaresBg() {
+    var c = $('mares-bg');
+    if (c.width === 320) return;
+    c.width = 320; c.height = 180;
+    var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
+    g.addColorStop(0, '#0b1a1c'); g.addColorStop(0.5, '#123034'); g.addColorStop(1, '#0a1618');
+    x.fillStyle = g; x.fillRect(0, 0, 320, 180);
+    for (var i = 0; i < 90; i++) { x.fillStyle = 'rgba(160, 220, 220, ' + (0.04 + hash(i, 3, 9) * 0.08) + ')'; x.fillRect(Math.round(hash(i, 1, 9) * 320), Math.round(hash(i, 2, 9) * 180), 2 + Math.round(hash(i, 4, 9) * 8), 1); }
+    for (var p = 0; p < 22; p++) { // des nénuphars, grands et petits
+      var px = Math.round(hash(p, 5, 7) * 320), py = Math.round(hash(p, 6, 7) * 180), r = 4 + Math.round(hash(p, 7, 7) * 9);
+      for (var yy = -r; yy <= r; yy++) for (var xx = -r * 1.6; xx <= r * 1.6; xx++) {
+        var d = (xx * xx) / (r * r * 2.56) + (yy * yy) / (r * r);
+        if (d > 1 || (xx > 0 && Math.abs(yy) < xx * 0.28)) continue; // l'encoche en V
+        x.fillStyle = d > 0.8 ? '#16341c' : (yy < -r * 0.3 ? '#3f7a3a' : '#2e6b3d');
+        x.fillRect(px + Math.round(xx), py + yy, 1, 1);
+      }
+      if (hash(p, 8, 7) < 0.3) { x.fillStyle = '#ff9ac0'; x.fillRect(px - 1, py - 2, 3, 2); x.fillStyle = '#fff0f4'; x.fillRect(px, py - 3, 1, 1); }
+    }
+    for (var k = 0; k < 40; k++) { // les roseaux sur les bords
+      var rx = k < 20 ? Math.round(hash(k, 9, 3) * 30) : 290 + Math.round(hash(k, 9, 3) * 30), h = 20 + Math.round(hash(k, 10, 3) * 40);
+      x.fillStyle = k % 3 ? '#1f4a2a' : '#2e6b3d'; x.fillRect(rx, 180 - h, 1, h);
+      if (k % 4 === 0) { x.fillStyle = '#5a3a1a'; x.fillRect(rx - 1, 180 - h, 3, 5); }
+    }
+  }
+  function openMares() {
+    drawMaresBg();
+    renderMares();
+    if (Cloud.id) loadMares();
+  }
+  function loadMares() {
+    mares.loading = true;
+    Cloud.flush().then(function () { return mareApi('GET', ''); }).then(function (d) {
+      mares.data = d; mares.loading = false; mares.error = '';
+      applyGifts(d.cadeaux);
+      if (state.page === 'mares') renderMares();
+    }, function (e) { mares.loading = false; mares.error = e.message; if (state.page === 'mares') renderMares(); });
+  }
+  function renderMares() {
+    var box = $('mares-body');
+    if (!Cloud.id) {
+      box.innerHTML = '<div class="panel mr-center"><h2>JOUE AVEC UN COMPTE</h2><p>Les mares réunissent les grenouilles des joueurs : crée un compte depuis l’accueil pour en fonder une ou en rejoindre une.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
+      return;
+    }
+    var d = mares.data;
+    if (!d) { box.innerHTML = '<div class="panel mr-center"><p>' + (mares.error ? escapeHtml(mares.error) + ' <button class="btn btn-ghost" data-mares-reload>Réessayer</button>' : 'Les grenouilles se rassemblent autour des mares…') + '</p></div>'; return; }
+    box.innerHTML = d.mare ? renderMyMare(d) : renderNoMare(d);
+  }
+  function mareList(d, mineId, limit) {
+    return d.liste.length ? '<ul class="mr-list">' + d.liste.slice(0, limit).map(function (m, i) {
+      return '<li class="' + (m.id === mineId ? 'is-mine' : '') + '"><span class="mr-pos">' + (i + 1) + '</span>' + emblem(m) +
+        '<span class="mr-name"><b>' + escapeHtml(m.nom) + '</b><small>Chef : ' + escapeHtml(m.chef || '?') + ' · Alpha n° ' + (m.rang + 1) + '</small></span>' +
+        '<span class="mr-meta">' + m.renommee + '<small>renommée</small></span><span class="mr-meta">' + m.membres + ' / ' + d.max + '<small>grenouilles</small></span>' +
+        (mineId === undefined ? '<button class="btn btn-ghost" data-mare-join="' + m.id + '"' + (m.membres >= d.max ? ' disabled' : '') + '>Rejoindre</button>' : '') + '</li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucune mare pour l’instant : fonde la première !</p>';
+  }
+  function renderNoMare(d) {
+    return '<header class="panel mr-head"><div><h1>LES MARES DU MARAIS</h1><p>Fonde ta mare ou rejoins-en une : ensemble, abattez des Alphas géants et joutez contre les autres mares.</p></div></header>' +
+      '<div class="mr-cols two">' +
+      '<section class="panel mr-found"><h2>FONDER UNE MARE</h2><p>Jusqu’à ' + d.max + ' grenouilles par mare. Il en coûte ' + MARE_PRICE + ' lucioles.</p>' +
+      '<label class="mr-field"><span>Son nom</span><input id="mare-name" maxlength="24" placeholder="La Mare des Roseaux" autocomplete="off"></label>' +
+      '<span class="mr-label">Son emblème</span><div class="mr-embs" role="radiogroup" aria-label="Son emblème">' + EMBLEMS.map(function (c, i) { return '<button role="radio" aria-checked="' + (mares.emb === i) + '" aria-label="Couleur ' + (i + 1) + '" data-mare-emb="' + i + '" style="--e:' + c + '"></button>'; }).join('') + '</div>' +
+      '<button class="btn" data-mare-found' + (save.gold < MARE_PRICE ? ' disabled' : '') + '>Fonder la mare · ' + MARE_PRICE + ' lucioles</button>' +
+      (save.gold < MARE_PRICE ? '<p class="muted">Il te manque ' + (MARE_PRICE - save.gold) + ' lucioles.</p>' : '') + '</section>' +
+      '<section class="panel mr-all"><h2>LES MARES</h2>' + mareList(d, undefined, 30) + '</section></div>';
+  }
+  function mareEvent(j) {
+    var n = '<b>' + escapeHtml(j.nom || '?') + '</b>';
+    if (j.type === 'fondee') return n + ' a fondé la mare.';
+    if (j.type === 'arrivee') return n + ' a rejoint la mare.';
+    if (j.type === 'depart') return n + ' a quitté la mare.';
+    if (j.type === 'raid') return n + ' a infligé <b>' + fmtN(j.deg) + '</b> dégâts à l’Alpha.';
+    if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + '.';
+    if (j.type === 'joute') return n + (j.victoire ? ' a battu ' : ' a perdu contre ') + escapeHtml(j.adverse) + ' (' + escapeHtml(j.mareAdverse) + ') : +' + j.gain + ' renommée.';
+    if (j.type === 'joute-subie') return escapeHtml(j.adverse) + ' (' + escapeHtml(j.mareAdverse) + ')' + (j.victoire ? ' a été repoussée par ' : ' a battu ') + n + '.';
+    return '';
+  }
+  function renderMyMare(d) {
+    var m = d.mare, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100), foe = mares.foe;
+    var members = m.membres.slice().sort(function (x, y) { return y.contribution - x.contribution; });
+    return '<header class="panel mr-head">' + emblem(m, true) + '<div><h1>' + escapeHtml(m.nom).toUpperCase() + '</h1>' +
+      '<p>Chef : <b>' + escapeHtml(m.chefNom || '?') + '</b> · ' + m.membres.length + ' / ' + d.max + ' grenouilles · <b>' + m.renommee + '</b> renommée' + (m.rangMares ? ' · ' + (m.rangMares === 1 ? '1re' : m.rangMares + 'e') + ' des mares' : '') + '</p></div>' +
+      '<button class="btn btn-ghost' + (mares.leaving ? ' is-armed' : '') + '" data-mare-leave>' + (mares.leaving ? 'Confirmer : quitter' : 'Quitter la mare') + '</button></header>' +
+      '<div class="mr-cols">' +
+      '<section class="panel mr-alpha"><h2>L’ALPHA N° ' + (m.raid.rang + 1) + '</h2>' +
+      '<div class="mr-alpha-art"><img class="px" src="' + alphaImg(m.raid.rang) + '" alt=""></div>' +
+      '<b class="mr-alpha-name">' + a.name + '</b><small class="muted">niveau ' + a.level + ' · ' + m.raid.vaincus + ' Alpha' + (m.raid.vaincus > 1 ? 's' : '') + ' abattu' + (m.raid.vaincus > 1 ? 's' : '') + '</small>' +
+      '<div class="mr-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(m.raid.pv) + ' / ' + fmtN(m.raid.pvMax) + ' PV</em></div>' +
+      '<p class="mr-help">Ses PV sont partagés par toute la mare. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP pour chaque grenouille de la mare.</p>' +
+      '<button class="btn" data-mare-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button></section>' +
+      '<section class="panel mr-members"><h2>LA MARE · ' + m.membres.length + ' / ' + d.max + '</h2><ul>' + members.map(function (e) {
+        return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="mr-name"><b>' + escapeHtml(e.nom) + (e.id === m.chef ? ' <i>CHEF</i>' : '') + '</b><small>' + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
+          dojoVoie(e) + '<span class="mr-meta">' + fmtN(e.contribution) + '<small>dégâts</small></span></li>';
+      }).join('') + '</ul></section>' +
+      '<div class="mr-side">' +
+      '<section class="panel mr-joute"><h2>LES JOUTES · ' + d.joutes + ' / ' + d.joutesMax + '</h2><p class="mr-help">Défie une grenouille d’une autre mare : +6 renommée pour ta mare si tu gagnes, +1 sinon.</p>' +
+      (foe ? '<div class="mr-foe"><img class="px" src="' + portraitOf(foe) + '" alt=""><span class="mr-name"><b>' + escapeHtml(foe.nom) + '</b><small>' + escapeHtml(foe.mare) + ' · niv. ' + foe.niveau + '</small></span>' + dojoVoie(foe) + '</div><button class="btn" data-mare-joute' + (d.joutes > 0 ? '' : ' disabled') + '>Jouter ▶</button>' : '') +
+      '<button class="btn btn-ghost" data-mare-foe' + (d.joutes > 0 ? '' : ' disabled') + '>' + (d.joutes > 0 ? (foe ? 'Un autre adversaire' : 'Chercher un adversaire') : 'Plus de joute aujourd’hui') + '</button></section>' +
+      '<section class="panel mr-rank"><h2>LES MARES</h2>' + mareList(d, m.id, 8) + '</section>' +
+      '<section class="panel mr-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + mareEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
+      '</div></div>';
+  }
+  // L'assaut contre l'Alpha : un combat de quelques tours contre ses PV partagés, dans son pays
+  function raidFight(d) {
+    var r = d.mare.raid, a = alphaOf(r.rang, save.level);
+    var fight = {
+      kind: 'raid', title: d.mare.nom + ' · assaut contre ' + a.name, biomeIndex: a.biome, turns: d.tours, done: 0,
+      stats: { total: 0, hits: 0, crits: 0, best: 0, taken: 0 }, intro: a.name + ' se dresse devant toi : ' + d.tours + ' tours pour lui arracher le plus de PV possible !',
+      enemy: Object.assign({}, a, { maxHp: r.pvMax, hp0: r.pv }),
+      settle: function () {
+        fight.settled = true;
+        return mareApi('POST', '/raid', { degats: fight.stats.total }).then(function (res) {
+          d.raids = res.restants; d.mare.raid.pv = res.pv; d.mare.raid.pvMax = res.pvMax; d.mare.raid.rang = res.rang;
+          return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts à l’Alpha</p>' +
+            (res.vaincu !== null ? '<p class="bt-unlock">L’Alpha n° ' + (res.vaincu + 1) + ' est tombé ! Toute la mare reçoit sa récompense, et un Alpha plus fort arrive.</p>'
+              : '<p>Il lui reste ' + fmtN(res.pv) + ' PV sur ' + fmtN(res.pvMax) + '.</p>') +
+            '<p class="muted">Assauts restants aujourd’hui : ' + res.restants + '.</p>';
+        });
+      }
+    };
+    return fight;
+  }
+  function jouteFight(card) {
+    return {
+      kind: 'joute', title: 'Joute contre ' + card.nom + ' (' + card.mare + ')', backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
+      intro: card.nom + ', de la mare « ' + card.mare + ' », accepte la joute !',
+      settle: function (win) {
+        return mareApi('POST', '/joute', { adversaire: card.id, victoire: win }).then(function (r) {
+          if (mares.data) mares.data.joutes = r.restants;
+          var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
+          if (xp) persist();
+          if (levels) Sfx.play('levelup');
+          return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">+' + r.gain + ' renommée pour ta mare</p>' + (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '') +
+            '<p class="muted">Joutes restantes aujourd’hui : ' + r.restants + '.</p>';
+        });
+      }
+    };
+  }
+  function mareAction(p) { // une action, puis on recharge la mare
+    return p.then(function () { loadMares(); }, function (e) { notice(e.message); });
   }
 
   // ---------- La Tour des Cent Sages ----------
@@ -1915,13 +2080,14 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'mares', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
     if (page === 'map') renderWorldMap();
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
+    if (page === 'mares') openMares();
     if (page === 'tower') openTower();
     if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
@@ -1956,7 +2122,11 @@
     if (fight.kind === 'duel' && result === 'flee' && !fight.settled) {
       settleDuel(fight.card, false).then(function () { notice('Tu as quitté le duel : il compte comme une défaite.'); if (state.page === 'dojo') renderDojo(); }, function () {});
     }
-    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : 'map'));
+    // quitter un assaut : ses dégâts comptent quand même (sans coup porté, l'assaut n'est pas perdu) ; quitter une joute : une défaite
+    if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadMares(); }, function () {});
+    if (fight.kind === 'joute' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté la joute : elle compte comme une défaite.'); loadMares(); }, function () {});
+    var atMare = fight.kind === 'raid' || fight.kind === 'joute';
+    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : (atMare ? 'mares' : 'map')));
     startTick();
   }
 
@@ -1991,6 +2161,30 @@
       }
       return;
     }
+    if (t.dataset.mareEmb) { mares.emb = +t.dataset.mareEmb; Sfx.play('click'); document.querySelectorAll('[data-mare-emb]').forEach(function (e) { e.setAttribute('aria-checked', String(e === t)); }); return; } // sans redessiner : le nom tapé reste
+    if (t.hasAttribute('data-mares-reload')) { mares.error = ''; loadMares(); return; }
+    if (t.hasAttribute('data-mare-found')) {
+      var mname = ($('mare-name').value || '').trim();
+      if (mname.length < 3) { notice('Le nom de la mare doit faire au moins 3 caractères.'); return; }
+      if (save.gold < MARE_PRICE) return;
+      Sfx.play('click');
+      mareApi('POST', '/fonder', { nom: mname, embleme: mares.emb }).then(function () { save.gold -= MARE_PRICE; persist(); renderSidebar(); Sfx.play('levelup'); notice('La mare « ' + mname + ' » est fondée ! Invite tes amis à la rejoindre.'); loadMares(); }, function (err) { notice(err.message); });
+      return;
+    }
+    if (t.dataset.mareJoin) { Sfx.play('click'); mareAction(mareApi('POST', '/rejoindre', { mare: t.dataset.mareJoin })); return; }
+    if (t.hasAttribute('data-mare-leave')) {
+      if (!mares.leaving) { mares.leaving = setTimeout(function () { mares.leaving = 0; renderMares(); }, 4000); renderMares(); return; }
+      clearTimeout(mares.leaving); mares.leaving = 0; mares.foe = null;
+      mareAction(mareApi('POST', '/quitter'));
+      return;
+    }
+    if (t.hasAttribute('data-mare-raid')) { if (mares.data && mares.data.raids > 0) { Sfx.play('click'); startFight(raidFight(mares.data)); } return; }
+    if (t.hasAttribute('data-mare-foe')) {
+      Sfx.play('click');
+      Cloud.flush().then(function () { return mareApi('GET', '/joute'); }).then(function (r) { mares.foe = r.adversaire; if (!r.adversaire) notice('Aucune grenouille d’une autre mare à défier pour l’instant.'); renderMares(); }, function (err) { notice(err.message); });
+      return;
+    }
+    if (t.hasAttribute('data-mare-joute')) { if (mares.foe) { var jf = jouteFight(mares.foe); mares.foe = null; startFight(jf); } return; }
     if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
     if (t.dataset.foeStep) { dojo.pick += +t.dataset.foeStep; Sfx.play('click'); renderDojo(); return; }
