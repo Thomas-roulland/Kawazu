@@ -123,17 +123,16 @@
           </div>
           <div class="attr-head">
             <h2>CARACTÉRISTIQUES</h2>
-            <span class="attr-actions"><button id="stats-reset" class="btn btn-ghost stats-reset" hidden></button><span id="points" class="points"></span></span>
+            <span class="attr-actions"><button id="stats-auto" class="btn btn-ghost stats-reset" data-auto-points hidden>Répartir pour moi</button><button id="stats-reset" class="btn btn-ghost stats-reset" hidden></button><span id="points" class="points"></span></span>
           </div>
           <p id="stat-voie" class="stat-voie"></p>
-          <p id="stat-guide" class="stat-guide"></p>
           <div id="stats" class="stat-grid"></div>
           <section id="combat-stats" class="combat-stats"></section>
         </section>
         <div class="perso-side">
           <section id="feats" class="panel feats-panel" hidden></section>
           <section class="panel inv-panel">
-            <h2>INVENTAIRE</h2>
+            <div class="inv-head"><h2>INVENTAIRE</h2><button id="inv-sell-mode" class="btn btn-ghost">Vendre en masse</button></div>
             <div id="filters" class="tabs">
               <button class="tab" data-filter="tout">Tout</button>
               <button class="tab" data-filter="baton">Corps à corps</button>
@@ -143,6 +142,7 @@
               <button class="tab" data-filter="ceinture">Ceintures</button>
               <button class="tab" data-filter="anneau">Anneaux</button>
             </div>
+            <div id="sell-bar" class="sell-bar" hidden></div>
             <div id="inventory"></div>
             <div id="details"></div>
           </section>

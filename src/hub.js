@@ -555,10 +555,7 @@
     var main = mainStat(chosenVoie(save));
     $('stat-voie').innerHTML = v ? '<img src="' + armeIcon(v.id) + '" alt=""><span><b style="color:' + v.color + '">' + v.name + '</b> · attribut principal : <b>' + STAT_NAME[v.main] + '</b> (il fait tes dégâts) · un point réparti vaut <b>' + multText(v) + '</b>, ×1 ailleurs' + voieTraits(v) + '.' + (VOIE_ARMES[v.id].length && !save.arme ? ' <b class="need-arme">Choisis ton arme au Temple !</b>' : '') + '</span>'
       : '<img src="' + ICON.skills + '" alt=""><span><b>Sans voie</b> · chaque point compte pour 1 et la Force fait tes dégâts. Choisis ta voie au Temple : elle te donne un attribut principal et multiplie tes points.</span>';
-    // le conseil : l'attribut principal et la Vitalité d'abord ; un bouton pour répartir à sa place
-    var guide = 'Mets tes points surtout en <b>' + STAT_NAME[main] + '</b> (ton attribut principal : il fait tes dégâts' + (v ? ', ×2' : '') + ') et en <b>Vitalité</b> (tes PV' + (v ? ', ×1,5' : '') + '). ' +
-      (main === 'force' ? 'L’Agilité et l’Esprit sont des bonus.' : 'La Force ne donne presque rien pour toi' + (main === 'esprit' ? ' ; l’Agilité est un bonus.' : ' ; l’Esprit est un bonus.'));
-    $('stat-guide').innerHTML = '<span class="sg-ico">★</span><span>' + guide + '</span>' + (save.points > 0 ? '<button class="btn sg-auto" data-auto-points>Répartir pour moi</button>' : '');
+    $('stats-auto').hidden = !(save.points > 0); // répartir à sa place : l'attribut principal et la Vitalité
     // les cartes : l'attribut principal d'abord, puis la Vitalité, puis le reste
     var order = [main, 'vitalite'].concat(STATS.map(function (s) { return s.id; }).filter(function (k) { return k !== main && k !== 'vitalite'; }));
     $('stats').innerHTML = order.map(function (k) { return STATS.filter(function (s) { return s.id === k; })[0]; }).map(function (st) {
@@ -653,15 +650,43 @@
     if ((state.filter === 'baton' && fb.hidden) || (state.filter === 'kunai' && fk.hidden)) state.filter = 'tout';
     var ids = save.owned.filter(function (id) { return ITEMS[id] && itemAvailable(save, id) && matchesFilter(ITEMS[id]); });
     ids.sort(function (a, b) { return worn(b) - worn(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)) || tierOf(b) - tierOf(a) || ITEMS[a].name.localeCompare(ITEMS[b].name); });
+    var selling = !!state.sellMode;
+    if (selling) state.sellSel = state.sellSel.filter(function (id) { return owns(id) && !worn(id); });
+    $('inv-sell-mode').textContent = selling ? 'Annuler' : 'Vendre en masse';
+    $('inv-sell-mode').classList.toggle('is-on', selling);
+    $('sell-bar').hidden = !selling;
+    if (selling) renderSellBar(ids.filter(function (id) { return !worn(id); }));
+    $('inventory').classList.toggle('is-selling', selling);
     $('inventory').innerHTML = ids.length ? ids.map(function (id) {
-      var it = ITEMS[id], equipped = worn(id);
-      return '<button class="item rar-' + rarityOf(id) + (equipped ? ' is-equipped' : '') + (state.selected === id ? ' is-selected' : '') + '" style="' + rarStyle(id) + '" data-item="' + id + '" title="' + it.name + ' (' + RARITIES[rarityOf(id)].name + ')">' +
+      var it = ITEMS[id], equipped = worn(id), picked = selling && state.sellSel.indexOf(id) >= 0;
+      return '<button class="item rar-' + rarityOf(id) + (equipped ? ' is-equipped' : '') + (!selling && state.selected === id ? ' is-selected' : '') + (picked ? ' is-picked' : '') + '" style="' + rarStyle(id) + '" data-item="' + id + '"' + (selling && equipped ? ' disabled' : '') + ' title="' + it.name + ' (' + RARITIES[rarityOf(id)].name + ')' + (selling ? (equipped ? ' : équipé, pas à vendre' : ' : ' + sellPrice(id) + ' lucioles') : '') + '">' +
+        (selling && !equipped ? '<i class="pick" aria-hidden="true">' + (picked ? '✓' : '') + '</i>' : '') +
         '<img src="' + iconUrls[id] + '" alt=""><span>' + it.name + '</span>' + (equipped ? '<b>ÉQUIPÉ</b>' : '') + '</button>';
     }).join('') : '<p class="muted inv-empty">Rien ici pour l’instant. Le butin tombe en combat et en mission, et l’Aïeule Gamako vend aussi des trésors. L’Album montre tout ce qui reste à découvrir.</p>';
     Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) { b.classList.toggle('is-active', b.dataset.filter === state.filter); });
   }
 
+  // La barre de la vente en masse : cocher par rareté, le total, et vendre (deux clics)
+  function renderSellBar(sellable) {
+    var n = state.sellSel.length, total = state.sellSel.reduce(function (s, id) { return s + sellPrice(id); }, 0);
+    var pick = function (key, label) { return '<button class="tab" data-sell-pick="' + key + '">' + label + '</button>'; };
+    $('sell-bar').innerHTML = '<div class="sell-picks">' + pick('commun', 'Communs') + pick('rare', 'Rares') + pick('tout', 'Tout (' + sellable.length + ')') + pick('aucun', 'Aucun') + '</div>' +
+      '<div class="sell-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>' + total + '</b> lucioles</span>' +
+      '<button class="btn' + (state.sellArmed ? ' is-armed' : '') + '" data-sell-go' + (n ? '' : ' disabled') + '>' + (state.sellArmed ? 'Confirmer la vente' : 'Vendre') + '</button></div>';
+  }
+  function sellSelected() {
+    var sold = state.sellSel.filter(function (id) { return owns(id) && save.equip[ITEMS[id].slot] !== id; });
+    var total = sold.reduce(function (s, id) { return s + sellPrice(id); }, 0);
+    save.owned = save.owned.filter(function (x) { return sold.indexOf(x) < 0; });
+    save.gold += total;
+    if (sold.indexOf(state.selected) >= 0) state.selected = null;
+    state.sellSel = []; state.sellMode = false;
+    persist(); Sfx.play('pickup'); renderAll();
+    notice(sold.length + ' objet' + (sold.length > 1 ? 's' : '') + ' vendu' + (sold.length > 1 ? 's' : '') + ' : +' + total + ' lucioles.');
+  }
+
   function renderDetails() {
+    if (state.sellMode) { $('details').innerHTML = '<p class="muted">Touche les objets à vendre, ou coche-les par rareté. Les objets équipés restent.</p>'; return; }
     var id = state.selected, it = ITEMS[id];
     if (!it) { $('details').innerHTML = '<p class="muted">Choisis un objet pour voir ses effets. Les objets « ??? » se gagnent en combat, en mission ou à la boutique.</p>'; return; }
     var slotName = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name + (it.kind ? ' · ' + weaponLabel(it) : '');
@@ -2238,7 +2263,25 @@
     if (t.dataset.node) { state.node = t.dataset.node; renderTree(); return; }
     if (t.dataset.deck) { if (save.deck.length < DECK_SIZE) { save.deck.push(t.dataset.deck); persist(); renderDeck(); } return; }
     if (t.dataset.undeck) { save.deck = save.deck.filter(function (id) { return id !== t.dataset.undeck; }); persist(); renderDeck(); return; }
-    if (t.dataset.item) { state.selected = t.dataset.item; renderAll(); return; }
+    if (t.dataset.item) {
+      if (state.sellMode) { // en mode vente : cocher / décocher, sans ouvrir la fiche
+        var si = state.sellSel.indexOf(t.dataset.item);
+        if (si >= 0) state.sellSel.splice(si, 1); else state.sellSel.push(t.dataset.item);
+        state.sellArmed = false; Sfx.play('click'); renderInventory(); return;
+      }
+      state.selected = t.dataset.item; renderAll(); return;
+    }
+    if (t.id === 'inv-sell-mode') { state.sellMode = !state.sellMode; state.sellSel = []; state.sellArmed = false; Sfx.play('click'); renderInventory(); renderDetails(); return; }
+    if (t.dataset.sellPick) {
+      var key = t.dataset.sellPick, visible = Array.prototype.map.call(document.querySelectorAll('#inventory .item:not([disabled])'), function (b) { return b.dataset.item; });
+      state.sellSel = key === 'aucun' ? [] : visible.filter(function (id) { return key === 'tout' || rarityOf(id) === key; });
+      state.sellArmed = false; Sfx.play('click'); renderInventory(); return;
+    }
+    if (t.hasAttribute('data-sell-go')) {
+      if (!state.sellSel.length) return;
+      if (!state.sellArmed) { state.sellArmed = true; renderInventory(); return; }
+      state.sellArmed = false; sellSelected(); return;
+    }
     if (t.dataset.slot) { var sid = save.equip[t.dataset.slot]; if (sid) state.selected = sid; state.filter = t.dataset.slot; renderAll(); return; }
     if (t.dataset.filter) { state.filter = t.dataset.filter; renderInventory(); return; }
     if (t.dataset.view) { state.view = t.dataset.view; renderAll(); return; }
