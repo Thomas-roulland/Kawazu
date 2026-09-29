@@ -187,6 +187,18 @@ var TEA = { name: 'Thé de l’oubli', price: 80, desc: 'Une tisane amère : oub
 var SHOP_SIZE = 5, SHOP_REROLL = 25, SHOP_REROLL_MAX = 5;
 // Le jour du joueur (« 2026-9-29 ») : l'étal se renouvelle tout seul chaque jour
 function dayKey(t) { var d = t ? new Date(t) : new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+// Les trois skins en vente aujourd'hui : tirés au sort d'après la date, les mêmes pour toutes les grenouilles
+var SKINS_PER_DAY = 3;
+function skinsOfDay(t) {
+  var ids = Object.keys(PREMIUM_SKINS), key = dayKey(t), seed = 7, out = [];
+  for (var i = 0; i < key.length; i++) seed = (seed * 31 + key.charCodeAt(i)) % 2147483647;
+  while (out.length < Math.min(SKINS_PER_DAY, ids.length)) {
+    seed = (seed * 48271) % 2147483647;
+    var id = ids[seed % ids.length];
+    if (out.indexOf(id) < 0) out.push(id);
+  }
+  return out;
+}
 // Les relances du jour : SHOP_REROLL_MAX au plus, et chacune coûte le double de la précédente (le prix suit le niveau)
 function rerollState(save) {
   var n = save.shopDay === dayKey() ? (save.rerolls || 0) : 0;

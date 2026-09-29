@@ -35,6 +35,8 @@
       { k: '#1a1c2c', 1: '#8fce52', 2: '#9cc7e0', 3: '#e0b43a' }],
     donjons: [['', '..kk.kk..kk.kk', '..k1kk1kk1kk1k', '..k1111111111k', '..k1111111111k', '..k111kkkk111k', '..k11k2222k11k', '..k1k222222k1k', '..k1k222222k1k', '..k1k222222k1k', '..k1k222222k1k', '..kkkkkkkkkkkk'],
       { k: '#1a1c2c', 1: '#8a8f99', 2: '#1a2430' }],
+    skins: [['.......kk', '......k..k', '.........k', '........k', '...kkkkkkkkkk', '..k2222ww2222k', '.k22222ww22222k', 'k222k2w22w2k222k', 'k22kk2w22w2kk22k', '.kk.k2w22w2k.kk', '....k2yyyy2k', '....k222222k', '....k222222k', '....k222222k', '....kkkkkkkk'],
+      { k: '#1a1c2c', 2: '#c9412f', w: '#f4f4e8', y: '#e0b43a' }],
     shop: [['', '....kkkkkkkk', '...k........k', '...k........k', '..kkkkkkkkkkkk', '.k222222222222k', '.k233333333332k', '.k222222222222k', '.k222kkkkk2222k', '.k222k444k2222k', '.k222k444k2222k', '.kkkkkkkkkkkkkk'],
       { k: '#1a1c2c', 2: '#7a5634', 3: '#c9412f', 4: '#f3d27a' }],
     paume: [['', '....kk....kk', '...k33k..k33k', '...k33k..k33k', '....kk....kk', '.kk..........kk', 'k33k.kkkkkk.k33k', 'k33kk333333kk33k', '.kkk33333333kkk', '...k33333333k', '...k33333333k', '....k333333k', '.....kkkkkk'],
@@ -1289,15 +1291,10 @@
   // ---------- Boutique ----------
   function renderShop() {
     if (dailyShop(save)) persist(); // l'arrivage du jour
-    var tab = state.shopTab || 'etal';
-    Array.prototype.forEach.call(document.querySelectorAll('[data-shop-tab]'), function (b) { b.setAttribute('aria-selected', b.dataset.shopTab === tab); });
     var rr = rerollState(save), rb = $('reroll');
-    rb.hidden = tab !== 'etal';
     rb.textContent = rr.left ? 'Nouvel arrivage · ' + rr.price + ' lucioles (' + rr.left + ' / ' + SHOP_REROLL_MAX + ')' : 'Plus d’arrivage aujourd’hui';
     rb.title = 'L’étal se renouvelle tout seul chaque jour. Tu peux le relancer ' + SHOP_REROLL_MAX + ' fois par jour, et chaque relance coûte le double de la précédente.';
     rb.disabled = !rr.left || save.gold < rr.price;
-    $('wardrobe').hidden = tab !== 'peaux'; $('stock').hidden = tab === 'peaux';
-    if (tab === 'peaux') return renderWardrobe();
     var items = save.shop.filter(function (id) { return id === TEA_ID || (!owns(id) && itemAvailable(save, id)); });
     if (items.indexOf(state.ware) < 0) state.ware = items[0] || null;
     $('stock').innerHTML = items.length ? items.map(function (id) {
@@ -1310,9 +1307,16 @@
     layoutShop();
   }
 
-  // ---------- La garde-robe : les peaux (celles du départ, gratuites, et celles de Gamako, chères) ----------
+  // ---------- Skins : la cabane de l'atelier ----------
+  // Une cabane en plein écran : la grenouille au milieu, sur son tapis, essaie les skins. Trois skins du jour
+  // (skinsOfDay, les mêmes pour tout le monde, renouvelés à minuit) s'achètent ; ceux qu'on a, et les couleurs de
+  // départ, se portent depuis la garde-robe.
+  var skinsBg = null, skinsRaf = 0, skinFrames = {};
+  var SK_W = 320, SK_H = 180, SK_FLOOR = 132; // le décor, en pixels ; la grenouille a les pieds sur le tapis (SK_FLOOR)
+  function ownsSkin(id) { return !!SKINS[id] || save.skins.indexOf(id) >= 0; }
+  function wearSkin(id) { save.hero.skin = id; setPlayer(save); persist(); buildHero(); renderAll(); }
   var skinFaces = {};
-  function skinFace(id) { // la grenouille de face, dans cette peau (sans ce qu'elle porte)
+  function skinFace(id) { // la petite image d'un skin, de face (sans ce que porte la grenouille)
     if (!skinFaces[id]) {
       var saved = [heroSkin, playerHermit];
       heroSkin = skinOf(id); playerHermit = false;
@@ -1321,27 +1325,122 @@
     }
     return skinFaces[id];
   }
-  function ownsSkin(id) { return !!SKINS[id] || save.skins.indexOf(id) >= 0; }
-  function renderWardrobe() {
-    var ids = Object.keys(PREMIUM_SKINS).concat(Object.keys(SKINS));
-    if (!state.skin || ids.indexOf(state.skin) < 0) state.skin = Object.keys(PREMIUM_SKINS)[0];
-    var tile = function (id) {
-      var sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id;
-      return '<button class="wr-skin' + (PREMIUM_SKINS[id] ? ' premium' : '') + (state.skin === id ? ' is-selected' : '') + (worn ? ' is-worn' : '') + (!mine && save.gold < sk.price ? ' is-poor' : '') + '" data-skin-pick="' + id + '" title="' + sk.name + '">' +
-        '<img class="px" src="' + skinFace(id) + '" alt=""><b>' + sk.name + '</b><small>' + (worn ? 'portée' : (mine ? 'à toi' : sk.price + ' lucioles')) + '</small></button>';
-    };
-    $('shop-card').hidden = true;
-    var id = state.skin, sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id;
-    $('wardrobe').innerHTML = '<div class="wr-main"><h2>LA GARDE-ROBE DE GAMAKO</h2><div class="wr-grid">' + Object.keys(PREMIUM_SKINS).map(tile).join('') + '</div>' +
-      '<h3>COULEURS DE DÉPART · GRATUITES</h3><div class="wr-base">' + Object.keys(SKINS).map(tile).join('') + '</div></div><div class="wr-detail">' + '<div class="sc-id"><img class="px" src="' + skinFace(id) + '" alt=""><div><h3>' + sk.name + '</h3><span class="sc-kind">' + (PREMIUM_SKINS[id] ? 'Peau de la garde-robe' : 'Peau de départ') + '</span></div></div>' +
-      '<div class="sc-body"><p>' + (sk.desc || 'Une des couleurs du marais, gratuite.') + '</p><span class="sc-cur">' + (playerHermit ? 'En mode Ermite, la peau reste orange : elle se verra si tu quittes la voie de l’Ermite.' : 'Elle se voit partout : au camp, en combat, au classement et à la cascade.') + '</span></div>' +
-      (worn ? '<div class="sc-buy"><span class="sc-cur">Tu la portes.</span></div>'
-        : mine ? '<div class="sc-buy"><button class="btn" data-skin-wear="' + id + '">Porter</button></div>'
-        : '<div class="sc-buy"><button class="btn" data-skin-buy="' + id + '"' + (save.gold < sk.price ? ' disabled' : '') + '>Acheter<br><span>' + sk.price + ' lucioles</span></button>' + (save.gold < sk.price ? '<span class="sc-miss">Il te manque ' + (sk.price - save.gold) + ' lucioles.</span>' : '') + '</div>') + '</div>';
-    layoutShop();
+  // la grenouille dans un skin, avec ce qu'elle porte : face, profil et dos (deux images chacun)
+  function tryOnFrames(id) {
+    var key = id + '|' + playerHermit + '|' + JSON.stringify(save.equip);
+    if (!skinFrames[key]) {
+      var saved = heroSkin;
+      heroSkin = skinOf(id);
+      var f = frogFrames(save.equip);
+      skinFrames[key] = { face: f.face, profil: f.profil, dos: f.dos };
+      heroSkin = saved;
+    }
+    return skinFrames[key];
   }
-  function wearSkin(id) {
-    save.hero.skin = id; setPlayer(save); persist(); buildHero(); renderAll();
+  // le décor : planches, poutre, fenêtre ronde sous la lune, lanternes, portants chargés de kimonos, tapis
+  function buildSkinsBg() {
+    var c = document.createElement('canvas'); c.width = SK_W; c.height = SK_H;
+    var x = c.getContext('2d'), R = function (px, py, w, h, col) { x.fillStyle = col; x.fillRect(px, py, w, h); };
+    for (var px = 0; px < SK_W; px += 16) { // les planches du mur
+      R(px, 0, 16, SK_FLOOR, px % 32 ? '#4a2e1a' : '#553520');
+      R(px, 0, 1, SK_FLOOR, '#2a180c');
+      for (var k = 0; k < 3; k++) R(px + 4 + Math.round(hash(px, k, 3) * 8), Math.round(hash(px, k, 4) * SK_FLOOR), 2, 1, '#3a2212');
+    }
+    R(0, 0, SK_W, 12, '#2e1c0e'); R(0, 12, SK_W, 2, '#6b4424'); R(0, 14, SK_W, 1, '#1a1008'); // la poutre
+    // la fenêtre ronde, la nuit et la lune
+    var wx = 160, wy = 42, wr = 24;
+    for (var yy = -wr - 3; yy <= wr + 3; yy++) for (var xx = -wr - 3; xx <= wr + 3; xx++) {
+      var d = Math.sqrt(xx * xx + yy * yy);
+      if (d <= wr) R(wx + xx, wy + yy, 1, 1, yy < -8 ? '#16203a' : (yy < 6 ? '#1e2c4a' : '#27385a'));
+      else if (d <= wr + 3) R(wx + xx, wy + yy, 1, 1, d <= wr + 1 ? '#8a6a3a' : '#3a2412');
+    }
+    for (var s = 0; s < 14; s++) R(wx - 18 + Math.round(hash(s, 1, 8) * 36), wy - 18 + Math.round(hash(s, 2, 8) * 30), 1, 1, '#c8d8ff');
+    for (var my = -6; my <= 6; my++) for (var mx = -6; mx <= 6; mx++) if (mx * mx + my * my <= 36 && (mx - 3) * (mx - 3) + (my + 1) * (my + 1) > 22) R(wx + 8 + mx, wy - 6 + my, 1, 1, '#f3e8b8');
+    R(wx - wr, wy, wr * 2, 1, '#3a2412'); R(wx, wy - wr, 1, wr * 2, '#3a2412'); // les croisillons
+    // deux portants de kimonos
+    [[16, 104], [SK_W - 104, SK_W - 16]].forEach(function (rail, side) {
+      R(rail[0], 34, rail[1] - rail[0], 2, '#8a6a3a'); R(rail[0], 36, rail[1] - rail[0], 1, '#3a2412');
+      R(rail[0] + 2, 34, 2, 70, '#6b4a2a'); R(rail[1] - 4, 34, 2, 70, '#6b4a2a');
+      ['#c9412f', '#3a7fc9', '#e0b43a', '#4e9a45', '#8a4ab0', '#e07a2a'].slice(side * 2, side * 2 + 4).forEach(function (col, i) {
+        var kx = rail[0] + 10 + i * 20;
+        R(kx + 7, 32, 2, 4, '#c3c9d1'); // le cintre
+        R(kx, 37, 16, 3, col); R(kx - 3, 38, 22, 5, col); // les manches
+        R(kx + 2, 40, 12, 26, col); R(kx + 2, 50, 12, 3, '#f3d27a'); // l'obi
+        R(kx + 7, 40, 2, 10, '#f4f4e8'); R(kx + 2, 64, 12, 2, 'rgba(0, 0, 0, 0.25)');
+        R(kx - 3, 43, 22, 1, 'rgba(0, 0, 0, 0.25)');
+      });
+    });
+    // deux lanternes de papier
+    [96, 224].forEach(function (lx) {
+      R(lx, 14, 1, 14, '#1a1008');
+      R(lx - 6, 28, 13, 2, '#3a2412'); R(lx - 7, 30, 15, 16, '#f0b060'); R(lx - 7, 30, 15, 2, '#ffd890'); R(lx - 7, 44, 15, 2, '#c87a30');
+      [34, 38, 42].forEach(function (ry) { R(lx - 7, ry, 15, 1, '#d88a40'); });
+      R(lx - 6, 46, 13, 2, '#3a2412');
+    });
+    // le plancher et le tapis rond
+    for (var fy = SK_FLOOR; fy < SK_H; fy += 6) { R(0, fy, SK_W, 6, fy % 12 ? '#6b4a2a' : '#5e4024'); R(0, fy, SK_W, 1, '#3a2412'); }
+    R(0, SK_FLOOR - 2, SK_W, 3, '#2e1c0e');
+    for (var ry2 = -14; ry2 <= 14; ry2++) for (var rx2 = -66; rx2 <= 66; rx2++) {
+      var e = (rx2 * rx2) / (66 * 66) + (ry2 * ry2) / (14 * 14);
+      if (e > 1) continue;
+      R(160 + rx2, SK_FLOOR + 6 + ry2, 1, 1, e > 0.82 ? '#e0b43a' : (e > 0.7 ? '#6a1a1a' : ((rx2 + ry2 * 3) % 9 === 0 && e > 0.3 ? '#a8342a' : '#8a2626')));
+    }
+    // la lumière chaude des lanternes
+    var glow = x.createRadialGradient(160, 80, 10, 160, 80, 190);
+    glow.addColorStop(0, 'rgba(255, 190, 110, 0.18)'); glow.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    x.fillStyle = glow; x.fillRect(0, 0, SK_W, SK_H);
+    return c;
+  }
+  function openSkins() {
+    if (!skinsBg) skinsBg = buildSkinsBg();
+    if (!state.tryOn || !skinOf(state.tryOn) || (!ownsSkin(state.tryOn) && skinsOfDay().indexOf(state.tryOn) < 0)) state.tryOn = save.hero.skin;
+    state.skinView = state.skinView || 'face';
+    renderSkins();
+    cancelAnimationFrame(skinsRaf);
+    var cv = $('skins-scene'), ctx = cv.getContext('2d');
+    cv.width = SK_W; cv.height = SK_H;
+    ctx.imageSmoothingEnabled = false;
+    (function loop(now) {
+      if (state.page !== 'skins') return;
+      ctx.drawImage(skinsBg, 0, 0);
+      var frames = tryOnFrames(state.tryOn)[state.skinView], f = frames[Math.floor(now / 520) % frames.length], S = 2;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(160 - 22, SK_FLOOR + 4, 44, 4); // l'ombre sur le tapis
+      ctx.drawImage(f, 160 - 16 * S, SK_FLOOR + 6 - 32 * S, 32 * S, 32 * S);
+      for (var i = 0; i < 12; i++) { // la poussière dans la lumière
+        var t = now / 1000 + i * 7.3, mx = (40 + i * 23 + Math.sin(t * 0.4) * 10) % SK_W, my = (20 + ((t * 4 + i * 13) % 100));
+        ctx.fillStyle = 'rgba(255, 230, 170, ' + (0.15 + 0.15 * Math.sin(t)) + ')'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1);
+      }
+      skinsRaf = requestAnimationFrame(loop);
+    })(performance.now());
+  }
+  function untilMidnight() {
+    var d = new Date(), m = new Date(d); m.setHours(24, 0, 0, 0);
+    var min = Math.ceil((m - d) / 60000);
+    return Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0');
+  }
+  function renderSkins() {
+    var day = skinsOfDay(), id = state.tryOn, sk = skinOf(id), mine = ownsSkin(id), worn = save.hero.skin === id, today = day.indexOf(id) >= 0;
+    var card = function (sid) {
+      var s = PREMIUM_SKINS[sid], have = ownsSkin(sid), on = save.hero.skin === sid;
+      return '<button class="sk-day' + (state.tryOn === sid ? ' is-selected' : '') + (have ? ' is-mine' : '') + (!have && save.gold < s.price ? ' is-poor' : '') + '" data-skin-try="' + sid + '">' +
+        '<img class="px" src="' + skinFace(sid) + '" alt=""><b>' + s.name + '</b><small>' + (on ? 'porté' : (have ? 'à toi' : s.price + ' lucioles')) + '</small></button>';
+    };
+    var tile = function (sid) {
+      return '<button class="sk-own' + (state.tryOn === sid ? ' is-selected' : '') + (save.hero.skin === sid ? ' is-worn' : '') + '" data-skin-try="' + sid + '" title="' + skinOf(sid).name + '"><img class="px" src="' + skinFace(sid) + '" alt=""></button>';
+    };
+    var owned = save.skins.filter(function (sid) { return PREMIUM_SKINS[sid]; });
+    var action = worn ? '<p class="sk-state">Tu le portes.</p>'
+      : mine ? '<button class="btn" data-skin-wear="' + id + '">Porter</button>'
+      : today ? '<button class="btn" data-skin-buy="' + id + '"' + (save.gold < sk.price ? ' disabled' : '') + '>Acheter · ' + sk.price + ' lucioles</button>' + (save.gold < sk.price ? '<p class="sk-miss">Il te manque ' + (sk.price - save.gold) + ' lucioles.</p>' : '')
+      : '<p class="sk-state">Pas en vente aujourd’hui.</p>';
+    $('skins-ui').innerHTML =
+      '<header class="sk-head"><h1>SKINS</h1><p>Trois skins par jour · les suivants dans <b>' + untilMidnight() + '</b></p></header>' +
+      '<aside class="sk-wardrobe"><h2>TA GARDE-ROBE</h2>' + (owned.length ? '<div class="sk-owns">' + owned.map(tile).join('') + '</div>' : '<p class="sk-empty">Tes skins achetés viendront ici.</p>') +
+      '<h3>COULEURS DE DÉPART</h3><div class="sk-owns">' + Object.keys(SKINS).map(tile).join('') + '</div></aside>' +
+      '<aside class="sk-card"><div class="views">' + [['face', 'Face'], ['profil', 'Profil'], ['dos', 'Dos']].map(function (v) { return '<button class="tab' + (state.skinView === v[0] ? ' is-active' : '') + '" data-skin-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>' +
+      '<h2>' + sk.name + '</h2><span class="sk-kind">' + (PREMIUM_SKINS[id] ? (today ? 'Skin du jour' : 'Skin') : 'Couleur de départ · gratuite') + '</span>' +
+      '<p>' + (sk.desc || 'Une des couleurs du marais, offerte à toutes les grenouilles.') + '</p>' + action + '</aside>' +
+      '<div class="sk-days"><h2>LES SKINS DU JOUR</h2><div class="sk-row">' + day.map(card).join('') + '</div></div>';
   }
 
   // La fiche de l'objet choisi : ce qu'il donne, comparé à ce que la grenouille porte, et le bouton d'achat
@@ -1556,7 +1655,8 @@
       if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
       var xp = g.xpNiveau ? Math.round(xpForLevel(save.level) * g.xpNiveau) : 0, lv = xp ? gainXp(save, xp) : 0;
       save.gifts.push(g.id);
-      if (g.source === 'clan') notice('L’Alpha n° ' + (g.rang + 1) + ' de ton clan « ' + g.clan + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      if (g.source === 'guerre') notice('Guerre contre « ' + g.contre + ' » : ' + (g.resultat === 'victoire' ? 'victoire !' : (g.resultat === 'nulle' ? 'égalité.' : 'défaite…')) + ' Ta part de combattant : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else if (g.source === 'clan') notice('L’Alpha n° ' + (g.rang + 1) + ' de ton clan « ' + g.clan + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
     });
     if (fresh.length) { save.gifts = save.gifts.slice(-50); persist(); Sfx.play('levelup'); renderAll(); }
@@ -1721,20 +1821,69 @@
   }
 
   // ---------- Les Clans : les guildes du marais ----------
-  // Un clan réunit jusqu'à 10 grenouilles de joueurs. Ensemble, elles affrontent un Alpha aux PV partagés (deux assauts
-  // de 10 tours par jour chacune) ; quand il tombe, chaque grenouille du clan qui l'a attaqué reçoit sa part, et un
-  // Alpha plus fort arrive. Les joutes opposent une grenouille à celle d'un autre clan, pour la renommée. Le chef peut
+  // Un clan réunit jusqu'à 10 grenouilles de joueurs, sous un blason que son chef compose (5 icônes, 8 fonds,
+  // 6 couleurs). Ensemble, elles affrontent un Alpha aux PV partagés (deux assauts de 10 tours par jour chacune) ;
+  // quand il tombe, chaque grenouille du clan qui l'a attaqué reçoit sa part, et un Alpha plus fort arrive.
+  // Les guerres : un clan d'au moins 5 grenouilles déclare la guerre à un autre (son chef) ; pendant 24 h, chacune a
+  // 3 combats contre les grenouilles d'en face, et le clan qui marque le plus de points gagne. Le chef peut aussi
   // exclure une grenouille. Tout passe par /api/clans/<grenouille>.
-  var clans = { data: null, loading: false, error: '', foe: null, emb: 0, leaving: 0, kicking: null };
-  var EMBLEMS = ['#c9412f', '#e0b43a', '#4e9a45', '#3a7fc9', '#8a4ab0', '#e07a2a', '#2aa090', '#d9e1e6'];
+  var clans = { data: null, loading: false, error: '', blason: { icone: 0, fond: 0, motif: 0 }, leaving: 0, kicking: null, editing: false, declaring: null };
+  var EMBLEMS = ['#c9412f', '#e0b43a', '#4e9a45', '#3a7fc9', '#8a4ab0', '#e07a2a', '#2aa090', '#3a3f4a'];
+  var MOTIFS = ['#f4f4e8', '#f3d27a', '#1a1c2c', '#c9412f', '#8fe0ff', '#8fce52'];
+  // les icônes du blason (x : la couleur du motif, k : le trait sombre)
+  var BLASON_ICONS = [
+    { name: 'Grenouille', rows: ['.xxx....xxx.', 'x...x..x...x', 'x.kkx..xkk.x', 'x.kkxxxxkk.x', '.xxxxxxxxxx.', 'xxxxxxxxxxxx', 'xxxxxxxxxxxx', 'xkxxxxxxxxkx', 'xxkkkkkkkkxx', '.xxxxxxxxxx.', '..xx....xx..', '.xxx....xxx.'] },
+    { name: 'Nénuphar', rows: ['....x..x....', '...xkxxkx...', '....xxxx....', '.....kk.....', '..xxxxxxxx..', '.xxxxxxxxxx.', 'xxxxxxxxxxxx', 'xxxxxxx..xxx', 'xxxxxx....xx', '.xxxxx...xx.', '..xxxx..xx..', '............'] },
+    { name: 'Shuriken', rows: ['.....x......', '....xx......', '....xxx.....', '....xxxx..xx', '.xxxxxxxxxx.', 'xxxxxkkxxx..', '..xxxkkxxxxx', '.xxxxxxxxxx.', 'xx..xxxx....', '.....xxx....', '......xx....', '......x.....'] },
+    { name: 'Katanas', rows: ['x..........x', '.x........x.', '..x......x..', '...x....x...', '....x..x....', '.....xx.....', '.....xx.....', '....x..x....', '..kx....xk..', '.kk......kk.', 'kk........kk', 'k..........k'] },
+    { name: 'Lune', rows: ['....xxxx....', '..xxxx......', '.xxxx.......', '.xxx........', 'xxxx......x.', 'xxxx.......x', 'xxxx......x.', 'xxxx........', '.xxxx.......', '.xxxxx...xx.', '..xxxxxxxx..', '....xxxx....'] }
+  ];
   var CLAN_PRICE = 300;
   var fmtN = function (n) { return Math.max(0, Math.round(n)).toLocaleString('fr-FR'); };
   var nth = function (n) { return n === 1 ? '1er' : n + 'e'; };
+  var fmtLeft = function (ms) { var min = Math.max(0, Math.ceil(ms / 60000)); return Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0'); };
   var clanApi = function (method, path, body) {
     return fetch('/api/clans/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
   };
-  function emblem(m, big) { return '<span class="clan-emb' + (big ? ' big' : '') + '" style="--e:' + EMBLEMS[m.embleme || 0] + '">' + escapeHtml((m.nom || '?').charAt(0).toUpperCase()) + '</span>'; }
+  // Le blason : un écu à la couleur du fond, son icône dans la couleur du motif
+  var blasonCache = {};
+  function blasonOf(m) { return m && m.blason ? m.blason : { icone: 0, fond: (m && m.embleme) || 0, motif: 0 }; }
+  function blasonImg(b) {
+    var key = b.icone + '-' + b.fond + '-' + b.motif;
+    if (!blasonCache[key]) {
+      var W = 20, H = 22, c = document.createElement('canvas'); c.width = W; c.height = H;
+      var x = c.getContext('2d'), fond = EMBLEMS[b.fond] || EMBLEMS[0], inside = function (px, py) {
+        if (px < 0 || py < 0 || px >= W || py >= H) return false;
+        return py <= 12 || Math.abs(px - 9.5) <= 9.5 - (py - 12) * 1.05;
+      };
+      for (var py = 0; py < H; py++) for (var px = 0; px < W; px++) {
+        if (!inside(px, py)) continue;
+        var edge = !inside(px - 1, py) || !inside(px + 1, py) || !inside(px, py - 1) || !inside(px, py + 1);
+        x.fillStyle = edge ? '#1a1c2c' : fond; x.fillRect(px, py, 1, 1);
+        if (!edge && (py <= 2 || px <= 1)) { x.fillStyle = 'rgba(255, 255, 255, 0.22)'; x.fillRect(px, py, 1, 1); } // un reflet
+        if (!edge && (px >= W - 2 || (py > 12 && !inside(px + 1, py + 1)))) { x.fillStyle = 'rgba(0, 0, 0, 0.25)'; x.fillRect(px, py, 1, 1); }
+      }
+      (BLASON_ICONS[b.icone] || BLASON_ICONS[0]).rows.forEach(function (row, iy) {
+        row.split('').forEach(function (ch, ix) {
+          if (ch === '.') return;
+          x.fillStyle = ch === 'k' ? (b.motif === 2 ? '#f4f4e8' : '#1a1c2c') : MOTIFS[b.motif] || MOTIFS[0];
+          x.fillRect(4 + ix, 4 + iy, 1, 1);
+        });
+      });
+      blasonCache[key] = c.toDataURL();
+    }
+    return blasonCache[key];
+  }
+  function emblem(m, big) { return '<img class="clan-emb px' + (big ? ' big' : '') + '" src="' + blasonImg(blasonOf(m)) + '" alt="">'; }
+  // l'atelier du blason : l'aperçu, puis l'icône, le fond et le motif
+  function blasonEditor() {
+    var b = clans.blason, pick = function (key, i, inner, label, on) { return '<button role="radio" aria-checked="' + on + '" aria-label="' + label + '" data-bl-' + key + '="' + i + '"' + inner + '</button>'; };
+    return '<div class="cl-bl-preview"><img class="px" src="' + blasonImg(b) + '" alt="Le blason"></div><div class="cl-bl-rows">' +
+      '<span class="cl-label">Icône · ' + BLASON_ICONS[b.icone].name + '</span><div class="cl-bl-icons" role="radiogroup">' + BLASON_ICONS.map(function (ic, i) { return pick('icone', i, '><img class="px" src="' + blasonImg({ icone: i, fond: b.fond, motif: b.motif }) + '" alt="">', ic.name, b.icone === i); }).join('') + '</div>' +
+      '<span class="cl-label">Fond</span><div class="cl-embs" role="radiogroup">' + EMBLEMS.map(function (col, i) { return pick('fond', i, ' style="--e:' + col + '">', 'Fond ' + (i + 1), b.fond === i); }).join('') + '</div>' +
+      '<span class="cl-label">Motif</span><div class="cl-embs" role="radiogroup">' + MOTIFS.map(function (col, i) { return pick('motif', i, ' style="--e:' + col + '">', 'Motif ' + (i + 1), b.motif === i); }).join('') + '</div></div>';
+  }
   var alphaImgs = {};
   function alphaImg(rang) { // l'Alpha, en grand, dans ses couleurs
     var a = alphaOf(rang, save.level), key = rang % ALPHAS.length;
@@ -1793,21 +1942,22 @@
   function clanList(d, mineId, limit) {
     return d.liste.length ? '<ul class="cl-list">' + d.liste.slice(0, limit).map(function (m, i) {
       return '<li class="' + (m.id === mineId ? 'is-mine' : '') + '"><span class="cl-pos">' + (i + 1) + '</span>' + emblem(m) +
-        '<span class="cl-name"><b>' + escapeHtml(m.nom) + '</b><small>Chef : ' + escapeHtml(m.chef || '?') + ' · Alpha n° ' + (m.rang + 1) + '</small></span>' +
+        '<span class="cl-name"><b>' + escapeHtml(m.nom) + (m.guerreFin > Date.now() ? ' <i class="war" title="En guerre">⚔</i>' : '') + '</b><small>Chef : ' + escapeHtml(m.chef || '?') + ' · Alpha n° ' + (m.rang + 1) + '</small></span>' +
         '<span class="cl-meta">' + m.renommee + '<small>renommée</small></span><span class="cl-meta">' + m.membres + ' / ' + d.max + '<small>grenouilles</small></span>' +
         (mineId === undefined ? '<button class="btn btn-ghost" data-clan-join="' + m.id + '"' + (m.membres >= d.max ? ' disabled' : '') + '>Rejoindre</button>' : '') + '</li>';
     }).join('') + '</ul>' : '<p class="muted">Aucun clan pour l’instant : fonde le premier !</p>';
   }
   function renderNoClan(d) {
-    return '<header class="panel cl-head"><div><h1>CLANS</h1><p>Fonde ton clan ou rejoins-en un : ensemble, abattez des Alphas géants et affrontez les autres clans.</p></div></header>' +
+    return '<header class="panel cl-head"><div><h1>CLANS</h1><p>Fonde ton clan ou rejoins-en un : ensemble, abattez des Alphas géants et faites la guerre aux autres clans.</p></div></header>' +
       '<div class="cl-cols two">' +
       '<section class="panel cl-found"><h2>FONDER UN CLAN</h2><p>Jusqu’à ' + d.max + ' grenouilles par clan. Il en coûte ' + CLAN_PRICE + ' lucioles.</p>' +
       '<label class="cl-field"><span>Son nom</span><input id="clan-name" maxlength="24" placeholder="Le Clan des Roseaux" autocomplete="off"></label>' +
-      '<span class="cl-label">Son emblème</span><div class="cl-embs" role="radiogroup" aria-label="Son emblème">' + EMBLEMS.map(function (c, i) { return '<button role="radio" aria-checked="' + (clans.emb === i) + '" aria-label="Couleur ' + (i + 1) + '" data-clan-emb="' + i + '" style="--e:' + c + '"></button>'; }).join('') + '</div>' +
+      '<span class="cl-label">Son blason</span><div id="blason-editor" class="cl-blason">' + blasonEditor() + '</div>' +
       '<button class="btn" data-clan-found' + (save.gold < CLAN_PRICE ? ' disabled' : '') + '>Fonder le clan · ' + CLAN_PRICE + ' lucioles</button>' +
       (save.gold < CLAN_PRICE ? '<p class="muted">Il te manque ' + (CLAN_PRICE - save.gold) + ' lucioles.</p>' : '') + '</section>' +
       '<section class="panel cl-all"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, undefined, 30) + '</section></div>';
   }
+  var RESULT = { victoire: 'victoire', defaite: 'défaite', nulle: 'égalité' };
   function clanEvent(j) {
     var n = '<b>' + escapeHtml(j.nom || '?') + '</b>';
     if (j.type === 'fonde') return n + ' a fondé le clan.';
@@ -1816,17 +1966,51 @@
     if (j.type === 'exclusion') return n + ' a exclu <b>' + escapeHtml(j.cible || '?') + '</b> du clan.';
     if (j.type === 'raid') return n + ' a infligé <b>' + fmtN(j.deg) + '</b> dégâts à l’Alpha.';
     if (j.type === 'alpha') return 'L’Alpha n° ' + (j.rang + 1) + ' est tombé ! Coup final : ' + n + (j.parts ? ' · ' + j.parts + ' part' + (j.parts > 1 ? 's' : '') : '') + '.';
-    if (j.type === 'joute') return n + (j.victoire ? ' a battu ' : ' a perdu contre ') + escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ') : +' + j.gain + ' renommée.';
-    if (j.type === 'joute-subie') return j.victoire ? n + ' a repoussé ' + escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ').' : escapeHtml(j.adverse) + ' (' + escapeHtml(j.clanAdverse) + ') a battu ' + n + '.';
+    if (j.type === 'guerre') return j.declaree ? n + ' a déclaré la guerre au clan <b>' + escapeHtml(j.contre) + '</b> !' : 'Le clan <b>' + escapeHtml(j.contre) + '</b> nous a déclaré la guerre !';
+    if (j.type === 'guerre-fin') return 'Guerre contre <b>' + escapeHtml(j.contre) + '</b> : ' + RESULT[j.resultat] + ' (' + j.nous + ' à ' + j.eux + ').';
     return '';
   }
+  function warEvent(j) {
+    if (j.type === 'declaration') return 'Le clan <b>' + escapeHtml(j.clan) + '</b> déclare la guerre !';
+    return '<b>' + escapeHtml(j.nom) + '</b> (' + escapeHtml(j.clan) + ')' + (j.victoire ? ' a battu ' : ' a perdu contre ') + '<b>' + escapeHtml(j.adverse) + '</b>' + (j.pts ? ' · +' + j.pts : '') + '.';
+  }
+  // la guerre : le tableau des points, les grenouilles d'en face à attaquer, le journal
+  function renderWar(d, m) {
+    var w = d.guerre, left = w.fin - Date.now();
+    return '<section class="panel cl-war"><div class="cl-war-score">' +
+      '<div class="cl-war-side">' + emblem(m, true) + '<b>' + escapeHtml(m.nom) + '</b></div><div class="cl-war-pts"><b>' + w.nous + '</b><span>—</span><b>' + w.eux + '</b></div>' +
+      '<div class="cl-war-side">' + emblem(w.contre, true) + '<b>' + escapeHtml(w.contre.nom) + '</b></div></div>' +
+      '<p class="cl-war-info">⚔ GUERRE · fin dans <b>' + fmtLeft(left) + '</b> · ' + (w.engagee ? 'tes combats : <b>' + w.restants + ' / ' + w.max + '</b>' : 'arrivée après la déclaration, ta grenouille ne combat pas') + '</p>' +
+      '<p class="cl-help">Une première victoire sur une grenouille rapporte 3 points si elle est au moins de ton niveau, 2 sinon ; les suivantes, 1 point. Le clan qui a le plus de points à la fin gagne : 30 renommée, et 400 lucioles et de l’XP pour ses combattants.</p>' +
+      '<div class="cl-war-grid"><ul class="cl-foes">' + w.ennemis.map(function (e) {
+        return '<li><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>niv. ' + (e.niveau || 1) + (e.battue ? ' · battue ×' + e.battue : '') + '</small></span>' + dojoVoie(e) +
+          '<button class="btn" data-war-attack="' + e.id + '"' + (w.engagee && w.restants > 0 ? '' : ' disabled') + '>Attaquer ▶</button></li>';
+      }).join('') + '</ul>' +
+      '<ul class="cl-war-log">' + (w.journal.length ? w.journal.map(function (j) { return '<li><span>' + warEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') : '<li><span>Aucun combat pour l’instant.</span></li>') + '</ul></div></section>';
+  }
+  // pas de guerre : les clans qu'on peut défier (le chef déclare), ou ce qu'il manque
+  function renderWarPick(d, m, chief) {
+    var n = m.membres.length, need = d.guerreMin, last = m.derniereGuerre;
+    var html = '<section class="panel cl-warpick"><h2>LA GUERRE</h2>';
+    if (last) html += '<p class="cl-part' + (last.resultat === 'victoire' ? ' is-in' : '') + '">Dernière guerre contre ' + escapeHtml(last.contre) + ' : ' + RESULT[last.resultat] + ' (' + last.nous + ' à ' + last.eux + ').</p>';
+    if (n < need) return html + '<p class="cl-help">Il faut au moins <b>' + need + ' grenouilles</b> dans le clan pour partir en guerre (' + n + ' / ' + need + '). Pendant 24 h, chacune a 3 combats contre les grenouilles d’en face.</p></section>';
+    html += '<p class="cl-help">Pendant 24 h, chaque grenouille des deux clans a 3 combats contre celles d’en face. ' + (chief ? 'Choisis un clan d’au moins ' + need + ' grenouilles :' : 'Seul le chef peut déclarer une guerre.') + '</p>';
+    if (!chief) return html + '</section>';
+    return html + (d.cibles.length ? '<ul class="cl-list">' + d.cibles.map(function (c) {
+      return '<li>' + emblem(c) + '<span class="cl-name"><b>' + escapeHtml(c.nom) + '</b><small>' + c.membres + ' grenouilles · ' + c.renommee + ' renommée</small></span>' +
+        '<button class="btn' + (clans.declaring === c.id ? ' is-armed' : ' btn-ghost') + '" data-war-declare="' + c.id + '">' + (clans.declaring === c.id ? 'Confirmer ⚔' : 'Déclarer la guerre') + '</button></li>';
+    }).join('') + '</ul>' : '<p class="muted">Aucun clan à défier pour l’instant : il leur faut aussi ' + need + ' grenouilles, et pas déjà de guerre.</p>') + '</section>';
+  }
   function renderMyClan(d) {
-    var m = d.clan, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100), foe = clans.foe;
+    var m = d.clan, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100);
     var chief = m.chef === Cloud.id, mine = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { part: 0 };
     var members = m.membres.slice().sort(function (x, y) { return y.part - x.part || y.contribution - x.contribution; });
     return '<header class="panel cl-head">' + emblem(m, true) + '<div><h1>' + escapeHtml(m.nom).toUpperCase() + '</h1>' +
       '<p>Chef : <b>' + escapeHtml(m.chefNom || '?') + '</b> · ' + m.membres.length + ' / ' + d.max + ' grenouilles · <b>' + m.renommee + '</b> renommée' + (m.place ? ' · ' + nth(m.place) + ' des clans' : '') + '</p></div>' +
+      (chief ? '<button class="btn btn-ghost" data-blason-edit>Blason</button>' : '') +
       '<button class="btn btn-ghost' + (clans.leaving ? ' is-armed' : '') + '" data-clan-leave>' + (clans.leaving ? 'Confirmer : quitter' : 'Quitter le clan') + '</button></header>' +
+      (clans.editing ? '<section class="panel cl-bl-edit"><h2>LE BLASON DU CLAN</h2><div id="blason-editor" class="cl-blason">' + blasonEditor() + '</div><div class="row"><button class="btn" data-blason-save>Enregistrer</button><button class="btn btn-ghost" data-blason-cancel>Annuler</button></div></section>' : '') +
+      (d.guerre ? renderWar(d, m) : '') +
       '<div class="cl-cols">' +
       '<section class="panel cl-alpha"><h2>L’ALPHA N° ' + (m.raid.rang + 1) + '</h2>' +
       '<div class="cl-alpha-art"><img class="px" src="' + alphaImg(m.raid.rang) + '" alt=""></div>' +
@@ -1840,10 +2024,7 @@
         return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (e.id === m.chef ? '<i>CHEF</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
           dojoVoie(e) + '<span class="cl-meta' + (e.part ? '' : ' is-zero') + '">' + (e.part ? fmtN(e.part) : '—') + '<small>' + (e.part ? 'sur cet Alpha' : 'pas de part') + '</small></span>' + kick + '</li>';
       }).join('') + '</ul>' + (chief ? '<p class="cl-help">Tu es le chef : ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : '') + '</section>' +
-      '<div class="cl-side">' +
-      '<section class="panel cl-joute"><h2>LES JOUTES · ' + d.joutes + ' / ' + d.joutesMax + '</h2><p class="cl-help">Défie une grenouille d’un autre clan : +6 renommée pour ton clan si tu gagnes, +1 sinon.</p>' +
-      (foe ? '<div class="cl-foe"><img class="px" src="' + portraitOf(foe) + '" alt=""><span class="cl-name"><b>' + escapeHtml(foe.nom) + '</b><small>' + escapeHtml(foe.clan) + ' · niv. ' + foe.niveau + '</small></span>' + dojoVoie(foe) + '</div><button class="btn" data-clan-joute' + (d.joutes > 0 ? '' : ' disabled') + '>Jouter ▶</button>' : '') +
-      '<button class="btn btn-ghost" data-clan-foe' + (d.joutes > 0 ? '' : ' disabled') + '>' + (d.joutes > 0 ? (foe ? 'Un autre adversaire' : 'Chercher un adversaire') : 'Plus de joute aujourd’hui') + '</button></section>' +
+      '<div class="cl-side">' + (d.guerre ? '' : renderWarPick(d, m, chief)) +
       '<section class="panel cl-rank"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, m.id, 8) + '</section>' +
       '<section class="panel cl-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
       '</div></div>';
@@ -1868,18 +2049,19 @@
     };
     return fight;
   }
-  function jouteFight(card) {
+  // Un combat de la guerre, contre la grenouille d'un autre clan jouée par l'ordinateur
+  function warFight(card) {
     return {
-      kind: 'joute', title: 'Joute contre ' + card.nom + ' (' + card.clan + ')', backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
-      intro: card.nom + ', du clan « ' + card.clan + ' », accepte la joute !',
+      kind: 'guerre', title: 'Guerre contre ' + card.clan + ' · ' + card.nom, backdrop: CascadeScene.backdrop(), bgFx: CascadeScene.fx, card: card, enemy: dojoFighter(card),
+      intro: card.nom + ', du clan « ' + card.clan + ' », défend les couleurs de son clan !',
       settle: function (win) {
-        return clanApi('POST', '/joute', { adversaire: card.id, victoire: win }).then(function (r) {
-          if (clans.data) clans.data.joutes = r.restants;
+        return clanApi('POST', '/combat', { adversaire: card.id, victoire: win }).then(function (r) {
           var xp = win ? Math.max(5, Math.round(xpForLevel(save.level) * 0.1)) : 0, levels = xp ? gainXp(save, xp) : 0;
           if (xp) persist();
           if (levels) Sfx.play('levelup');
-          return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">+' + r.gain + ' renommée pour ton clan</p>' + (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '') +
-            '<p class="muted">Joutes restantes aujourd’hui : ' + r.restants + '.</p>';
+          return '<p class="bt-rep ' + (win ? 'up' : 'down') + '">' + (win ? '+' + r.gain + ' point' + (r.gain > 1 ? 's' : '') + ' pour ton clan' : 'Aucun point cette fois') + '</p>' +
+            '<p>Score de la guerre : <b>' + r.nous + '</b> à <b>' + r.eux + '</b>.</p>' + (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '') +
+            '<p class="muted">Combats restants dans cette guerre : ' + r.restants + '.</p>';
         });
       }
     };
@@ -2112,7 +2294,7 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'tower', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
@@ -2120,6 +2302,7 @@
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
     if (page === 'clans') openClans();
+    if (page === 'skins') openSkins();
     if (page === 'tower') openTower();
     if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
@@ -2154,10 +2337,10 @@
     if (fight.kind === 'duel' && result === 'flee' && !fight.settled) {
       settleDuel(fight.card, false).then(function () { notice('Tu as quitté le duel : il compte comme une défaite.'); if (state.page === 'dojo') renderDojo(); }, function () {});
     }
-    // quitter un assaut : ses dégâts comptent quand même (sans coup porté, l'assaut n'est pas perdu) ; quitter une joute : une défaite
+    // quitter un assaut : ses dégâts comptent quand même (sans coup porté, l'assaut n'est pas perdu) ; quitter un combat de guerre : une défaite
     if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadClans(); }, function () {});
-    if (fight.kind === 'joute' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté la joute : elle compte comme une défaite.'); loadClans(); }, function () {});
-    var atClan = fight.kind === 'raid' || fight.kind === 'joute';
+    if (fight.kind === 'guerre' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté le combat : il compte comme une défaite.'); loadClans(); }, function () {});
+    var atClan = fight.kind === 'raid' || fight.kind === 'guerre';
     showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map')));
     startTick();
   }
@@ -2193,20 +2376,28 @@
       }
       return;
     }
-    if (t.dataset.clanEmb) { clans.emb = +t.dataset.clanEmb; Sfx.play('click'); document.querySelectorAll('[data-clan-emb]').forEach(function (e) { e.setAttribute('aria-checked', String(e === t)); }); return; } // sans redessiner : le nom tapé reste
+    if (t.dataset.blIcone || t.dataset.blFond || t.dataset.blMotif) { // l'atelier du blason, sans redessiner la page : le nom tapé reste
+      if (t.dataset.blIcone) clans.blason.icone = +t.dataset.blIcone;
+      if (t.dataset.blFond) clans.blason.fond = +t.dataset.blFond;
+      if (t.dataset.blMotif) clans.blason.motif = +t.dataset.blMotif;
+      Sfx.play('click'); $('blason-editor').innerHTML = blasonEditor(); return;
+    }
+    if (t.hasAttribute('data-blason-edit')) { clans.editing = !clans.editing; clans.blason = Object.assign({}, blasonOf(clans.data.clan)); Sfx.play('click'); renderClans(); return; }
+    if (t.hasAttribute('data-blason-cancel')) { clans.editing = false; renderClans(); return; }
+    if (t.hasAttribute('data-blason-save')) { clans.editing = false; Sfx.play('pickup'); clanAction(clanApi('POST', '/blason', { blason: clans.blason })); return; }
     if (t.hasAttribute('data-clans-reload')) { clans.error = ''; loadClans(); return; }
     if (t.hasAttribute('data-clan-found')) {
       var cname = ($('clan-name').value || '').trim();
       if (cname.length < 3) { notice('Le nom du clan doit faire au moins 3 caractères.'); return; }
       if (save.gold < CLAN_PRICE) return;
       Sfx.play('click');
-      clanApi('POST', '/fonder', { nom: cname, embleme: clans.emb }).then(function () { save.gold -= CLAN_PRICE; persist(); renderSidebar(); Sfx.play('levelup'); notice('Le clan « ' + cname + ' » est fondé ! Invite tes amis à le rejoindre.'); loadClans(); }, function (err) { notice(err.message); });
+      clanApi('POST', '/fonder', { nom: cname, blason: clans.blason }).then(function () { save.gold -= CLAN_PRICE; persist(); renderSidebar(); Sfx.play('levelup'); notice('Le clan « ' + cname + ' » est fondé ! Invite tes amis à le rejoindre.'); loadClans(); }, function (err) { notice(err.message); });
       return;
     }
     if (t.dataset.clanJoin) { Sfx.play('click'); clanAction(clanApi('POST', '/rejoindre', { clan: t.dataset.clanJoin })); return; }
     if (t.hasAttribute('data-clan-leave')) {
       if (!clans.leaving) { clans.leaving = setTimeout(function () { clans.leaving = 0; renderClans(); }, 4000); renderClans(); return; }
-      clearTimeout(clans.leaving); clans.leaving = 0; clans.foe = null;
+      clearTimeout(clans.leaving); clans.leaving = 0;
       clanAction(clanApi('POST', '/quitter'));
       return;
     }
@@ -2219,12 +2410,20 @@
       return;
     }
     if (t.hasAttribute('data-clan-raid')) { if (clans.data && clans.data.raids > 0) { Sfx.play('click'); startFight(raidFight(clans.data)); } return; }
-    if (t.hasAttribute('data-clan-foe')) {
-      Sfx.play('click');
-      Cloud.flush().then(function () { return clanApi('GET', '/joute'); }).then(function (r) { clans.foe = r.adversaire; if (!r.adversaire) notice('Aucune grenouille d’un autre clan à défier pour l’instant.'); renderClans(); }, function (err) { notice(err.message); });
+    if (t.dataset.warDeclare) { // déclarer la guerre : un premier clic arme le bouton, le second confirme
+      var cib = t.dataset.warDeclare;
+      clearTimeout(clans.declareTimer);
+      if (clans.declaring !== cib) { clans.declaring = cib; clans.declareTimer = setTimeout(function () { clans.declaring = null; renderClans(); }, 4000); Sfx.play('click'); renderClans(); return; }
+      clans.declaring = null; Sfx.play('boss');
+      clanAction(clanApi('POST', '/guerre', { cible: cib }));
       return;
     }
-    if (t.hasAttribute('data-clan-joute')) { if (clans.foe) { var jf = jouteFight(clans.foe); clans.foe = null; startFight(jf); } return; }
+    if (t.dataset.warAttack) {
+      Sfx.play('click');
+      var foeId = t.dataset.warAttack;
+      Cloud.flush().then(function () { return clanApi('POST', '/defi', { adversaire: foeId }); }).then(function (r) { startFight(warFight(r.adversaire)); }, function (err) { notice(err.message); });
+      return;
+    }
     if (t.dataset.dojoTab) { dojo.tab = t.dataset.dojoTab; Sfx.play('click'); renderDojo(); return; }
     if (t.hasAttribute('data-dojo-reload')) { dojo.error = ''; openDojo(); return; }
     if (t.dataset.foeStep) { dojo.pick += +t.dataset.foeStep; Sfx.play('click'); renderDojo(); return; }
@@ -2330,12 +2529,15 @@
       if (rr.left && save.gold >= rr.price) { save.gold -= rr.price; refreshShop(save); save.shopDay = dayKey(); save.rerolls = rr.n + 1; persist(); gamakoSay(rr.left > 1 ? 'Un nouvel arrivage, tout frais de la vase ! Le prochain te coûtera le double.' : 'C’est mon dernier arrivage de la journée, têtard. Reviens demain.'); renderAll(); }
       return;
     }
-    if (t.dataset.shopTab) { state.shopTab = t.dataset.shopTab; if (state.shopTab === 'peaux') gamakoSay('Ma garde-robe… des peaux rares, cousues sous la lune. Elles ne sont pas données.'); renderShop(); return; }
-    if (t.dataset.skinPick) { state.skin = t.dataset.skinPick; renderShop(); return; }
-    if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear)) { wearSkin(t.dataset.skinWear); gamakoSay('Elle te va comme une seconde peau. Forcément.'); } return; }
-    if (t.dataset.skinBuy) {
+    if (t.dataset.skinTry) { state.tryOn = t.dataset.skinTry; Sfx.play('click'); renderSkins(); return; }
+    if (t.dataset.skinView) { state.skinView = t.dataset.skinView; Sfx.play('click'); renderSkins(); return; }
+    if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear)) { wearSkin(t.dataset.skinWear); Sfx.play('pickup'); renderSkins(); } return; }
+    if (t.dataset.skinBuy) { // seulement un skin du jour
       var sid = t.dataset.skinBuy, sk = PREMIUM_SKINS[sid];
-      if (sk && !ownsSkin(sid) && save.gold >= sk.price) { save.gold -= sk.price; save.skins.push(sid); Sfx.play('pickup'); wearSkin(sid); gamakoSay(sk.name + ' ! Fais-la briller, et n’en parle à personne.'); }
+      if (sk && !ownsSkin(sid) && skinsOfDay().indexOf(sid) >= 0 && save.gold >= sk.price) {
+        save.gold -= sk.price; save.skins.push(sid); Sfx.play('levelup'); wearSkin(sid); renderSkins();
+        notice(sk.name + ' est à toi ! Tu le portes déjà : il se voit partout, en combat comme au classement.');
+      }
       return;
     }
     if (t.id === 'sell-btn') {

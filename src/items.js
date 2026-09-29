@@ -334,7 +334,7 @@ function lookFor(equip) {
   var w = weaponOf(equip);
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
-  look.pattern = !playerHermit && heroSkin.pattern; // le motif de la peau (pas en mode Ermite)
+  look.skin = heroSkin.fx || null; // les signes du skin (même en mode Ermite)
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }
@@ -358,29 +358,54 @@ var EXTRA_SKINS = {
   corail: { name: 'Corail', g: '#9a3a4a', m: '#e0607a', l: '#ffa8b8', c: '#fff0f2' },
   nuit: { name: 'Nuit', g: '#241a3a', m: '#4a3a6b', l: '#8a78c0', c: '#e6e0f7' }
 };
-// Les peaux de la garde-robe de Gamako : chères, et avec un motif (x, q : ses couleurs) peint sur la grenouille
+// Les skins : chers, et vendus trois par jour (voir skinsOfDay). Leurs couleurs de peau (g, m, l, c), la palette de
+// leurs signes (pal, voir paintSkin dans looks.js), leurs signes (fx) et, pour certains, l'écharpe qu'ils imposent
+// (scarf : la langue d'Amphinobi, la collerette de bulles de Grenousse). Ils se voient aussi en mode Ermite.
 var PREMIUM_SKINS = {
-  cradopaud: { name: 'Cradopaud', price: 800, pattern: 'verrues', g: '#3e3a1a', m: '#6b6a2a', l: '#9a954a', c: '#d8cc8a', x: '#3a2e14', q: '#c8c070', desc: 'Couvert de verrues et fier de l’être. Il sent la vase de loin.' },
-  fraise: { name: 'Fraise des bois', price: 1000, pattern: 'bottes', g: '#8a1414', m: '#d8262a', l: '#ff6a5a', c: '#ffd0c8', x: '#2a50c9', desc: 'Rouge vif et pattes bleues, comme la petite grenouille des forêts de pluie.' },
-  dendrobate: { name: 'Dendrobate', price: 1200, pattern: 'taches', g: '#10307a', m: '#1f6ae0', l: '#6ab0ff', c: '#9ad0ff', x: '#0b0f1c', desc: 'Bleu électrique tacheté de noir : les prédateurs n’osent pas y toucher.' },
-  tigre: { name: 'Tigre des roseaux', price: 1400, pattern: 'rayures', g: '#8a4a0a', m: '#e08a1a', l: '#ffc060', c: '#fff0c8', x: '#2a1a0a', desc: 'Des rayures sombres sur fond orange : on ne la voit pas venir dans les roseaux.' },
-  amphinobi: { name: 'Amphinobi', price: 1500, pattern: 'masque', g: '#14141f', m: '#2a2a44', l: '#4a4a70', c: '#c9c4d8', x: '#c9412f', desc: 'La tenue des grenouilles ninjas : nuit d’encre et masque rouge sang.' },
-  sakura: { name: 'Sakura', price: 1600, pattern: 'taches', g: '#b85a7a', m: '#ff9ac0', l: '#ffd0e0', c: '#fff4f8', x: '#ffffff', desc: 'Rose comme les cerisiers du mont Kaeru, parsemée de pétales blancs.' },
-  verre: { name: 'Grenouille de verre', price: 1800, pattern: 'taches', g: '#5a9a7a', m: '#a8e0c0', l: '#e0fff0', c: '#f4fff8', x: '#f3d23a', desc: 'Presque transparente, avec de minuscules points d’or.' },
-  lune: { name: 'Lune d’argent', price: 2200, pattern: 'taches', g: '#6a7080', m: '#b8c0d0', l: '#eef2ff', c: '#ffffff', x: '#8a9ac8', desc: 'Pâle comme la lune des grottes, avec ses cratères bleutés.' },
-  braise: { name: 'Braise', price: 2500, pattern: 'rayures', g: '#1a0a08', m: '#3a1a14', l: '#6a2a1a', c: '#8a3a1a', x: '#ff7a1a', desc: 'Noire comme le charbon, fendue de lave qui rougeoie.' },
-  or: { name: 'Crapaud d’or', price: 4000, pattern: 'verrues', g: '#8a6a0a', m: '#e0b43a', l: '#fff0a0', c: '#fff8d8', x: '#fff6c0', q: '#b8862a', desc: 'La peau des empereurs du marais. Elle brille de mille lucioles.' }
+  cradopaud: { name: 'Cradopaud', price: 1200, g: '#1f2f6a', m: '#3a56b8', l: '#6a86e0', c: '#5a74cc',
+    pal: { e: '#f3d23a', U: '#14141f', O: '#f0892a', D: '#1a1c2c', W: '#f4f4e8' }, fx: ['yeux', 'cernes', 'masque', 'poches', 'bandes', 'doigts'],
+    desc: 'Bleu nuit, les joues gonflées de poison et les doigts orange. Son rire sonne comme un glouglou de vase.' },
+  grenousse: { name: 'Grenousse', price: 1000, g: '#2a78b0', m: '#5ab4ea', l: '#a0dcff', c: '#e8f6ff', scarf: ['#f4fbff', '#b8d0e8'],
+    pal: { e: '#f3dc4a', U: '#1f4a8a' }, fx: ['yeux', 'reflet', 'raie', 'bulles', 'bulles-nez'],
+    desc: 'Bleu ciel, emmitouflée dans sa collerette de bulles. Elle a l’air distraite… elle ne l’est jamais.' },
+  tarpaud: { name: 'Tarpaud', price: 1100, g: '#2e7a2a', m: '#5ab83a', l: '#9ae05a', c: '#f3e27a',
+    pal: { O: '#f8a0b8', U: '#3a8a2a', D: '#3a5a8a' }, fx: ['poches', 'spirale', 'boucle', 'mains-claires'],
+    desc: 'Le roi des mares : vert tendre, ventre jaune, et la mèche bouclée qui prouve son rang.' },
+  tartard: { name: 'Tartard', price: 1300, g: '#1f4a9a', m: '#3a70d8', l: '#7aa8f0', c: '#f4f6fa',
+    pal: { U: '#1a1c2c' }, fx: ['spirale', 'gants', 'colere'],
+    desc: 'Tout en muscles, gants blancs aux poings et spirale sur le ventre. Il traverse les lacs d’une traite.' },
+  amphinobi: { name: 'Amphinobi', price: 2000, g: '#141a4a', m: '#26307a', l: '#3f4ea8', c: '#f0e0a0', scarf: ['#f28a9a', '#c85a70'],
+    pal: { e: '#e0343a' }, fx: ['yeux', 'pupille-blanche', 'menton', 'triangles', 'crete'],
+    desc: 'Le grand ninja des eaux : bleu d’encre, yeux rouges, et sa longue langue rose nouée autour du cou.' },
+  gamatatsu: { name: 'Gamatatsu', price: 1200, g: '#a87a1a', m: '#f0c050', l: '#ffe08a', c: '#fff2c8',
+    pal: { U: '#f07a2a', V: '#2a4aa0', W: '#1a2a6a' }, fx: ['cernes', 'levres', 'courbes-ventre', 'veste'],
+    desc: 'Le cadet des crapauds du mont, jaune et tout rond, les yeux cerclés d’orange. Il pense surtout au goûter.' },
+  gamakichi: { name: 'Gamakichi', price: 1400, g: '#a8480a', m: '#f07a1a', l: '#ffb050', c: '#ffd8a8',
+    pal: { U: '#5a2a7a', V: '#2a4aa0', W: '#1a2a6a' }, fx: ['cernes', 'levres', 'taches-ventre', 'veste'],
+    desc: 'L’aîné, orange vif marqué de violet, dans sa veste bleue. Grande gueule, grand cœur.' },
+  gamaken: { name: 'Gamaken', price: 1800, g: '#8a1e48', m: '#d8487a', l: '#f282aa', c: '#f4b8cc',
+    pal: { U: '#1a1a24', V: '#1a1a24', W: '#f4f4f0', T: '#d8c8a0', G: '#8a7a5a' }, fx: ['cernes', 'cornes', 'veste', 'ceinture-blanche', 'bouclier'],
+    desc: 'Un géant rose aux cornes courtes, en kimono noir, son grand bouclier rond dans le dos. Maladroit, mais rien ne passe.' },
+  fukasaku: { name: 'Fukasaku', price: 2200, g: '#2e5a2a', m: '#5a9a4a', l: '#8ac070', c: '#dce4b0',
+    pal: { e: '#f3d23a', T: '#f4f4ee', V: '#6a3a2a', W: '#a0784a' }, fx: ['yeux', 'touffe', 'sourcils', 'barbiche', 'cape'],
+    desc: 'Le vieux sage du mont : touffe blanche, sourcils broussailleux et longue cape. Il en sait plus qu’il n’en dit.' },
+  gamabunta: { name: 'Gamabunta', price: 3000, g: '#6a1e1e', m: '#a8423a', l: '#d06a5a', c: '#e89a88',
+    pal: { U: '#ee3a2a', V: '#1f2a5a', W: '#e8e8f0', T: '#4a2e1a', O: '#ff8a2a', G: '#c0c0cc', K: '#3a0a0a' }, fx: ['cernes', 'levres', 'veste', 'kanji', 'pipe', 'cicatrice'],
+    desc: 'Le chef des crapauds du mont : peau de rouille, veste bleue, pipe au bec et cicatrice sur l’œil. Il ne se déplace pas pour rien.' }
 };
+// Les skins d'avant (retirés) : ceux qu'on avait achetés sont remboursés
+var RETIRED_SKINS = { fraise: 1000, dendrobate: 1200, tigre: 1400, sakura: 1600, verre: 1800, lune: 2200, braise: 2500, or: 4000 };
 function skinOf(id) { return SKINS[id] || PREMIUM_SKINS[id] || EXTRA_SKINS[id] || SKINS.marais; }
 
 // Couleurs du héros selon sa peau et son équipement
 function paletteFor(basePal, equip) {
-  var skin = playerHermit ? HERMIT_SKIN : heroSkin;
-  var pal = Object.assign({}, basePal, { g: skin.g, m: skin.m, l: skin.l, c: skin.c, X: skin.x || skin.g, Q: skin.q || skin.l });
+  var skin = playerHermit && !heroSkin.fx ? HERMIT_SKIN : heroSkin; // un skin l'emporte sur l'orange de l'Ermite
+  var pal = Object.assign({}, basePal, { g: skin.g, m: skin.m, l: skin.l, c: skin.c }, skin.pal || {});
   // Ermite : iris jaune (E), pupille en barre, marques rouge-orangé autour des yeux (Z)
   if (playerHermit) { pal.E = '#f3d23a'; pal.Z = '#b8321a'; }
   var scarf = ITEMS[equip.echarpe];
   if (scarf) { pal.r = scarf.scarf[0]; pal.R = scarf.scarf[1]; }
+  if (skin.scarf) { pal.r = skin.scarf[0]; pal.R = skin.scarf[1]; } // la langue, la collerette de bulles : pas d'écharpe par-dessus
   var weapon = weaponOf(equip);
   pal.t = weapon.blade; pal.a = weapon.wave[0]; pal.A = weapon.wave[1];
   var hat = ITEMS[equip.tete];
@@ -779,7 +804,7 @@ function newSave() {
     tower: 0, // le plus haut étage vaincu de la Tour des Cent Sages
     meditation: null, // { since } : la grenouille médite au camp depuis ce moment
     shopDay: '', rerolls: 0, // le jour du dernier arrivage de l'étal, et les relances payées ce jour-là
-    skins: [], // les peaux achetées à la garde-robe
+    skins: [], // les skins achetés
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 }
   };
@@ -845,7 +870,11 @@ function parseSave(data) {
   save.gifts = Array.isArray(data.gifts) ? data.gifts.filter(function (id) { return typeof id === 'string'; }).slice(-50) : [];
   save.tower = Math.min(100, int(data.tower, 0) || 0);
   if (typeof data.shopDay === 'string') { save.shopDay = data.shopDay.slice(0, 12); save.rerolls = Math.min(SHOP_REROLL_MAX, int(data.rerolls, 0) || 0); }
-  if (Array.isArray(data.skins)) save.skins = data.skins.filter(function (id) { return PREMIUM_SKINS[id]; });
+  if (Array.isArray(data.skins)) {
+    save.skins = data.skins.filter(function (id) { return PREMIUM_SKINS[id]; });
+    var back = data.skins.filter(function (id) { return RETIRED_SKINS[id]; }), refund = back.reduce(function (s, id) { return s + RETIRED_SKINS[id]; }, 0);
+    if (refund) { save.gold += refund; if (save.hero) save.notice = 'Les skins ont été refaits : ' + (back.length > 1 ? 'tes anciens skins te sont remboursés' : 'ton ancien skin t’est remboursé') + ' (' + refund + ' lucioles). Trois nouveaux skins t’attendent chaque jour !'; }
+  }
   if (data.hero && PREMIUM_SKINS[data.hero.skin] && save.skins.indexOf(data.hero.skin) >= 0) save.hero.skin = data.hero.skin; // une peau achetée
   if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};

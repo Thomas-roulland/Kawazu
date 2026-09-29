@@ -56,7 +56,7 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 
 ## Le menu
 
-Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique), **les aventures**
+Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique, Skins), **les aventures**
 (Carte du monde, Tour des Sages, Cascade des duels, Clans) et **la collection** (Album, Classement). En bas : sauvegarde, son (touche M).
 Les **lucioles** sont la monnaie du jeu.
 
@@ -71,9 +71,10 @@ Les **lucioles** sont la monnaie du jeu.
   les caractéristiques en cartes détaillées (base de la voie, points répartis × la voie, dalles du Temple, objets ;
   ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** (PV, dégâts, critique,
   esquive, initiative, puissance et relance des sorts, passifs : chaque chiffre avec son calcul), les **hauts faits**
-  et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance).
-  Un bandeau dit où mettre ses points (l’**attribut principal**, en tête et en or, puis la **Vitalité** ; le reste est un bonus),
-  et « **Répartir pour moi** » place les points libres : 60 % dans l’attribut principal, 40 % en Vitalité.
+  et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance). « **Vendre en masse** » : on coche
+  les objets (ou par rareté : communs, rares, tout), le total s'affiche et on vend d'un coup ; les objets équipés restent.
+  Les cartes des caractéristiques mettent l’**attribut principal** en tête (en or), puis la **Vitalité** ; le reste est
+  un bonus. « **Répartir pour moi** » place les points libres : 60 % dans l’attribut principal, 40 % en Vitalité.
   « **Répartir à nouveau** » rend gratuitement tous les points de caractéristique déjà placés (confirmé d’un second clic).
 - **La Voie** : le **Temple des voies**, en plein écran. On choisit d’abord sa voie en **plongeant** dans l’une des trois
   flaques : c’est **définitif** (« Changer de voie » ou le Thé de l’oubli font tout oublier et rendent les points,
@@ -117,9 +118,16 @@ Les **lucioles** sont la monnaie du jeu.
   s’écrit en même temps) ; un clic sur elle lui fait raconter autre chose. Elle vend 5 objets
   et le **Thé de l’oubli**, qui rend tous les points de voie. L’étal se renouvelle **chaque jour** ; on peut le relancer
   **5 fois par jour** au plus, et chaque relance coûte le double de la précédente (le prix de départ suit le niveau).
-  La **garde-robe** vend 10 peaux à motifs (Cradopaud, Fraise des bois, Dendrobate, Tigre des roseaux, Amphinobi, Sakura,
-  Grenouille de verre, Lune d’argent, Braise, Crapaud d’or : de 800 à 4 000 lucioles) ; les 6 couleurs de départ y sont
-  gratuites. La peau portée se voit partout, jusqu’au classement et à la cascade.
+- **Skins** : une cabane en plein écran (planches, fenêtre ronde sous la lune, lanternes, portants de kimonos) ; la
+  grenouille est **au milieu**, sur son tapis, et **essaie** le skin choisi (de face, de profil ou de dos, avec son
+  équipement). **Trois skins par jour** sont en vente, tirés parmi les 10 et les mêmes pour tout le monde (renouvelés
+  à minuit) : Cradopaud, Grenousse, Tarpaud, Tartard, Amphinobi (des grenouilles à la Pokémon) et Gamatatsu,
+  Gamakichi, Gamaken, Fukasaku, Gamabunta (les crapauds du mont, à la Naruto), de 1 000 à 3 000 lucioles. Chacun a ses
+  signes : la langue rose d’Amphinobi nouée en écharpe, la collerette de bulles de Grenousse, le masque et les poches
+  de Cradopaud, la mèche de Tarpaud, la spirale et les gants de Tartard, la veste bleue, la pipe et la cicatrice de
+  Gamabunta, le kimono noir et le bouclier de Gamaken, la touffe et la cape de Fukasaku… Les skins achetés et les
+  6 couleurs de départ se portent depuis la garde-robe. Le skin se voit partout (même en mode Ermite), jusqu’au
+  classement et aux clans. Les anciennes peaux ont été remboursées.
 - **Tour des Sages** : **la Tour des Cent Sages**, « les Épreuves des Anciens Sages », au sommet du mont Kaeru.
   La tour est une **pagode dessinée en pixel art** étage par étage (toits de tuiles de jade aux coins relevés, murs
   de papier aux fenêtres allumées, piliers laqués, balcons et lanternes ; toit d’or pour les Grands Sages), posée
@@ -146,7 +154,8 @@ Les **lucioles** sont la monnaie du jeu.
     2e et 3e, puis 150 et 100 lucioles. Le classement des duels est dans la page Classement (onglet Duels).
   - **Entraînement** : l’**arbre d’entraînement**, 10 tours pour tester équipement, points et sorts, immobile ou
     qui riposte, puis le bilan (dégâts, par tour, meilleur coup, critiques, dégâts reçus). Sans récompense ni limite.
-- **Clans** (avec un compte) : les guildes du marais. On **fonde** un clan (300 lucioles, un nom et un emblème)
+- **Clans** (avec un compte) : les guildes du marais. On **fonde** un clan (300 lucioles, un nom et un **blason** :
+  5 icônes — grenouille, nénuphar, shuriken, katanas, lune —, 8 fonds et 6 couleurs de motif ; le chef peut le changer)
   ou on en **rejoint** un, jusqu’à **10 grenouilles** ; un chef qui part laisse sa place, un clan vide disparaît.
   Le **chef** peut **exclure** une grenouille (deux clics) : elle l’apprend en revenant et ne peut pas revenir avant 3 jours.
   - **L’Alpha** : une créature géante (Limon Alpha, Frelon Alpha, Champi Titan, Chauve-souris Alpha, Héron Alpha,
@@ -156,10 +165,16 @@ Les **lucioles** sont la monnaie du jeu.
     plus à chaque Alpha, et il s’enrage sous la moitié de ses PV. Quand il tombe, **chaque grenouille du clan qui l’a
     attaqué** reçoit sa part (300 lucioles, +200 par Alpha, et 30 % d’un niveau d’XP) : rejoindre un clan juste avant
     la chute, sans combattre, ne rapporte rien. Le clan gagne de la renommée, et un Alpha plus fort arrive.
-  - **Les joutes** : **3 par jour**, contre la grenouille d’un autre clan (niveau proche), jouée par l’ordinateur
-    avec son vrai équipement. Victoire : +6 renommée pour son clan (−2 pour l’autre) ; défaite : +1.
-  - La page montre le clan (membres, leurs dégâts sur l’Alpha en cours, qui a sa part), l’Alpha, les joutes, le
-    classement des clans par renommée et le journal.
+  - **La guerre** : il faut **au moins 5 grenouilles** dans le clan ; son chef la déclare à un autre clan qui en a
+    autant (et qui n’est pas déjà en guerre). Pendant **24 h**, chaque grenouille des deux camps (celles du jour de la
+    déclaration) a **3 combats** contre les grenouilles d’en face, jouées par l’ordinateur avec leur vrai équipement.
+    Une première victoire sur une grenouille vaut 3 points si elle est au moins de ton niveau, 2 sinon ; les suivantes,
+    1 point. À la fin, le clan qui a le plus de points gagne 30 renommée (10 chacun en cas d’égalité) ; ses combattants
+    reçoivent 400 lucioles et de l’XP, ceux d’en face 100 lucioles. Deux clans attendent 3 jours avant de se refaire la
+    guerre ; quitter un combat, c’est le perdre.
+  - La page montre le clan (membres, leurs dégâts sur l’Alpha en cours, qui a sa part), la guerre (le score, le temps
+    qui reste, les grenouilles d’en face, son journal) ou les clans à défier, l’Alpha, le classement des clans par
+    renommée et le journal.
 - **Album** : un grand **livre** à feuilleter : la page tourne vraiment autour de la reliure (flèches, touches ← →, ou les
   marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets).
   Le sommaire donne les chapitres et les **récompenses** à réclamer (paliers de découvertes : lucioles, XP, et au
@@ -229,7 +244,7 @@ puissance des voies.
 - `src/cascade.js` : le décor de la Cascade des duels (page et arène, eau animée) ; les duels eux-mêmes sont dans `src/hub.js` et `src/battle.js` (et côté serveur, les routes `/api/dojo`) ; les Clans sont dans `src/hub.js` (et `/api/clans` côté serveur), leurs Alphas dans `src/worlds.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
-- `src/looks.js` : équipement visible, ondes de choc, kunaï lancé, espèces de monstres
+- `src/looks.js` : équipement visible, signes des skins (paintSkin), ondes de choc, kunaï lancé, espèces de monstres
 - `src/biomes.js` : les 6 biomes (décor, monstres, boss)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles

@@ -17,12 +17,15 @@
 //   POST /api/dojo/:id/duel { adversaire, victoire }    le résultat d'un duel : réputation des deux grenouilles
 //   POST /api/dojo/:id/cadeaux { ids }                  les cadeaux reçus par le jeu (lundi, Alphas des clans)
 //   GET  /api/clans/:id                                 le clan d'une grenouille (membres, Alpha, journal), la liste des
-//                                                       clans, ses attaques et joutes du jour, ses cadeaux
-//   POST /api/clans/:id/fonder { nom, embleme }         fonde un clan ; POST .../rejoindre { clan } ; POST .../quitter
+//                                                       clans, ses attaques du jour contre l'Alpha, ses cadeaux
+//                                                       (et sa guerre, ou les clans à qui la déclarer)
+//   POST /api/clans/:id/fonder { nom, blason }          fonde un clan ; POST .../rejoindre { clan } ; POST .../quitter
+//   POST /api/clans/:id/blason { blason }               le chef change le blason (icône, fond, motif)
 //   POST /api/clans/:id/exclure { membre }              le chef exclut une grenouille (qui ne peut pas revenir avant 3 jours)
 //   POST /api/clans/:id/raid { degats }                 une attaque contre l'Alpha de son clan
-//   GET  /api/clans/:id/joute                           une grenouille d'un autre clan à défier
-//   POST /api/clans/:id/joute { adversaire, victoire }  le résultat de la joute : de la renommée pour son clan
+//   POST /api/clans/:id/guerre { cible }                le chef déclare la guerre à un autre clan (5 grenouilles au moins)
+//   POST /api/clans/:id/defi { adversaire }             un combat de la guerre : la fiche de la grenouille d'en face
+//   POST /api/clans/:id/combat { adversaire, victoire } son résultat : des points pour son clan
 //
 // Les données passent par un petit magasin clé -> valeur :
 //   - en ligne : Upstash Redis, par son API REST (variables KV_REST_API_URL et KV_REST_API_TOKEN, posées par
@@ -31,7 +34,8 @@
 // Clés : compte:<id>, pseudo:<pseudo en minuscules> -> id, session:<jeton> (expire toute seule), grenouille:<id>,
 // essais:<adresse> (compteur des tentatives de connexion), les tableaux classement (id -> fiche) et reputation
 // (id -> points), dojo:<id> (duels du jour, journal), cadeaux:<id>, dojo-semaine (la semaine en cours),
-// clan:<id>, clans (id -> résumé), clan-de:<grenouille>, clan-jour:<grenouille>, clan-exclu:<grenouille> (voir « Les Clans »).
+// clan:<id>, clans (id -> résumé), clan-de:<grenouille>, clan-jour:<grenouille>, clan-exclu:<grenouille>, guerre:<id>
+// (voir « Les Clans »).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -41,7 +45,7 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['cradopaud', 'fraise', 'dendrobate', 'tigre', 'amphinobi', 'sakura', 'verre', 'lune', 'braise', 'or']);
+const ALL_SKINS = SKINS.concat(['cradopaud', 'grenousse', 'tarpaud', 'tartard', 'amphinobi', 'gamatatsu', 'gamakichi', 'gamaken', 'fukasaku', 'gamabunta']);
 // la peau portée : celle de la sauvegarde si elle est connue, sinon celle de la création
 const skinOfFrog = (f) => { const k = f.save && f.save.hero && f.save.hero.skin; return ALL_SKINS.indexOf(k) >= 0 ? k : f.peau; };
 const ON_VERCEL = !!process.env.VERCEL;
@@ -328,24 +332,36 @@ async function dojoRoute(req, res, account, id, action, method) {
 }
 
 // ---------- Les Clans (les guildes du marais) ----------
-// Un clan réunit jusqu'à CLAN_MAX grenouilles. Ensemble, elles affrontent un Alpha : une créature géante aux PV
-// partagés ; chaque grenouille l'attaque RAIDS_PAR_JOUR fois par jour (le combat se joue dans le navigateur, pendant
-// RAID_TOURS tours, et envoie ses dégâts). Quand il tombe, chaque grenouille du clan qui l'a attaqué reçoit sa part
-// (raid.parts : les dégâts de chacune sur cet Alpha), et un Alpha plus fort arrive.
-// Les joutes opposent une grenouille à celle d'un autre clan : la victoire rapporte de la renommée à son clan.
+// Un clan réunit jusqu'à CLAN_MAX grenouilles, sous un blason (une icône, un fond, une couleur de motif). Ensemble,
+// elles affrontent un Alpha : une créature géante aux PV partagés ; chaque grenouille l'attaque RAIDS_PAR_JOUR fois
+// par jour (le combat se joue dans le navigateur, pendant RAID_TOURS tours, et envoie ses dégâts). Quand il tombe,
+// chaque grenouille du clan qui l'a attaqué reçoit sa part (raid.parts), et un Alpha plus fort arrive.
+// Les guerres : un clan d'au moins GUERRE_MIN grenouilles la déclare (son chef) à un autre qui en a autant. Pendant
+// GUERRE_DUREE, chaque grenouille des deux camps (ceux du jour de la déclaration) a GUERRE_ATTAQUES combats contre
+// les grenouilles d'en face ; chaque victoire rapporte des points à son clan. À la fin, le clan qui en a le plus
+// gagne de la renommée, et ceux qui ont combattu reçoivent leur part. Deux clans attendent GUERRE_REPOS avant de se
+// refaire la guerre. Une guerre se termine quand quelqu'un la regarde après sa fin (settleWar).
 // Le chef peut exclure une grenouille : elle ne peut pas revenir avant EXCLU_JOURS jours.
 // Clés : clan:<id> (le clan), clans (tableau id -> résumé public), clan-de:<grenouille> -> id de son clan,
-// clan-jour:<grenouille> (ses attaques et ses joutes du jour), clan-exclu:<grenouille> (le nom du clan qui l'a exclue,
-// pour le lui dire une fois).
+// clan-jour:<grenouille> (ses attaques du jour contre l'Alpha), clan-exclu:<grenouille> (le nom du clan qui l'a
+// exclue, pour le lui dire une fois), guerre:<id> (une guerre et son journal).
 const CLANS = 'clans';
-const CLAN_MAX = 10, RAIDS_PAR_JOUR = 2, JOUTES_PAR_JOUR = 3, RAID_TOURS = 10, EMBLEMES = 8, EXCLU_JOURS = 3;
+const CLAN_MAX = 10, RAIDS_PAR_JOUR = 2, RAID_TOURS = 10, EXCLU_JOURS = 3;
+const BLASON = { icone: 5, fond: 8, motif: 6 }; // le nombre d'icônes, de fonds et de couleurs de motif (voir le jeu)
+const GUERRE_MIN = 5, GUERRE_DUREE = +process.env.KAWAZU_GUERRE_MS || 24 * 3600e3, GUERRE_ATTAQUES = 3, GUERRE_REPOS = 3 * 86400e3; // (une guerre plus courte pour les tests)
 const alphaHp = (rang) => Math.round(20000 * Math.pow(1.6, rang)); // la même règle que le jeu (src/worlds.js)
-const clanSummary = (m) => ({ id: m.id, nom: m.nom, embleme: m.embleme, membres: m.membres.length, renommee: m.renommee, rang: m.raid.rang, chef: m.chefNom });
+const parseBlason = (v) => { v = v && typeof v === 'object' ? v : {}; return { icone: num(v.icone, BLASON.icone - 1), fond: num(v.fond, BLASON.fond - 1), motif: num(v.motif, BLASON.motif - 1) }; };
+const clanSummary = (m) => ({ id: m.id, nom: m.nom, blason: m.blason, membres: m.membres.length, renommee: m.renommee, rang: m.raid.rang, chef: m.chefNom, guerreFin: m.guerre ? m.guerreFin : 0 });
 async function saveClan(m) { await Promise.all([store.set('clan:' + m.id, m), store.hset(CLANS, m.id, clanSummary(m))]); }
-async function clanOf(frogId) { const id = await store.get('clan-de:' + frogId); return id ? store.get('clan:' + id) : null; }
-async function clanDay(frogId) { // les attaques et les joutes repartent à zéro chaque jour
-  const r = (await store.get('clan-jour:' + frogId)) || { jour: '', raids: 0, joutes: 0, offerts: [] }, today = parisDay(new Date());
-  if (r.jour !== today) { r.jour = today; r.raids = 0; r.joutes = 0; r.offerts = []; }
+async function loadClan(id) {
+  const m = id ? await store.get('clan:' + id) : null;
+  if (m) { m.blason = m.blason || { icone: 0, fond: num(m.embleme, BLASON.fond - 1), motif: 0 }; m.repos = m.repos || {}; m.guerre = m.guerre || null; }
+  return m;
+}
+async function clanOf(frogId) { return loadClan(await store.get('clan-de:' + frogId)); }
+async function clanDay(frogId) { // les attaques contre l'Alpha repartent à zéro chaque jour
+  const r = (await store.get('clan-jour:' + frogId)) || { jour: '', raids: 0 }, today = parisDay(new Date());
+  if (r.jour !== today) { r.jour = today; r.raids = 0; }
   return r;
 }
 function clanLog(m, entry) { m.journal = [Object.assign({ t: Date.now() }, entry)].concat(m.journal || []).slice(0, 20); }
@@ -362,22 +378,62 @@ async function leaveClan(frogId) {
   await saveClan(m);
   return m;
 }
+// La fin d'une guerre : renommée, parts pour ceux qui ont combattu, repos entre les deux clans
+async function settleWar(w) {
+  if (!w || w.finie || Date.now() < w.fin) return w;
+  w.finie = true;
+  const score = (side) => w.scores[w[side].id] || 0, other = (side) => (side === 'a' ? 'b' : 'a');
+  const winner = score('a') > score('b') ? 'a' : (score('b') > score('a') ? 'b' : null);
+  w.resultat = winner ? w[winner].id : 'nul';
+  for (const side of ['a', 'b']) {
+    const c = await loadClan(w[side].id), o = w[other(side)];
+    if (!c) continue;
+    const res = !winner ? 'nulle' : (winner === side ? 'victoire' : 'defaite');
+    c.renommee += res === 'victoire' ? 30 : (res === 'nulle' ? 10 : 0);
+    if (c.guerre === w.id) c.guerre = null;
+    c.repos[o.id] = Date.now();
+    c.derniereGuerre = { contre: o.nom, resultat: res, nous: score(side), eux: score(other(side)), t: Date.now() };
+    clanLog(c, { type: 'guerre-fin', contre: o.nom, resultat: res, nous: score(side), eux: score(other(side)) });
+    const gift = { id: 'guerre-' + w.id.slice(0, 8) + '-' + side, source: 'guerre', clan: c.nom, contre: o.nom, resultat: res,
+      lucioles: res === 'victoire' ? 400 : (res === 'nulle' ? 200 : 100), xpNiveau: res === 'victoire' ? 0.25 : 0 };
+    const fought = w[side].membres.filter((f) => (w.attaques[f] || 0) > 0);
+    await Promise.all(fought.map(async (f) => { const key = 'cadeaux:' + f, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }));
+    await saveClan(c);
+  }
+  await store.set('guerre:' + w.id, w);
+  return w;
+}
+function warView(w, m, id, fiches) { // la guerre, vue d'un camp
+  const us = w.a.id === m.id ? 'a' : 'b', them = us === 'a' ? 'b' : 'a';
+  return {
+    id: w.id, contre: { id: w[them].id, nom: w[them].nom, blason: w[them].blason }, debut: w.debut, fin: w.fin,
+    nous: w.scores[w[us].id] || 0, eux: w.scores[w[them].id] || 0, max: GUERRE_ATTAQUES,
+    engagee: w[us].membres.indexOf(id) >= 0, restants: w[us].membres.indexOf(id) >= 0 ? GUERRE_ATTAQUES - (w.attaques[id] || 0) : 0,
+    ennemis: w[them].membres.filter((f) => fiches[f]).map((f) => Object.assign({ battue: w.battus[f] || 0 }, fiches[f])),
+    journal: (w.journal || []).slice(0, 12)
+  };
+}
 async function clanRoute(req, res, account, id, action, method) {
   const fiches = await store.hgetall(RANK), me = fiches[id] || { nom: 'Une grenouille', niveau: 1 };
   if (!action && method === 'GET') {
-    const [m, day, all, gifts, exclu] = await Promise.all([clanOf(id), clanDay(id), store.hgetall(CLANS), store.get('cadeaux:' + id), store.get('clan-exclu:' + id)]);
-    const liste = Object.values(all).sort((a, b) => b.renommee - a.renommee || b.rang - a.rang).slice(0, 30);
+    let m = await clanOf(id);
+    if (m && m.guerre) { const w = await settleWar(await store.get('guerre:' + m.guerre)); if (!w || w.finie) m = await clanOf(id); }
+    const [day, all, gifts, exclu] = await Promise.all([clanDay(id), store.hgetall(CLANS), store.get('cadeaux:' + id), store.get('clan-exclu:' + id)]);
+    const liste = Object.values(all).sort((a, b) => b.renommee - a.renommee || b.rang - a.rang);
     const out = {
-      clan: null, liste: liste, max: CLAN_MAX, tours: RAID_TOURS, cadeaux: gifts || [], exclu: exclu || null,
-      raids: RAIDS_PAR_JOUR - day.raids, raidsMax: RAIDS_PAR_JOUR, joutes: JOUTES_PAR_JOUR - day.joutes, joutesMax: JOUTES_PAR_JOUR
+      clan: null, liste: liste.slice(0, 30), max: CLAN_MAX, tours: RAID_TOURS, cadeaux: gifts || [], exclu: exclu || null,
+      raids: RAIDS_PAR_JOUR - day.raids, raidsMax: RAIDS_PAR_JOUR, guerreMin: GUERRE_MIN, guerre: null, cibles: []
     };
     if (exclu) await store.del('clan-exclu:' + id); // on ne le dit qu'une fois
     if (m) {
       out.clan = Object.assign({}, m, {
-        bannis: undefined,
+        bannis: undefined, repos: undefined,
         membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0 }, fiches[f] || { id: f, nom: '?' })),
         place: liste.findIndex((x) => x.id === m.id) + 1
       });
+      if (m.guerre) { const w = await store.get('guerre:' + m.guerre); if (w) out.guerre = warView(w, m, id, fiches); }
+      else out.cibles = liste.filter((c) => c.id !== m.id && c.membres >= GUERRE_MIN && !(c.guerreFin > Date.now()) && !((m.repos[c.id] || 0) + GUERRE_REPOS > Date.now()))
+        .map((c) => ({ id: c.id, nom: c.nom, blason: c.blason, membres: c.membres, renommee: c.renommee }));
     }
     return send(res, 200, out);
   }
@@ -388,8 +444,8 @@ async function clanRoute(req, res, account, id, action, method) {
     const all = await store.hgetall(CLANS);
     if (Object.values(all).some((x) => x.nom.toLowerCase() === nom.toLowerCase())) return send(res, 409, { erreur: 'Un clan porte déjà ce nom.' });
     const m = {
-      id: crypto.randomUUID(), nom: nom, embleme: clamp(num(b.embleme, EMBLEMES - 1), 0, EMBLEMES - 1), chef: id, chefNom: me.nom, membres: [id],
-      cree: Date.now(), renommee: 0, raid: { rang: 0, pv: alphaHp(0), pvMax: alphaHp(0), vaincus: 0, parts: {} }, contributions: {}, bannis: {}, journal: []
+      id: crypto.randomUUID(), nom: nom, blason: parseBlason(b.blason), chef: id, chefNom: me.nom, membres: [id],
+      cree: Date.now(), renommee: 0, raid: { rang: 0, pv: alphaHp(0), pvMax: alphaHp(0), vaincus: 0, parts: {} }, contributions: {}, bannis: {}, repos: {}, guerre: null, journal: []
     };
     clanLog(m, { type: 'fonde', nom: me.nom });
     await saveClan(m);
@@ -399,7 +455,7 @@ async function clanRoute(req, res, account, id, action, method) {
   if (action === 'rejoindre' && method === 'POST') {
     const b = await readBody(req, 4096);
     if (await store.get('clan-de:' + id)) return send(res, 400, { erreur: 'Ta grenouille est déjà dans un clan : quitte-le d’abord.' });
-    const m = await store.get('clan:' + String(b.clan || '').slice(0, 64));
+    const m = await loadClan(String(b.clan || '').slice(0, 64));
     if (!m) return send(res, 404, { erreur: 'Ce clan n’existe plus.' });
     const ban = (m.bannis || {})[id];
     if (ban && ban > Date.now()) return send(res, 403, { erreur: 'Ta grenouille a été exclue de ce clan : elle pourra y revenir dans ' + Math.ceil((ban - Date.now()) / 3600e3) + ' h.' });
@@ -417,6 +473,13 @@ async function clanRoute(req, res, account, id, action, method) {
   }
   const m = await clanOf(id);
   if (!m) return send(res, 400, { erreur: 'Ta grenouille n’est dans aucun clan.' });
+  if (action === 'blason' && method === 'POST') {
+    const b = await readBody(req, 4096);
+    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut changer son blason.' });
+    m.blason = parseBlason(b.blason);
+    await saveClan(m);
+    return send(res, 200, { ok: true, blason: m.blason });
+  }
   if (action === 'exclure' && method === 'POST') {
     const b = await readBody(req, 4096), target = String(b.membre || '');
     if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut exclure une grenouille.' });
@@ -455,41 +518,50 @@ async function clanRoute(req, res, account, id, action, method) {
     await Promise.all([saveClan(m), store.set('clan-jour:' + id, day)]);
     return send(res, 200, { degats: deg, pv: r.pv, pvMax: r.pvMax, rang: r.rang, vaincu: vaincu, restants: RAIDS_PAR_JOUR - day.raids });
   }
-  if (action === 'joute' && method === 'GET') {
-    const day = await clanDay(id), all = await store.hgetall(CLANS), others = [];
-    for (const cid of Object.keys(all)) {
-      if (cid === m.id) continue;
-      const oc = await store.get('clan:' + cid);
-      if (oc) oc.membres.forEach((f) => { if (fiches[f] && account.grenouilles.indexOf(f) < 0) others.push({ f: f, clan: oc }); });
-    }
-    if (!others.length) return send(res, 200, { adversaire: null });
-    // une grenouille de niveau proche, avec un peu de hasard
-    const gap = (o) => Math.abs(fiches[o.f].niveau - me.niveau) + Math.random() * 6;
-    others.sort((a, b) => gap(a) - gap(b));
-    const pick = others[0], frog = await store.get('grenouille:' + pick.f);
-    if (!frog) return send(res, 200, { adversaire: null });
-    const card = Object.assign(combatCard(frog, fiches[pick.f], 0), { clan: pick.clan.nom, embleme: pick.clan.embleme });
-    day.offerts = [{ id: pick.f, clan: pick.clan.id }];
-    await store.set('clan-jour:' + id, day);
-    return send(res, 200, { adversaire: card });
+  if (action === 'guerre' && method === 'POST') { // le chef déclare la guerre à un autre clan
+    const b = await readBody(req, 4096);
+    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut déclarer une guerre.' });
+    if (m.guerre) { const cur = await settleWar(await store.get('guerre:' + m.guerre)); if (cur && !cur.finie) return send(res, 400, { erreur: 'Ton clan est déjà en guerre.' }); m.guerre = null; }
+    if (m.membres.length < GUERRE_MIN) return send(res, 400, { erreur: 'Il faut au moins ' + GUERRE_MIN + ' grenouilles dans le clan pour partir en guerre.' });
+    const o = await loadClan(String(b.cible || '').slice(0, 64));
+    if (!o || o.id === m.id) return send(res, 404, { erreur: 'Ce clan n’existe plus.' });
+    if (o.membres.length < GUERRE_MIN) return send(res, 400, { erreur: 'Ce clan n’a pas encore ' + GUERRE_MIN + ' grenouilles : pas de guerre contre lui.' });
+    if (o.guerre) { const cur = await settleWar(await store.get('guerre:' + o.guerre)); if (cur && !cur.finie) return send(res, 400, { erreur: 'Ce clan est déjà en guerre.' }); o.guerre = null; }
+    if ((m.repos[o.id] || 0) + GUERRE_REPOS > Date.now()) return send(res, 400, { erreur: 'Vos deux clans se sont fait la guerre il y a peu : attendez encore un peu.' });
+    const now = Date.now(), side = (c) => ({ id: c.id, nom: c.nom, blason: c.blason, membres: c.membres.slice() });
+    const w = { id: crypto.randomUUID(), a: side(m), b: side(o), debut: now, fin: now + GUERRE_DUREE, scores: {}, attaques: {}, battus: {}, offres: {}, journal: [], finie: false };
+    w.journal.unshift({ t: now, type: 'declaration', nom: me.nom, clan: m.nom });
+    m.guerre = o.guerre = w.id; m.guerreFin = o.guerreFin = w.fin;
+    clanLog(m, { type: 'guerre', nom: me.nom, contre: o.nom, declaree: true });
+    clanLog(o, { type: 'guerre', nom: me.nom, contre: m.nom, declaree: false });
+    await Promise.all([store.set('guerre:' + w.id, w), saveClan(m), saveClan(o)]);
+    return send(res, 201, { ok: true, id: w.id });
   }
-  if (action === 'joute' && method === 'POST') {
-    const b = await readBody(req, 4096), day = await clanDay(id);
-    const opp = (day.offerts || []).filter((o) => o.id === b.adversaire)[0];
-    if (!opp) return send(res, 400, { erreur: 'Cette joute n’est plus proposée : cherche un autre adversaire.' });
-    if (day.joutes >= JOUTES_PAR_JOUR) return send(res, 429, { erreur: 'Plus de joutes aujourd’hui : reviens demain !' });
-    day.joutes++;
-    day.offerts = [];
-    const win = !!b.victoire, gain = win ? 6 : 1, oc = await store.get('clan:' + opp.clan), them = (fiches[opp.id] || {}).nom || '?';
-    m.renommee += gain;
-    clanLog(m, { type: 'joute', nom: me.nom, adverse: them, clanAdverse: oc ? oc.nom : '?', victoire: win, gain: gain });
-    if (oc) {
-      if (win) oc.renommee = Math.max(0, oc.renommee - 2);
-      clanLog(oc, { type: 'joute-subie', nom: them, adverse: me.nom, clanAdverse: m.nom, victoire: !win });
-      await saveClan(oc);
+  if ((action === 'defi' || action === 'combat') && method === 'POST') { // un combat de la guerre : l'adversaire, puis le résultat
+    const b = await readBody(req, 4096), w = m.guerre ? await settleWar(await store.get('guerre:' + m.guerre)) : null;
+    if (!w || w.finie) return send(res, 400, { erreur: 'Ton clan n’est pas en guerre.' });
+    const us = w.a.id === m.id ? 'a' : 'b', them = us === 'a' ? 'b' : 'a', target = String(b.adversaire || '');
+    if (w[us].membres.indexOf(id) < 0) return send(res, 403, { erreur: 'Ta grenouille est arrivée après la déclaration : elle ne combat pas dans cette guerre.' });
+    if ((w.attaques[id] || 0) >= GUERRE_ATTAQUES) return send(res, 429, { erreur: 'Tu as déjà livré tes ' + GUERRE_ATTAQUES + ' combats de cette guerre.' });
+    if (w[them].membres.indexOf(target) < 0 || !fiches[target]) return send(res, 404, { erreur: 'Cette grenouille ne combat pas dans cette guerre.' });
+    if (action === 'defi') {
+      const frog = await store.get('grenouille:' + target);
+      if (!frog) return send(res, 404, { erreur: 'Cette grenouille a disparu.' });
+      w.offres[id] = target;
+      await store.set('guerre:' + w.id, w);
+      return send(res, 200, { adversaire: Object.assign(combatCard(frog, fiches[target], 0), { clan: w[them].nom, blason: w[them].blason }) });
     }
-    await Promise.all([saveClan(m), store.set('clan-jour:' + id, day)]);
-    return send(res, 200, { gain: gain, renommee: m.renommee, restants: JOUTES_PAR_JOUR - day.joutes });
+    if (w.offres[id] !== target) return send(res, 400, { erreur: 'Ce combat n’est plus proposé.' });
+    delete w.offres[id];
+    w.attaques[id] = (w.attaques[id] || 0) + 1;
+    const win = !!b.victoire, first = !w.battus[target];
+    // une première victoire sur une grenouille vaut 3 points si elle est au moins de ton niveau, 2 sinon ; les suivantes, 1
+    const pts = !win ? 0 : (!first ? 1 : ((fiches[target].niveau || 1) >= (me.niveau || 1) ? 3 : 2));
+    if (win) { w.battus[target] = (w.battus[target] || 0) + 1; w.scores[m.id] = (w.scores[m.id] || 0) + pts; }
+    w.journal.unshift({ t: Date.now(), type: 'combat', nom: me.nom, clan: m.nom, adverse: fiches[target].nom, victoire: win, pts: pts });
+    w.journal = w.journal.slice(0, 40);
+    await store.set('guerre:' + w.id, w);
+    return send(res, 200, { gain: pts, restants: GUERRE_ATTAQUES - w.attaques[id], nous: w.scores[m.id] || 0, eux: w.scores[w[them].id] || 0 });
   }
   return send(res, 404, { erreur: 'Route inconnue.' });
 }
@@ -555,7 +627,7 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(dj[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return dojoRoute(req, res, account, dj[1], dj[2], method);
   }
-  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|raid|joute))?$/.exec(p);
+  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|blason|raid|guerre|defi|combat))?$/.exec(p);
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return clanRoute(req, res, account, cl[1], cl[2], method);

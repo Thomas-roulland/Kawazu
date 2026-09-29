@@ -150,7 +150,7 @@ var BattleScene = (function () {
       $('bt-enemy-hp').style.width = '100%';
       $('bt-enemy-hptext').textContent = 'Dégâts : ' + fight.stats.total;
     } else {
-      $('bt-enemy-lvl').textContent = fight.kind === 'raid' ? 'Niv. ' + E.level + ' · ALPHA · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'joute' ? ' · JOUTE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
+      $('bt-enemy-lvl').textContent = fight.kind === 'raid' ? 'Niv. ' + E.level + ' · ALPHA · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'guerre' ? ' · GUERRE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
       $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
       $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
     }
@@ -1183,7 +1183,7 @@ var BattleScene = (function () {
     var title = fight.kind === 'raid' ? (E.hp <= 0 ? 'L’Alpha est tombé !' : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
     showEnd(win, html, title, fight.kind === 'tour'
       ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
-      : [['back', fight.kind === 'raid' || fight.kind === 'joute' ? 'Retour au clan' : 'Retour à la cascade']]);
+      : [['back', fight.kind === 'raid' || fight.kind === 'guerre' ? 'Retour au clan' : 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
   function showEnd(win, html, title, buttons) {

@@ -54,6 +54,7 @@
       <button class="menu-btn" data-page="perso"><img data-ico="perso" alt=""><span>Personnage</span><i class="badge" id="badge-perso" hidden></i></button>
       <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>La Voie</span><i class="badge" id="badge-skills" hidden></i></button>
       <button class="menu-btn" data-page="shop"><img data-ico="shop" alt=""><span>Boutique</span></button>
+      <button class="menu-btn" data-page="skins"><img data-ico="skins" alt=""><span>Skins</span></button>
       <span class="menu-sep" aria-hidden="true"></span>
       <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
       <button class="menu-btn" data-page="tower"><img data-ico="tour" alt=""><span>Tour des Sages</span></button>
@@ -185,14 +186,17 @@
       <canvas id="shop-scene" aria-label="La cabane de l’Aïeule Gamako"></canvas>
       <header class="shop-sign">
         <h1>CHEZ L’AÏEULE GAMAKO</h1>
-        <p>Marchande ancestrale · objets anciens, thés rares et belles peaux</p>
-        <div class="shop-tabs" role="tablist"><button role="tab" data-shop-tab="etal">L’étal</button><button role="tab" data-shop-tab="peaux">La garde-robe</button></div>
+        <p>Marchande ancestrale · objets anciens et thés rares</p>
         <button id="reroll" class="btn btn-ghost"></button>
       </header>
       <div class="bubble" id="gamako-says" role="status"></div>
       <aside id="shop-card" class="shop-card"></aside>
       <div id="stock" class="shop-wares"></div>
-      <div id="wardrobe" class="wardrobe" hidden></div>
+    </section>
+    <!-- Skins : la cabane de l'atelier, la grenouille au milieu -->
+    <section id="page-skins" class="page" aria-label="Skins" hidden>
+      <canvas id="skins-scene" aria-label="La cabane de l’atelier"></canvas>
+      <div id="skins-ui" class="skins-ui"></div>
     </section>
     <!-- La Tour des Cent Sages, au sommet du mont Kaeru -->
     <section id="page-tower" class="page" aria-label="Tour des Cent Sages" hidden>
