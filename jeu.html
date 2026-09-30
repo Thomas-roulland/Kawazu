@@ -44,7 +44,7 @@
       <canvas id="sb-portrait" aria-hidden="true"></canvas>
       <div class="sb-hero-info">
         <span class="sb-name" id="sb-name"></span>
-        <span>Niveau <b id="sb-level">1</b></span>
+        <span>Niveau <b id="sb-level">1</b><span id="sb-badges" class="sb-badges"></span></span>
         <span class="xp-track"><span id="sb-xp"></span></span>
       </div>
     </div>
@@ -129,6 +129,7 @@
           <p id="stat-voie" class="stat-voie"></p>
           <div id="stats" class="stat-grid"></div>
           <section id="combat-stats" class="combat-stats"></section>
+          <section id="mutation" class="mutation"></section>
         </section>
         <div class="perso-side">
           <section id="feats" class="panel feats-panel" hidden></section>
@@ -253,7 +254,9 @@
         <div id="rank-foot" class="rank-foot"></div>
       </div>
     </section>
-  </main>
+    <!-- Le Grand Plongeon : la cinématique du passage vers le Continent -->
+  <div id="cinematic" class="cinematic" hidden><canvas id="cine-canvas" aria-hidden="true"></canvas><p id="cine-caption" class="cine-caption"></p><button class="btn btn-ghost cine-skip" data-cine-skip>Passer ▶</button></div>
+</main>
 </div>
 
 <!-- Sauvegarde -->

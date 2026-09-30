@@ -70,6 +70,7 @@ function itemHint(id) {
   if (f.dojo) return 'Cascade des duels : podium du lundi';
   if (f.album) return 'Album : tout découvrir';
   if (Object.keys(STARTER_WEAPON).some(function (k) { return STARTER_WEAPON[k] === id; })) return 'Donnée en choisissant cette arme au Temple';
+  if (it.legend) return 'Légendaire : sur le Continent, très rarement';
   if (!it.drop) return 'Équipement de départ';
   return 'Butin ou boutique, dès ' + BIOMES[Math.min(BIOMES.length, ITEM_TIER[id] || 1) - 1].name;
 }
@@ -78,24 +79,37 @@ function itemHint(id) {
 var ALBUM_CHAPTERS = (function () {
   var mon = function (id, name, desc, pred) { return { id: id, cat: 'monstres', name: name, desc: desc, list: ALBUM_MONSTERS.filter(pred) }; };
   var obj = function (id, name, desc, pred) { return { id: id, cat: 'objets', name: name, desc: desc, list: ALBUM_ITEMS.filter(function (i) { return pred(ITEMS[i]); }).sort(function (a, b) { return (ITEM_TIER[a] || 0) - (ITEM_TIER[b] || 0); }) }; };
-  var species = function (sp) { return function (m) { return m.kind === 'monstre' && m.species === sp; }; };
-  return [
+  var species = function (sp) { return function (m) { return m.kind === 'monstre' && m.species === sp && m.biome < ISLAND_WORLDS; }; };
+  var isle = function (pred) { return function (it) { return !it.continent && !it.legend && pred(it); }; }; // les objets de l'île
+  var chapters = [
     mon('limons', 'Les Limons', 'Des tas de vase vivante qui rampent, engluent et ne lâchent rien. Il y en a dans presque toutes les terres.', species('limon')),
     mon('moustiques', 'Les Moustiques', 'Des bestioles volantes et voraces. Certaines brillent, d’autres piquent comme des frelons.', species('moustique')),
     mon('champis', 'Les Champis', 'Des champignons qui se préparent, puis chargent tête baissée.', species('champi')),
     mon('chauves', 'Les Chauves-souris', 'Elles zigzaguent dans les grottes et aspirent la vie de qui s’approche.', species('chauvesouris')),
-    mon('boss', 'Les Boss des terres', 'Un par terre, au bout de ses dix étapes. Les vaincre ouvre la suite du monde.', function (m) { return m.kind === 'boss'; }),
+    mon('boss', 'Les Boss des terres', 'Un par terre de l’île, au bout de ses dix étapes. Les vaincre ouvre la suite du monde.', function (m) { return m.kind === 'boss' && m.biome < ISLAND_WORLDS; }),
     mon('sages', 'Les Grands Sages', 'Les dix gardiens de la Tour des Cent Sages, un tous les dix étages.', function (m) { return m.kind === 'sage'; }),
-    obj('batons', 'Les Bâtons', 'Au corps à corps : chaque coup libère une onde de choc.', function (it) { return it.slot === 'arme' && it.kind === 'baton' && it.look.weapon === 'baton' && !it.reward; }),
-    obj('harpons', 'Les Harpons', 'Des coups d’estoc qui filent tout droit, très loin.', function (it) { return it.slot === 'arme' && it.look.weapon === 'harpon' && !it.reward; }),
-    obj('katanas', 'Les Katanas', 'Voie des Armes : des entailles vives qui font saigner.', function (it) { return it.slot === 'arme' && it.wtype === 'katana' && !it.reward; }),
-    obj('masses', 'Les Masses', 'Voie des Armes : lourdes, lentes, et le sol tremble.', function (it) { return it.slot === 'arme' && it.wtype === 'masse' && !it.reward; }),
-    obj('kunais', 'Les Kunaïs', 'À distance : lancés droit, ils ne ratent jamais.', function (it) { return it.slot === 'arme' && it.kind === 'kunai' && it.wtype !== 'shuriken' && !it.reward; }),
-    obj('shurikens', 'Les Shurikens', 'Voie du Lancer : des étoiles qui tournoient, parfois faites d’eau.', function (it) { return it.slot === 'arme' && it.wtype === 'shuriken' && !it.reward; }),
-    obj('tetes', 'Les Couvre-chefs', 'Chapeaux, feuilles et heaumes : ils se voient sur la tête.', function (it) { return it.slot === 'tete' && !it.reward; }),
-    obj('echarpes', 'Les Écharpes', 'Elles flottent au vent et changent de couleur sur la grenouille.', function (it) { return it.slot === 'echarpe' && !it.reward; }),
-    obj('ceintures', 'Les Ceintures', 'Nouées à la taille, parfois avec une breloque.', function (it) { return it.slot === 'ceinture' && !it.reward; }),
-    obj('anneaux', 'Les Anneaux', 'Petits, mais on les voit briller au doigt.', function (it) { return it.slot === 'anneau' && !it.reward; }),
-    obj('tresors', 'Les Trésors', 'Ni en boutique ni en butin : la tour, les duels de la cascade et l’album lui-même.', function (it) { return !!it.reward; })
+    obj('batons', 'Les Bâtons', 'Au corps à corps : chaque coup libère une onde de choc.', isle(function (it) { return it.slot === 'arme' && it.kind === 'baton' && it.look.weapon === 'baton' && !it.reward; })),
+    obj('harpons', 'Les Harpons', 'Des coups d’estoc qui filent tout droit, très loin.', isle(function (it) { return it.slot === 'arme' && it.look.weapon === 'harpon' && !it.reward; })),
+    obj('katanas', 'Les Katanas', 'Voie des Armes : des entailles vives qui font saigner.', isle(function (it) { return it.slot === 'arme' && it.wtype === 'katana' && !it.reward; })),
+    obj('masses', 'Les Masses', 'Voie des Armes : lourdes, lentes, et le sol tremble.', isle(function (it) { return it.slot === 'arme' && it.wtype === 'masse' && !it.reward; })),
+    obj('kunais', 'Les Kunaïs', 'À distance : lancés droit, ils ne ratent jamais.', isle(function (it) { return it.slot === 'arme' && it.kind === 'kunai' && it.wtype !== 'shuriken' && !it.reward; })),
+    obj('shurikens', 'Les Shurikens', 'Voie du Lancer : des étoiles qui tournoient, parfois faites d’eau.', isle(function (it) { return it.slot === 'arme' && it.wtype === 'shuriken' && !it.reward; })),
+    obj('tetes', 'Les Couvre-chefs', 'Chapeaux, feuilles et heaumes : ils se voient sur la tête.', isle(function (it) { return it.slot === 'tete' && !it.reward; })),
+    obj('echarpes', 'Les Écharpes', 'Elles flottent au vent et changent de couleur sur la grenouille.', isle(function (it) { return it.slot === 'echarpe' && !it.reward; })),
+    obj('ceintures', 'Les Ceintures', 'Nouées à la taille, parfois avec une breloque.', isle(function (it) { return it.slot === 'ceinture' && !it.reward; })),
+    obj('anneaux', 'Les Anneaux', 'Petits, mais on les voit briller au doigt.', isle(function (it) { return it.slot === 'anneau' && !it.reward; })),
+    obj('tresors', 'Les Trésors', 'Ni en boutique ni en butin : la tour, les duels de la cascade et l’album lui-même.', function (it) { return !!it.reward; }),
+    obj('legendaires', 'Les Légendaires', 'Des bandeaux et des capes d’or, qu’on ne trouve que sur le Continent… très, très rarement.', function (it) { return !!it.legend; })
   ];
+  // le Continent : pour chaque terre, son bestiaire, puis son butin (le sommaire les regroupe)
+  BIOMES.forEach(function (b, w) {
+    if (w < ISLAND_WORLDS) return;
+    var m = mon('c-' + b.id, b.name, b.tagline, function (x) { return x.biome === w; }); m.continent = true; chapters.push(m);
+  });
+  BIOMES.forEach(function (b, w) {
+    if (w < ISLAND_WORLDS) return;
+    var o = obj('o-' + b.id, 'Butin : ' + b.name, 'Les objets de cette terre du Continent, plus forts que ceux de l’île.', function (it) { return it.continent === w; }); o.continent = true; chapters.push(o);
+  });
+  // les bestiaires d'abord, puis les objets (les marque-pages du livre en dépendent)
+  return chapters.filter(function (c) { return c.cat === 'monstres'; }).concat(chapters.filter(function (c) { return c.cat === 'objets'; }));
 })();

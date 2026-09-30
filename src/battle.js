@@ -1244,7 +1244,7 @@ var BattleScene = (function () {
     if (win) {
       html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (clanBonus.xp || clanBonus.lucioles ? ' <small class="bt-clan">(clan : +' + Math.round(clanBonus.xp * 100) + ' % XP, +' + Math.round(clanBonus.lucioles * 100) + ' % lucioles)</small>' : '') + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
       if (info.loot) { var lr = RARITIES[rarityOf(info.loot)]; html += '<p class="bt-loot" style="--rar:' + lr.color + '"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b> <em>' + lr.name + '</em></p>'; }
-      if (info.unlocked) html += '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
+      if (info.unlocked) html += info.unlocked === BIOMES[ISLAND_WORLDS] ? '<p class="bt-unlock">Le Héron Ancestral est tombé ! Au-delà de la mer, <b>le Continent</b> t’attend : ouvre la carte.</p>' : '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
     } else {
       html += '<p>' + heroName() + ' retourne au camp soigner ses blessures. Répartis tes points ou change d’équipement, puis réessaie !</p>';
     }

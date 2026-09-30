@@ -384,6 +384,8 @@
     var need = xpForLevel(save.level);
     $('sb-name').textContent = heroName();
     $('sb-level').textContent = save.level;
+    var badges = ((save.cycle || 1) > 1 ? '<i class="sb-cyc" title="Cycle du monde">C' + romanCycle(save.cycle) + '</i>' : '') + (save.mutation && save.mutation.n ? '<i class="sb-mut" title="Mutations" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, save.mutation.n) - 1] + '">✦' + save.mutation.n + '</i>' : '');
+    $('sb-badges').innerHTML = badges;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
     $('sb-gold').textContent = save.gold;
     $('sb-items').textContent = albumItemsFound(save) + ' / ' + albumPool(save).length;
@@ -566,6 +568,7 @@
       var bits = ['<span>Base <b>' + p.base + '</b></span>', '<span>Points <b>' + p.pts + (p.mult !== 1 ? ' ×' + n1(p.mult) + ' = ' + p.fromPts : '') + '</b></span>'];
       if (p.tree) bits.push('<span class="tree">Temple <b>+' + p.tree + '</b></span>');
       if (p.gear) bits.push('<span class="' + (p.gear < 0 ? 'st-down' : 'gear') + '">Objets <b>' + fmt(p.gear) + '</b></span>');
+      if (p.mut) bits.push('<span class="mut">Mutation <b>+' + p.mut + '</b></span>');
       var role = st.id === main ? 'main' : (st.id === 'vitalite' ? 'reco' : 'minor');
       return '<div class="scard is-' + role + '" data-card="' + st.id + '" style="--c:' + st.color + '" title="' + statRule(st.id) + '">' +
         (role === 'main' ? '<span class="scard-ribbon">★ ATTRIBUT PRINCIPAL · TES DÉGÂTS</span>' : (role === 'reco' ? '<span class="scard-ribbon reco">CONSEILLÉ · TES PV</span>' : '<span class="scard-ribbon minor">BONUS</span>')) +
@@ -593,8 +596,33 @@
     row(STAT_ICON.esprit, 'Relance des sorts', pr.cdr ? '−' + pr.cdr + ' tour' + (pr.cdr > 1 ? 's' : '') : 'normale', (pr.cdr >= ESPRIT_STEPS.length ? 'le plus court possible (jamais moins d’un tour)' : '−1 tour à ' + ESPRIT_STEPS.join(' et ') + ' d’Esprit · prochain palier : ' + ESPRIT_STEPS[pr.cdr]) + ' ; un soin ne gagne qu’un tour');
     if (pr.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pr.dmgReduce), [pr.armor ? 'armure de la voie ' + pc(pr.armor) : '', pas.dmgReduce ? 'passifs du temple ' + pc(pas.dmgReduce) : ''].filter(Boolean).join(' + '));
     var others = ['riposte', 'lifesteal', 'shield', 'regenHp', 'flow', 'multiHit', 'execute', 'stunChance', 'bleedMult', 'poisonMult'].filter(function (k) { return pas[k]; });
+    if (pr.mut && (pr.mut.hp || pr.mut.dmg || pr.mut.crit || pr.mut.dodge || pr.mut.spell)) row(STAT_ICON.vitalite, 'Mutation', [pr.mut.hp ? '+' + pc(pr.mut.hp) + ' PV' : '', pr.mut.dmg ? '+' + pc(pr.mut.dmg) + ' dégâts' : '', pr.mut.crit ? '+' + pc(pr.mut.crit) + ' critique' : '', pr.mut.dodge ? '+' + pc(pr.mut.dodge) + ' esquive' : '', pr.mut.spell ? '+' + pc(pr.mut.spell) + ' sorts' : ''].filter(Boolean).join(' · '), 'les traits choisis en mutant');
     $('combat-stats').innerHTML = '<h2>EN COMBAT</h2><ul class="cs-list">' + rows.join('') + '</ul>' +
       (others.length ? '<p class="cs-pas"><b>Passifs :</b> ' + others.map(function (k) { return PASSIVE_TEXT[k](pas[k]); }).join(' · ') + '.</p>' : '');
+  }
+  // ---------- La mutation ----------
+  // Au niveau MUTATION_LEVEL, la grenouille peut muter : trois traits au choix, puis elle repart au niveau 1.
+  var mutPick = null;
+  function renderMutation() {
+    var m = save.mutation || { n: 0, traits: {} }, box = $('mutation'), ready = canMutate(save), n = m.n;
+    var traits = Object.keys(m.traits).filter(function (id) { return m.traits[id] > 0; });
+    var html = '<h2>MUTATION' + (n ? ' · ' + n : '') + '</h2>';
+    if (n) {
+      html += '<p class="mu-sum"><span class="mu-glow" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, n) - 1] + '"></span>+' + (MUTATION_BASE * n) + ' à chaque caractéristique · +' + Math.round(MUTATION_XP * n * 100) + ' % d’XP</p>' +
+        '<ul class="mu-traits">' + traits.map(function (id) { return '<li><b>' + MUTATIONS[id].name + (m.traits[id] > 1 ? ' ×' + m.traits[id] : '') + '</b><small>' + MUTATIONS[id].desc + (m.traits[id] > 1 ? ' (×' + m.traits[id] + ')' : '') + '</small></li>'; }).join('') + '</ul>';
+    }
+    if (!ready) {
+      html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix. Et des marques lumineuses apparaissent sur sa peau.</p>' +
+        '<span class="xp-track mu-track"><span style="width:' + Math.min(100, save.level / MUTATION_LEVEL * 100) + '%"></span></span><small class="mu-lvl">Niveau ' + save.level + ' / ' + MUTATION_LEVEL + '</small>';
+    } else {
+      var choices = mutationChoices(save);
+      if (choices.indexOf(mutPick) < 0) mutPick = null;
+      html += '<p class="mu-help"><b>Ta grenouille est prête à muter.</b> Choisis un trait : elle repartira au niveau 1 avec ce trait, +' + MUTATION_BASE + ' à chaque caractéristique et +' + Math.round(MUTATION_XP * 100) + ' % d’XP, pour toujours.</p>' +
+        '<div class="mu-choices">' + choices.map(function (id) { return '<button class="mu-choice' + (mutPick === id ? ' is-picked' : '') + '" data-mut-pick="' + id + '"><b>' + MUTATIONS[id].name + '</b><small>' + MUTATIONS[id].desc + '</small></button>'; }).join('') + '</div>' +
+        '<button class="btn mu-go" data-mutate' + (mutPick ? '' : ' disabled') + '>' + (mutPick ? 'Muter : repartir au niveau 1 avec « ' + MUTATIONS[mutPick].name + ' »' : 'Choisis un trait') + '</button>';
+    }
+    box.innerHTML = html;
+    box.classList.toggle('is-ready', ready);
   }
   // Petit « +1 » qui remonte comme une bulle quand on ajoute un point
   function bumpStat(id) {
@@ -652,7 +680,7 @@
     fk.textContent = save.arme && v === 'kunai' ? WEAPON_TYPES[save.arme].plural : 'Distance';
     if ((state.filter === 'baton' && fb.hidden) || (state.filter === 'kunai' && fk.hidden)) state.filter = 'tout';
     var ids = save.owned.filter(function (id) { return ITEMS[id] && itemAvailable(save, id) && matchesFilter(ITEMS[id]); });
-    ids.sort(function (a, b) { return worn(b) - worn(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)) || tierOf(b) - tierOf(a) || ITEMS[a].name.localeCompare(ITEMS[b].name); });
+    ids.sort(function (a, b) { return worn(b) - worn(a) || ITEM_RARITIES.indexOf(rarityOf(b)) - ITEM_RARITIES.indexOf(rarityOf(a)) || tierOf(b) - tierOf(a) || ITEMS[a].name.localeCompare(ITEMS[b].name); });
     var selling = !!state.sellMode;
     if (selling) state.sellSel = state.sellSel.filter(function (id) { return owns(id) && !worn(id); });
     $('inv-sell-mode').textContent = selling ? 'Annuler' : 'Vendre en masse';
@@ -1172,29 +1200,38 @@
     setPlayer(save); persist(); buildHero();
   }
 
-  // ---------- Carte du monde ----------
+  // ---------- Carte du monde : l'Île du départ et le Continent ----------
+  function mapOf(view) { return view === 'continent' ? ContinentMap : WorldMap; }
+  // la carte affichée : celle choisie, sinon celle où l'on en est (le Continent ne se montre qu'une fois ouvert)
+  function mapView() {
+    if (state.mapView === 'continent' && !continentOpen(save)) state.mapView = 'ile';
+    return state.mapView || (currentWorld() >= ISLAND_WORLDS ? 'continent' : 'ile');
+  }
   // Étire le cadrage de la carte au format de l'écran (en restant dans la carte)
-  function fitView(v, aspect) {
+  function fitView(v, aspect, M) {
     var w = v.w, h = v.h;
     if (w / h < aspect) w = h * aspect; else h = w / aspect;
-    if (w > WorldMap.W) { w = WorldMap.W; h = w / aspect; }
-    if (h > WorldMap.H) { h = WorldMap.H; w = h * aspect; }
+    if (w > M.W) { w = M.W; h = w / aspect; }
+    if (h > M.H) { h = M.H; w = h * aspect; }
     w = Math.round(w); h = Math.round(h);
     var cx = v.x + v.w / 2, cy = v.y + v.h / 2;
-    return { w: w, h: h, x: Math.round(Math.max(0, Math.min(WorldMap.W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(WorldMap.H - h, cy - h / 2))) };
+    return { w: w, h: h, x: Math.round(Math.max(0, Math.min(M.W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(M.H - h, cy - h / 2))) };
   }
+  var cycleArmed = 0;
   function renderWorldMap() {
-    var unlocked = BIOMES.map(function (_, i) { return i; }).filter(function (i) { return worldUnlocked(save, i); });
-    var m = WorldMap.render(unlocked), c = $('worldmap-canvas');
-    var v = fitView(m.view, $('page-map').clientWidth / Math.max(1, $('page-map').clientHeight));
+    if (continentOpen(save) && !save.seenContinent) { playDive(); return; } // la première fois : le Grand Plongeon
+    var view = mapView(), M = mapOf(view), off = M.FIRST, unlocked = [];
+    for (var li = 0; li < M.REGIONS.length; li++) if (worldUnlocked(save, off + li)) unlocked.push(li);
+    var m = M.render(unlocked), c = $('worldmap-canvas');
+    var v = fitView(m.view, $('page-map').clientWidth / Math.max(1, $('page-map').clientHeight), M);
     c.width = v.w; c.height = v.h;
     var ctx = c.getContext('2d');
     ctx.drawImage(m.canvas, v.x, v.y, v.w, v.h, 0, 0, v.w, v.h);
-    WorldMap.drawCompass(ctx, 18, 18);
+    M.drawCompass(ctx, 18, 18);
     var at = function (x, y) { return 'left:' + ((x - v.x) / v.w * 100) + '%;top:' + ((y - v.y) / v.h * 100) + '%'; };
     var cur = currentWorld(), html = '';
-    unlocked.forEach(function (i) {
-      var tr = WorldMap.TRAILS[i], prog = save.progress[i], stages = worldStages(i), b = BIOMES[i];
+    unlocked.forEach(function (li2) {
+      var i = off + li2, tr = M.TRAILS[li2], prog = save.progress[i], stages = worldStages(i), b = BIOMES[i];
       // les 10 étapes, posées sur le sentier
       for (var k = 1; k <= STAGES; k++) {
         var p = tr.stages[k], s = stages[k - 1], cleared = k <= prog, next = k === prog + 1;
@@ -1218,27 +1255,40 @@
       }
     });
     if (m.peekAt) {
-      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS DE ' + BIOMES[m.peek - 1].name.toUpperCase() + '</small></div>';
+      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS DE ' + BIOMES[off + m.peek - 1].name.toUpperCase() + '</small></div>';
+    }
+    // les deux cartes, une fois le Continent ouvert ; le cycle en cours
+    if (continentOpen(save)) {
+      html += '<div class="wm-switch">' + [['ile', 'L’Île'], ['continent', 'Le Continent']].map(function (o) { return '<button class="' + (view === o[0] ? 'is-on' : '') + '" data-map-view="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+    }
+    if ((save.cycle || 1) > 1) html += '<div class="wm-cycle-tag">CYCLE ' + romanCycle(save.cycle) + '</div>';
+    // le monde vaincu : le cycle suivant
+    if (worldDone(save)) {
+      var nc = (save.cycle || 1) + 1;
+      html += '<div class="wm-cycle panel"><h2>LE MONDE EST VAINCU</h2><p>Le Dragon-Tempête est tombé. Le cycle ' + romanCycle(nc) + ' peut commencer : tout recommence au Marais-Brume, mais les monstres ont ' + (CYCLE.level * (nc - 1)) + ' niveaux de plus et frappent plus fort. En échange, tout ce que tu trouves devient « +' + (nc - 1) + ' » (+' + Math.round(CYCLE.loot * (nc - 1) * 100) + ' % de stats). Tu gardes ton niveau, tes objets et tes lucioles.</p>' +
+        '<button class="btn' + (cycleArmed ? ' is-armed' : '') + '" data-next-cycle>' + (cycleArmed ? 'Confirmer : entrer dans le cycle ' + romanCycle(nc) : 'Entrer dans le cycle ' + romanCycle(nc) + ' ▶') + '</button></div>';
     }
     html += '<img id="wm-frog" class="wm-frog" src="' + $('sb-portrait').toDataURL() + '" alt="Ta grenouille">';
     $('worldmap-regions').innerHTML = html;
-    placeMapFrog(at, cur);
+    placeMapFrog(at, cur, M, view);
     renderStageSheet();
   }
 
   // La grenouille se tient sur la dernière étape réussie. Si elle a avancé depuis la dernière visite
   // de la carte, elle saute d'étape en étape le long du sentier jusqu'à sa nouvelle place.
+  // (Sur l'Île, une fois partie pour le Continent, elle attend au bout du sentier, au nid du Héron.)
   var mapFrog = null, frogRaf = 0;
-  function placeMapFrog(at, cur) {
-    var frog = $('wm-frog'), prog = save.progress[cur], T = WorldMap.TRAILS;
-    var target = { w: cur, d: T[cur].stageDist[Math.min(prog, STAGES)] };
+  function placeMapFrog(at, cur, M, view) {
+    var frog = $('wm-frog'), T = M.TRAILS, n = T.length, local = cur - M.FIRST, target;
+    if (local >= n) target = { map: view, w: n - 1, d: T[n - 1].total };
+    else { local = Math.max(0, local); target = { map: view, w: local, d: T[local].stageDist[Math.min(save.progress[M.FIRST + local], STAGES)] }; }
     var put = function (p, hop) { frog.setAttribute('style', at(p.x, p.y) + ';transform:translateY(' + (-hop).toFixed(1) + 'px)'); };
     cancelAnimationFrame(frogRaf);
     var from = mapFrog;
     mapFrog = target;
-    if (!from || (from.w === target.w && from.d >= target.d) || from.w > target.w) { put(T[cur].at(target.d), 0); return; }
+    if (!from || from.map !== target.map || (from.w === target.w && from.d >= target.d) || from.w > target.w) { put(T[target.w].at(target.d), 0); return; }
     // trajet : la fin du sentier précédent si on a changé de région, puis le nouveau sentier
-    var legs = from.w === target.w ? [{ w: cur, a: from.d, b: target.d }] : [{ w: from.w, a: from.d, b: T[from.w].total }, { w: cur, a: 0, b: target.d }];
+    var legs = from.w === target.w ? [{ w: target.w, a: from.d, b: target.d }] : [{ w: from.w, a: from.d, b: T[from.w].total }, { w: target.w, a: 0, b: target.d }];
     var total = legs.reduce(function (s, l) { return s + (l.b - l.a); }, 0), dur = Math.min(3200, 500 + total * 14), t0 = performance.now();
     (function step(now) {
       var k = Math.max(0, Math.min(1, (now - t0) / dur)), d = k * total, leg = legs[0];
@@ -1250,10 +1300,83 @@
     })(t0);
   }
 
+  // ---------- Le Grand Plongeon : la cinématique du passage vers le Continent ----------
+  // Au sommet, le Héron est tombé ; la grenouille saute, plonge dans la mer, un tourbillon de lumière l'emporte…
+  // et elle ressort sur la plage du Continent. On peut la passer. Elle ne se joue qu'une fois (save.seenContinent).
+  var diveRaf = 0;
+  function playDive() {
+    var box = $('cinematic'), cv = $('cine-canvas'), cap = $('cine-caption'), W = 320, H = 180;
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    box.hidden = false;
+    Sfx.music('calm');
+    var frog = HERO_IMG.face[0], side = HERO_IMG.profil[0], land = null, t0 = performance.now(), captions = [
+      [0, 'Le Héron Ancestral est tombé. Du haut du sommet, on voit toute l’île… et la mer au-delà.'],
+      [2600, 'Alors la grenouille prend son élan, et plonge.'],
+      [4700, 'Tout au fond, un tourbillon d’eau et de lumière l’emporte…'],
+      [7000, 'LE CONTINENT · Seize terres, plus vastes et plus dangereuses. Ici, il faudra se battre pour chaque objet.']
+    ], shown = -1, splashed = false, flashed = false, DUR = 10500;
+    var R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    var sky = function (top, bot, y0) { var g = ctx.createLinearGradient(0, y0 || 0, 0, H); g.addColorStop(0, top); g.addColorStop(1, bot); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
+    var mountain = function (cx, peak, base, snow) {
+      for (var y = peak; y < base; y++) { var half = (y - peak) * 1.15; R(cx - half - 1, y, half * 2 + 2, 1, '#1a1c2c'); R(cx - half, y, half, 1, '#8a8578'); R(cx, y, half, 1, '#6b6556'); if (snow && y < peak + 16) R(cx - half, y, half * 2, 1, y < peak + 10 ? '#f4f4e8' : '#c8ccd6'); }
+    };
+    var drawFrog = function (img, x, y, s, rot) { ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (rot) ctx.rotate(rot); ctx.drawImage(img, -16 * s, -16 * s, 32 * s, 32 * s); ctx.restore(); };
+    var end = function () {
+      cancelAnimationFrame(diveRaf); box.hidden = true;
+      save.seenContinent = true; persist();
+      state.mapView = 'continent';
+      if (state.page === 'map') renderWorldMap(); else showPage('map');
+    };
+    box.onclick = function (e) { if (e.target.closest('[data-cine-skip]')) end(); };
+    (function frame(now) {
+      var t = now - t0;
+      for (var ci = captions.length - 1; ci >= 0; ci--) if (t >= captions[ci][0]) { if (ci !== shown) { shown = ci; cap.innerHTML = captions[ci][1].replace(/^([A-ZÉÈ ]+) · /, '<b>$1</b>'); cap.classList.remove('in'); void cap.offsetWidth; cap.classList.add('in'); } break; }
+      if (t < 4700) { // le sommet, puis le saut et la chute : la caméra suit la grenouille
+        var jump = Math.max(0, (t - 2600) / 2100), fx = 160 + jump * 70, fy = 70 - Math.sin(Math.min(1, jump * 1.6) * Math.PI) * 26 + Math.max(0, jump - 0.3) * 260;
+        var cam = Math.max(0, Math.min(200, fy - 90));
+        sky('#1e2a5a', '#f0a070', -cam);
+        for (var st = 0; st < 30; st++) R(hash(st, 1, 5) * W, hash(st, 2, 5) * 60 - cam, 1, 1, 'rgba(255,255,255,0.6)');
+        R(0, 250 - cam, W, H, '#15323f'); // la mer, loin en bas
+        for (var wv = 0; wv < 40; wv++) R((hash(wv, 3, 5) * W + t / 30) % W, 250 - cam + hash(wv, 4, 5) * 120, 5, 1, '#2a5d66');
+        mountain(160, 78 - cam, 260 - cam, true); mountain(70, 130 - cam, 260 - cam, false); mountain(250, 120 - cam, 260 - cam, false);
+        R(152, 76 - cam, 16, 3, '#8a6f1f'); // le nid
+        [[40, 40], [230, 55], [120, 100]].forEach(function (c2, k) { var cx2 = (c2[0] + t / (40 + k * 12)) % 360 - 20; R(cx2, c2[1] - cam, 34, 6, 'rgba(255,255,255,0.75)'); R(cx2 + 6, c2[1] - 4 - cam, 20, 4, 'rgba(255,255,255,0.75)'); });
+        if (t < 2600) { drawFrog(frog, 160, 62 - cam, 0.9, 0); var fl = t / 700; R(172 + Math.sin(fl) * 10, 40 - cam + (t / 60) % 40, 2, 5, '#e8ecf0'); }
+        else drawFrog(side, fx, fy - cam, 0.9, jump * 7);
+      } else if (t < 7000) { // sous l'eau : les bulles, puis le tourbillon
+        if (!splashed) { splashed = true; Sfx.play('drip'); }
+        var u = (t - 4700) / 2300;
+        sky('#1a4a6a', '#050a1a', 0);
+        for (var b2 = 0; b2 < 26; b2++) { var bx = hash(b2, 5, 9) * W, by = H - ((t / 12 + hash(b2, 6, 9) * H) % (H + 20)); R(bx, by, 2, 2, 'rgba(200,240,255,0.55)'); }
+        for (var ray = 0; ray < 5; ray++) R(40 + ray * 60 + Math.sin(t / 900 + ray) * 10, 0, 6, H, 'rgba(160,220,255,0.06)');
+        var sink = 40 + u * 60, size = 0.9 * (1 - Math.max(0, u - 0.55) * 1.8);
+        if (u > 0.3) { // le tourbillon : des anneaux de lumière qui tournent
+          for (var ring = 0; ring < 7; ring++) {
+            var rr = (ring * 9 + (t / 25) % 9) * (0.6 + u), a = (1 - ring / 7) * Math.min(1, (u - 0.3) * 3);
+            ctx.strokeStyle = 'rgba(' + (ring % 2 ? '120,240,255,' : '240,220,120,') + a + ')'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(160, sink + 10, rr * 1.6, rr * 0.7, t / 600 + ring, 0, Math.PI * 2); ctx.stroke();
+          }
+        }
+        if (size > 0.05) drawFrog(side, 160, sink, size, Math.PI / 2 + (u > 0.5 ? (u - 0.5) * 20 : 0));
+      } else { // un éclair blanc, puis la plage du Continent qui se découvre
+        if (!flashed) { flashed = true; Sfx.play('levelup'); land = ContinentMap.render([0]).canvas; }
+        var r2 = ContinentMap.REGIONS[0], zoom = 2.2 - Math.min(1, (t - 7000) / 3000) * 0.6, vw = W / zoom, vh = H / zoom;
+        ctx.drawImage(land, Math.max(0, r2.x - vw / 2 - 30), Math.max(0, Math.min(ContinentMap.H - vh, r2.y - vh / 2)), vw, vh, 0, 0, W, H);
+        var fade = Math.max(0, 1 - (t - 7000) / 700);
+        if (fade > 0) { ctx.fillStyle = 'rgba(255,255,255,' + fade + ')'; ctx.fillRect(0, 0, W, H); }
+        drawFrog(frog, 64 + Math.min(1, (t - 7000) / 1500) * 40, 128 - Math.abs(Math.sin((t - 7000) / 180)) * 6 * (t < 8500 ? 1 : 0), 0.8, 0);
+      }
+      if (t >= DUR) { end(); return; }
+      diveRaf = requestAnimationFrame(frame);
+    })(t0);
+  }
+
   // ---------- Une étape : le panneau qui s'ouvre sur la carte ----------
   // Un clic sur une étape de la carte ouvre ce panneau : combattre tout de suite, ou partir en mission.
   function openStage(w, st) {
     state.sheet = { w: w, st: st };
+    state.mapView = w >= ISLAND_WORLDS ? 'continent' : 'ile'; // la carte de cette terre
     if (state.page !== 'map') showPage('map'); else renderWorldMap();
   }
   function renderStageSheet() {
@@ -1488,7 +1611,7 @@
   var TOTAL_STAGES = BIOMES.length * STAGES;
   var RANK_SORTS = {
     aventure: { name: 'Aventure', cmp: function (a, b) { return b.conquis - a.conquis || b.niveau - a.niveau || b.xp - a.xp; },
-      metric: function (e) { return e.conquis >= TOTAL_STAGES ? 'Sommet conquis !' : (BIOMES[e.monde] || BIOMES[0]).name + ' · ' + e.etape + '/' + STAGES; } },
+      metric: function (e) { return ((e.cycle || 1) > 1 ? 'Cycle ' + romanCycle(e.cycle) + ' · ' : '') + ((e.conquis - ((e.cycle || 1) - 1) * TOTAL_STAGES) >= TOTAL_STAGES ? 'Monde vaincu !' : (BIOMES[e.monde] || BIOMES[0]).name + ' · ' + e.etape + '/' + STAGES); } },
     niveau: { name: 'Niveau', cmp: function (a, b) { return b.niveau - a.niveau || b.xp - a.xp || b.conquis - a.conquis; },
       metric: function (e) { return 'Niveau ' + e.niveau; } },
     succes: { name: 'Succès', cmp: function (a, b) { return b.succes - a.succes || b.niveau - a.niveau; },
@@ -1504,12 +1627,12 @@
   function portraitOf(e) {
     var equip = Object.assign({}, DEFAULT_EQUIP);
     Object.keys(e.equip || {}).forEach(function (slot) { var id = baseOf(e.equip[slot]), it = ITEMS[id]; if (it && it.slot === slot) equip[slot] = id; }); // l'apparence ne dépend que du modèle
-    var hermit = e.voie === 'ermite', key = e.peau + '|' + hermit + '|' + JSON.stringify(equip);
+    var hermit = e.voie === 'ermite', key = e.peau + '|' + hermit + '|' + (e.mutations || 0) + '|' + JSON.stringify(equip);
     if (!portraitCache[key]) {
-      var saved = [heroSkin, playerHermit];
-      heroSkin = skinOf(e.peau); playerHermit = hermit;
+      var saved = [heroSkin, playerHermit, playerMutation];
+      heroSkin = skinOf(e.peau); playerHermit = hermit; playerMutation = { n: e.mutations || 0, traits: {} };
       portraitCache[key] = gridToCanvas(buildKawazuAnims(dressKawazu(sp, lookFor(equip))).idle.frames[0], paletteFor(sp.PAL, equip)).toDataURL();
-      heroSkin = saved[0]; playerHermit = saved[1];
+      heroSkin = saved[0]; playerHermit = saved[1]; playerMutation = saved[2];
     }
     return portraitCache[key];
   }
@@ -2256,7 +2379,10 @@
         return '<div class="bk-prog"><span>' + label + ' <b>' + found + ' / ' + total + '</b></span><span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div>';
       };
       var toc = function (cat) {
-        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + (chapterTotal(c) ? chapterFound(c) + ' / ' + chapterTotal(c) : '—') + '</b></button>'; }).join('');
+        var cont = ALBUM_CHAPTERS.filter(function (c) { return c.cat === cat && c.continent; }), first = ALBUM_CHAPTERS.indexOf(cont[0]);
+        var cf = cont.reduce(function (s, c) { return s + chapterFound(c); }, 0), ct = cont.reduce(function (s, c) { return s + chapterTotal(c); }, 0);
+        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat || c.continent ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + (chapterTotal(c) ? chapterFound(c) + ' / ' + chapterTotal(c) : '—') + '</b></button>'; }).join('') +
+          (cont.length && continentOpen(save) ? '<button class="bk-toc cont" data-book-go="' + (first + 1) + '"><span>Le Continent · ' + cont.length + ' terres ▶</span><i></i><b>' + cf + ' / ' + ct + '</b></button>' : '');
       };
       left = '<h1 class="bk-title">ALBUM DU MARAIS</h1><p class="bk-intro">Chaque créature vaincue et chaque objet trouvé colle sa carte dans ce livre. Les cartes rares et épiques ont leur cadre bleu ou violet.</p>' +
         bar('monstres', 'Bestiaire') + bar('objets', 'Objets') +
@@ -2319,6 +2445,7 @@
     renderLevel();
     renderSlots();
     renderStats();
+    renderMutation();
     renderInventory();
     renderDetails();
     renderFeats();
@@ -2531,6 +2658,26 @@
     if (t.dataset.slot) { var sid = save.equip[t.dataset.slot]; if (sid) state.selected = sid; state.filter = t.dataset.slot; renderAll(); return; }
     if (t.dataset.filter) { state.filter = t.dataset.filter; renderInventory(); return; }
     if (t.dataset.view) { state.view = t.dataset.view; renderAll(); return; }
+    if (t.dataset.mapView) { state.mapView = t.dataset.mapView; state.sheet = null; Sfx.play('click'); renderWorldMap(); return; }
+    if (t.hasAttribute('data-next-cycle')) {
+      if (!cycleArmed) { cycleArmed = setTimeout(function () { cycleArmed = 0; if (state.page === 'map') renderWorldMap(); }, 5000); renderWorldMap(); return; }
+      clearTimeout(cycleArmed); cycleArmed = 0;
+      if (nextCycle(save)) {
+        setPlayer(save); persist(); Sfx.play('boss'); state.mapView = 'ile'; state.sheet = null; mapFrog = null;
+        notice('Le cycle ' + romanCycle(save.cycle) + ' commence ! Le monde est plus dangereux, mais tout ce que tu trouveras sera « +' + (save.cycle - 1) + ' ».');
+        renderAll();
+      }
+      return;
+    }
+    if (t.dataset.mutPick) { mutPick = t.dataset.mutPick; Sfx.play('click'); renderMutation(); return; }
+    if (t.hasAttribute('data-mutate')) {
+      if (!mutPick || !mutate(save, mutPick)) return;
+      var picked = MUTATIONS[mutPick].name; mutPick = null;
+      setPlayer(save); persist(); buildHero(); Sfx.play('levelup'); renderAll();
+      $('sb-portrait').classList.remove('mutating'); void $('sb-portrait').offsetWidth; $('sb-portrait').classList.add('mutating');
+      notice('Mutation ! Ta grenouille repart au niveau 1, plus forte pour toujours : ' + picked + '.');
+      return;
+    }
     if (t.dataset.world) { var ow = +t.dataset.world; openStage(ow, t.dataset.st ? +t.dataset.st : nextStage(ow)); return; }
     if (t.hasAttribute('data-close-sheet')) { state.sheet = null; renderWorldMap(); return; }
     if (t.dataset.fight) { startFight(stageFight(save, state.sheet.w, +t.dataset.fight)); return; }

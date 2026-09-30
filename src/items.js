@@ -31,8 +31,56 @@ var playerLevel = 1;
 // Les bonus du clan (le butin : +2 % par niveau) sur l'XP et les lucioles gagnées ; gardés dans la sauvegarde,
 // mis à jour chaque fois que le jeu lit le clan
 var clanBonus = { xp: 0, lucioles: 0 };
-function clanXp(n) { return Math.round(n * (1 + clanBonus.xp)); }
-function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles)); }
+// (et ceux de la mutation : voir mutationBonus)
+function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp)); }
+function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold)); }
+
+// ---------- Le cycle (NG+) : une fois le Dragon-Tempête vaincu, le monde recommence, plus fort ----------
+// Au cycle c, chaque monstre gagne CYCLE.level niveaux par cycle passé et ses PV et dégâts sont multipliés par
+// CYCLE.power ; les objets trouvés ou achetés sont « +c-1 » : leurs stats × (1 + CYCLE.loot par +). Sans fin.
+var CYCLE = { level: 15, power: 1.2, loot: 0.2 };
+var playerCycle = 1;
+function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; return n <= 10 ? r[n] : String(n); }
+
+// ---------- La mutation : à partir du niveau MUTATION_LEVEL, la grenouille peut muter ----------
+// Elle repart au niveau 1 (caractéristiques et dalles rendues à zéro ; elle garde sa voie, ses objets, ses lucioles
+// et sa progression), mais pour toujours : +MUTATION_BASE à chaque caractéristique, +10 % d'XP, et un trait choisi
+// parmi trois (ils se cumulent). Des marques lumineuses apparaissent sur sa peau, de plus en plus nombreuses.
+var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1;
+var MUTATIONS = {
+  ecorce: { name: 'Peau d’écorce', desc: '+8 % de PV', hp: 0.08 },
+  crocs: { name: 'Crocs', desc: '+8 % de dégâts', dmg: 0.08 },
+  nuit: { name: 'Œil de nuit', desc: '+3 % de critique', crit: 0.03 },
+  ressort: { name: 'Pattes-ressorts', desc: '+3 % d’esquive', dodge: 0.03 },
+  troisieme: { name: 'Troisième œil', desc: '+10 % de puissance des sorts', spell: 0.1 },
+  memoire: { name: 'Mémoire ancestrale', desc: '+15 % d’XP', xp: 0.15 },
+  flair: { name: 'Flair', desc: '+15 % de lucioles', gold: 0.15 },
+  trefle: { name: 'Trèfle de mare', desc: '+20 % de chances de trouver un objet', loot: 0.2 }
+};
+var MUTATION_GLOW = ['#5afff0', '#fff05a', '#ff5ae0', '#b8ff4a', '#ffffff']; // la couleur des marques, selon le nombre de mutations
+var playerMutation = { n: 0, traits: {} }, playerMutBonus = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
+function mutationBonus(m) {
+  var b = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
+  if (!m || !m.n) return b;
+  b.base = MUTATION_BASE * m.n; b.xp = MUTATION_XP * m.n;
+  Object.keys(m.traits || {}).forEach(function (id) { var t = MUTATIONS[id], k = m.traits[id]; if (t) Object.keys(b).forEach(function (s) { if (t[s]) b[s] += t[s] * k; }); });
+  return b;
+}
+// Les trois traits proposés à la prochaine mutation (toujours les mêmes tant qu'on n'a pas muté)
+function mutationChoices(save) {
+  var n = (save.mutation && save.mutation.n) || 0;
+  return Object.keys(MUTATIONS).map(function (id, i) { return { id: id, r: hash(n, i, 77) }; }).sort(function (a, b) { return a.r - b.r; }).slice(0, 3).map(function (o) { return o.id; });
+}
+function canMutate(save) { return save.level >= MUTATION_LEVEL; }
+function mutate(save, trait) {
+  if (!canMutate(save) || mutationChoices(save).indexOf(trait) < 0) return false;
+  save.mutation.n++;
+  save.mutation.traits[trait] = (save.mutation.traits[trait] || 0) + 1;
+  save.level = 1; save.xp = 0; save.points = 0; save.skillPoints = 0; save.tree = []; save.deck = [];
+  Object.keys(save.alloc).forEach(function (k) { save.alloc[k] = 0; });
+  save.meditation = null;
+  return true;
+}
 
 // À appeler quand la sauvegarde change (chargement, arbre, création) : met à jour les bonus globaux
 function setPlayer(save) {
@@ -41,6 +89,8 @@ function setPlayer(save) {
   playerTreeStats = treeBonuses(save).stats;
   heroSkin = skinOf(save.hero && save.hero.skin);
   clanBonus = save.clanBonus || { xp: 0, lucioles: 0 };
+  playerCycle = save.cycle || 1;
+  playerMutation = save.mutation || { n: 0, traits: {} }; playerMutBonus = mutationBonus(playerMutation);
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
   playerLevel = save.level;
 }
@@ -135,6 +185,21 @@ var ICONS = {
     '................', '................', '................', '................'
   ]
 };
+
+// Les formes des objets du Continent, et celles des Légendaires (bandeau, cape)
+Object.assign(ICONS, {'harpon_c':['...k...k...k....','..k3k.k3k.k3k...','..k1k.k1k.k1k...','..k1k.k1k.k1k...','..k1kkk1kkk1k...','..k111111111k...','...kk21112kk....','.....k414k......','......k4k.......','......kbk.......','......k4k.......','......kbk.......','......k4k.......','......kbk.......','......k4k.......','.......k........'],
+  'masse_c':['......k..k......','...k.k1kk1k.k...','....k311111k....','..kk31111112kk..','...k31k11k12k...','..kk11111112kk..','....k111122k....','...k.k1kk2k.k...','......kk4k......','.......k4bk.....','.......k4bk.....','........k4bk....','........k4bk....','.........k4bk...','.........kkkk...','................'],
+  'katana_c':['.............kk.','............k3k.','...........k31k.','..........k31k..','.........k312k..','........k312k...','.......k312k....','......k312k.....','..kk.k312k......','.k44kk22k.......','.k4bk4kk........','..kkbk4k........','...kbkk.........','..kbk...........','.kbk............','.kk.............'],
+  'baton_c':['.....kkkk.......','....k3311k......','...k331112k.....','...k311112k.....','...k111122k.....','..k4k1122k4k....','...k4kkkk4k.....','....k4bb4k......','.....k4bk.......','.....k4bk.......','.....k4bk.......','.....k4bk.......','.....k4bk.......','.....k4bk.......','.....k4bk.......','......kk........'],
+  'kunai_c':['.......k........','......k3k.......','......k31k......','.....k31k.......','.....k312k......','......k12k......','.....k312k......','.....k12k.......','....kkkkkkk.....','....k4bbb4k.....','....kkk4kkk.....','......k4k.......','......kbk.......','......k4k.......','.....k444k......','......kkk.......'],
+  'shuriken_c':['kk............kk','k3k..........k2k','.k31k......k12k.','..k31k....k12k..','...k31k..k12k...','....k31kk12k....','.....k1441k.....','......k44k......','......k44k......','.....k1441k.....','....k21kk12k....','...k21k..k12k...','..k21k....k12k..','.k21k......k22k.','k22k........k22k','kk............kk'],
+  'echarpe_c':['................','.kkkkkkkkkkkk...','k111111111111k..','k1222222222221k.','.kkkk1k1kkkkkk..','....k121k.......','....k121k.......','...k1221k.......','...k121k........','..k1221k........','..k121k.........','..k121k.........','..k3k3k.........','..k.k.k.........','...k.k..........','................'],
+  'ceinture_c':['................','................','................','................','....kkkkkkkk....','kkkk44444444kkkk','k333k4k33k4k333k','k111k4k31k4k111k','k111k4k11k4k111k','k222k4kkkk4k222k','kkkk44444444kkkk','....kkkkkkkk....','................','................','................','................'],
+  'anneau_c':['................','................','......kkkk......','.....k3311k.....','....k331112k....','....k311122k....','.....k1122k.....','....kk4kk4kk....','...k44k..k44k...','..k4k......k4k..','..k4k......k4k..','..k44k....k44k..','...k44kkkk44k...','....kk4444kk....','......kkkk......','................'],
+  'casque_c':['................','k..............k','k3k..........k2k','.k3k..kkkk..k2k.','..k3kk3311kk2k..','...k33111111k...','..k3311111112k..','..k3111111122k..','..k1111111122k..','..kkkkkkkkkkkk..','..k4444444444k..','..k4kk4444kk4k..','..kkkkkkkkkkkk..','................','................','................'],
+  'kasa_c':['................','................','................','................','.......kk.......','......k33k......','....kk3311kk....','..kk33111111kk..','kk331111111122kk','kkkkkkkkkkkkkkkk','.k4k4k4k4k4k4k4.','.k4k4k4k4k4k4k4.','..k.k.k.k.k.k.k.','................','................','................'],
+  'bandeau':['................','................','................','................','................','..kkkkkkkkkkkk..','.k111k4444k111k.','k1111k4334k1111k','k2222k4444k2222k','.kkkkkkkkkkkk2k.','............k2k.','...........k21k.','...........k2k..','..........k21k..','..........kkk...','................'],
+  'cape':['................','.....kkkkkk.....','....k3k44k2k....','...k31k44k12k...','...k31111112k...','..k3111111122k..','..k3111111122k..','.k311111111222k.','.k311111111222k.','.k311111112222k.','k31111111122222k','k31111111122222k','k1k111k111k222kk','kk.k1k.k1k.k2k..','....k...k...k...','................']});
 
 // Deux familles d'armes (kind) : 'baton' au corps à corps (bâtons, harpons, katanas, masses) et 'kunai' à distance
 // (kunaïs, shurikens). wtype dit le type exact (voir WEAPON_TYPES) : il choisit l'attaque de base et son animation.
@@ -261,14 +326,14 @@ function statParts(equip) {
   var v = voieDef(playerVoie), out = {};
   STATS.forEach(function (st) {
     var k = st.id, pts = playerAlloc[k] || 0, mult = allocMult(playerVoie, k);
-    out[k] = { base: (v ? v.base : BASE_STATS)[k], pts: pts, mult: mult, fromPts: Math.floor(pts * mult), tree: playerTreeStats[k] || 0, gear: 0 };
+    out[k] = { base: (v ? v.base : BASE_STATS)[k], pts: pts, mult: mult, fromPts: Math.floor(pts * mult), tree: playerTreeStats[k] || 0, gear: 0, mut: playerMutBonus.base };
   });
   Object.keys(equip).forEach(function (slot) {
     var it = slot === 'arme' ? weaponOf(equip) : ITEMS[equip[slot]];
     if (!it) return;
     Object.keys(it.stats).forEach(function (k) { if (out[k]) out[k].gear += it.stats[k]; });
   });
-  Object.keys(out).forEach(function (k) { var p = out[k]; p.total = p.base + p.fromPts + p.tree + p.gear; });
+  Object.keys(out).forEach(function (k) { var p = out[k]; p.total = p.base + p.fromPts + p.tree + p.gear + p.mut; });
   return out;
 }
 function computeStats(equip) {
@@ -326,14 +391,14 @@ function ensureWeapon(save) {
     if (!save.arme) { save.equip.arme = null; return; } // l'arme viendra avec le choix, au Temple
     var starter = STARTER_WEAPON[save.arme]; if (save.owned.indexOf(starter) < 0) save.owned.push(starter); mine = [starter];
   }
-  mine.sort(function (a, b) { return tierOf(b) - tierOf(a) || RARITY_IDS.indexOf(rarityOf(b)) - RARITY_IDS.indexOf(rarityOf(a)); });
+  mine.sort(function (a, b) { return tierOf(b) - tierOf(a) || ITEM_RARITIES.indexOf(rarityOf(b)) - ITEM_RARITIES.indexOf(rarityOf(a)); });
   save.equip.arme = mine[0];
 }
 
 // Ce qui se voit sur Kawazu (calques + onde de l'arme ; un kunaï lancé n'a pas d'onde)
 function lookFor(equip) {
   var look = {};
-  ['tete', 'ceinture', 'anneau'].forEach(function (slot) {
+  ['tete', 'echarpe', 'ceinture', 'anneau'].forEach(function (slot) {
     var it = ITEMS[equip[slot]];
     if (it && it.look) Object.assign(look, it.look);
   });
@@ -341,6 +406,7 @@ function lookFor(equip) {
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
   look.skin = !playerHermit && heroSkin.fx || null; // les signes du skin (pas en mode Ermite, pour l'instant)
+  look.mutation = playerMutation.n || 0; // les marques lumineuses de la mutation
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }
@@ -425,6 +491,7 @@ function paletteFor(basePal, equip) {
   if (belt) { pal.b = belt.belt[0]; pal.y = belt.belt[1]; pal.Y = belt.charm || belt.belt[1]; }
   var ring = ITEMS[equip.anneau];
   if (ring) pal.N = ring.colors[1];
+  if (playerMutation.n) pal.M = MUTATION_GLOW[Math.min(MUTATION_GLOW.length, playerMutation.n) - 1];
   return pal;
 }
 
@@ -458,11 +525,11 @@ function combatStats(stats, voie, level) {
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
 function combatProfile(save) {
-  var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives;
+  var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation);
   return {
-    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult)), dmg: cs.dmg * (1 + pas.dmgMult),
-    crit: Math.min(0.75, cs.crit + pas.crit), critMult: 1.6 + pas.critDmg, dodge: Math.min(0.5, cs.dodge + pas.dodge),
-    agi: cs.agi, spell: cs.spell + pas.spellMult, cdr: cs.cdr, size: 1 + pas.size, pas: pas,
+    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp)), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg),
+    crit: Math.min(0.75, cs.crit + pas.crit + mb.crit), critMult: 1.6 + pas.critDmg, dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge),
+    agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell, cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb,
     armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce)
   };
 }
@@ -713,6 +780,57 @@ Object.assign(ITEM_TIER, {
   katana_foudre: 6, masse_volcan: 6, fuma_tempete: 6
 });
 
+// ---------- Les objets du Continent : dix par terre (une arme de chaque type, et de quoi s'habiller) ----------
+// Tirés de la matière de leur terre (ses couleurs, son nom), et bien plus forts que ceux de l'île : sur le Continent,
+// c'est le butin qui fait avancer. Rang d'un objet = rang de sa terre (7 pour la Plaine des Vents… 22 pour l'Orage).
+var CONTINENT_GEAR = {
+  plaine: { de: 'des Vents', c: ['#e0c050', '#a8882a', '#fff0a0', '#6e4a2a', '#4a3018'], wave: ['#fff0a0', '#a8882a'], focus: 'agilite', hat: 'kasa' },
+  bataille: { de: 'de guerre', c: ['#b0b4bc', '#6a6e78', '#e8ecf4', '#6a1a1a', '#3a0a0a'], wave: ['#e8ecf4', '#c9412f'], focus: 'force', hat: 'ecorce' },
+  epines: { de: 'd’épines', c: ['#8a2a4a', '#5a1a2e', '#d06a8a', '#3a4a2a', '#1e2a14'], wave: ['#d06a8a', '#3a4a2a'], focus: 'agilite', hat: 'kasa' },
+  dunes: { de: 'des dunes', c: ['#f0d498', '#b8985a', '#fff6d8', '#7a5028', '#4a2e14'], wave: ['#fff6d8', '#d8a468'], focus: 'vitalite', hat: 'kasa' },
+  canyon: { de: 'de grès rouge', c: ['#d8744a', '#9a4a2a', '#f0a878', '#4a2e1a', '#2a1a0c'], wave: ['#f0a878', '#9a4a2a'], focus: 'force', hat: 'ecorce' },
+  toundra: { de: 'des glaces', c: ['#a0d8f0', '#4a8ab0', '#e8f8ff', '#3a5a7a', '#1e3a5a'], wave: ['#e8f8ff', '#6ab0e0'], focus: 'vitalite', hat: 'ecorce' },
+  volcan: { de: 'de braise vive', c: ['#ff6a1a', '#a82a0a', '#ffd040', '#2a2230', '#120e18'], wave: ['#ffd040', '#e0402a'], focus: 'force', hat: 'ecorce' },
+  cimetiere: { de: 'des rois morts', c: ['#8af0c0', '#3a8a6a', '#d0fff0', '#4a4a52', '#2a2a32'], wave: ['#d0fff0', '#3a8a6a'], focus: 'esprit', hat: 'kasa' },
+  feerique: { de: 'féerique', c: ['#f0a0e0', '#a040c0', '#fff0ff', '#4a8a8a', '#2a4a5a'], wave: ['#fff0ff', '#a0f0e0'], focus: 'esprit', hat: 'kasa' },
+  ciel: { de: 'céleste', c: ['#e8ecf4', '#a0a4b4', '#ffffff', '#e0b43a', '#8a6f1f'], wave: ['#ffffff', '#8ab0e0'], focus: 'agilite', hat: 'kasa' },
+  jungle: { de: 'de la jungle', c: ['#6ae060', '#2a8a2a', '#c0ffb0', '#e04a8a', '#8a1a4a'], wave: ['#c0ffb0', '#e04a8a'], focus: 'vitalite', hat: 'kasa' },
+  mines: { de: 'd’obsidienne', c: ['#8a6ab0', '#3a2a4a', '#e0c0ff', '#4a4a3a', '#2a2a22'], wave: ['#e0c0ff', '#3a2a4a'], focus: 'force', hat: 'ecorce' },
+  forteresse: { de: 'de fer noir', c: ['#9aa0b0', '#5a6070', '#d8dce6', '#2a4a8a', '#1a2a5a'], wave: ['#d8dce6', '#2a4a8a'], focus: 'vitalite', hat: 'ecorce' },
+  abysse: { de: 'du vide', c: ['#c080ff', '#6a3aa8', '#f0d8ff', '#241a34', '#0e0818'], wave: ['#f0d8ff', '#6a3aa8'], focus: 'esprit', hat: 'kasa' },
+  dragons: { de: 'draconique', c: ['#f0d060', '#c08a1a', '#fff6c0', '#8a2a1a', '#4a0a0a'], wave: ['#fff6c0', '#e0402a'], focus: 'force', hat: 'ecorce' },
+  orage: { de: 'de l’orage', c: ['#6af0ff', '#2a6ab0', '#e0ffff', '#343a50', '#1e2230'], wave: ['#e0ffff', '#f0f040'], focus: 'esprit', hat: 'ecorce' }
+};
+(function () {
+  var SECOND = { echarpe: 'vitalite', ceinture: 'agilite', anneau: 'esprit', tete: 'vitalite' };
+  var R = Math.round;
+  BIOMES.forEach(function (b, w) {
+    var g = CONTINENT_GEAR[b.id];
+    if (!g) return;
+    var t = w + 1, k = t - 6, col = g.c, from = 'Butin : ' + b.name + '.', add = {};
+    var sec = function (not) { return g.focus !== not ? g.focus : 'vitalite'; };
+    // proportionnels au niveau de la terre (L) : l'arme donne à peu près le tiers de l'attribut principal d'une grenouille de ce niveau
+    var L = 8 * w + 5, main = R(1.1 * L), second = R(0.3 * L), acc = R(0.36 * L), accMain = Math.ceil(acc * 0.6);
+    var pair = function (a, va, bb, vb) { var o = {}; o[a] = va; o[bb] = (o[bb] || 0) + vb; return o; };
+    var accStats = function (slot) { var s2 = SECOND[slot] === g.focus ? 'force' : SECOND[slot]; return pair(g.focus, accMain, s2, acc - accMain); };
+    add['c_' + b.id + '_baton'] = mkStaff('Bâton ' + g.de, pair('force', main, sec('force'), second), col, g.wave, 'Chaque coup libère une large onde de choc. ' + from, 2);
+    add['c_' + b.id + '_harpon'] = mkStaff('Harpon ' + g.de, pair('force', main, 'agilite', second), col, g.wave, 'Un coup d’estoc qui file très loin. ' + from, 0, 'harpon');
+    add['c_' + b.id + '_katana'] = mkKatana('Katana ' + g.de, pair('force', main, sec('force'), second), col, g.wave, 'Des entailles vives qui font saigner. ' + from);
+    add['c_' + b.id + '_masse'] = mkMasse('Masse ' + g.de, { force: R(main * 1.18), vitalite: second, agilite: -(2 + Math.floor(k / 5)) }, col, g.wave, 'Lourde, et le sol tremble. ' + from);
+    add['c_' + b.id + '_kunai'] = mkKunai('Kunaï ' + g.de, pair('agilite', main, sec('agilite'), second), col, g.wave, 'Lancé droit, il traverse tout. ' + from, 200, true);
+    add['c_' + b.id + '_shuriken'] = mkShuriken('Shuriken ' + g.de, pair('agilite', main, sec('agilite'), second), col, g.wave, 'Une étoile qui tournoie en sifflant. ' + from);
+    add['c_' + b.id + '_echarpe'] = mkScarf('Écharpe ' + g.de, accStats('echarpe'), [col[0], col[1]], 'Elle flotte au vent de sa terre. ' + from);
+    add['c_' + b.id + '_ceinture'] = mkBelt('Ceinture ' + g.de, accStats('ceinture'), [col[3], col[4], col[1], col[0]], col[2], 'Nouée serré, pour les longs combats. ' + from);
+    add['c_' + b.id + '_anneau'] = mkRing('Anneau ' + g.de, accStats('anneau'), [col[0], col[1], col[2], col[3]], 'Il brille au doigt. ' + from);
+    add['c_' + b.id + '_tete'] = mkHat((g.hat === 'kasa' ? 'Kasa ' : 'Heaume ') + g.de, accStats('tete'), g.hat, [col[0], col[1], col[2], col[3]], 'Pour garder la tête froide. ' + from);
+    // leurs propres formes (icônes), et un heaume à cornes pour les casques
+    var shapes = { baton: 'baton_c', harpon: 'harpon_c', katana: 'katana_c', masse: 'masse_c', kunai: 'kunai_c', shuriken: 'shuriken_c', echarpe: 'echarpe_c', ceinture: 'ceinture_c', anneau: 'anneau_c', tete: g.hat === 'kasa' ? 'kasa_c' : 'casque_c' };
+    Object.keys(shapes).forEach(function (s) { add['c_' + b.id + '_' + s].icon = shapes[s]; });
+    if (g.hat !== 'kasa') add['c_' + b.id + '_tete'].look = { hat: 'cornes' };
+    Object.keys(add).forEach(function (id) { add[id].continent = w; ITEMS[id] = add[id]; ITEM_TIER[id] = t; });
+  });
+})();
+
 // ---------- Raretés : chaque objet trouvé est un exemplaire unique ----------
 // Commun, Rare ou Épique : la bordure change de couleur, et les stats sont tirées au hasard à la création
 // (plus fortes, avec des stats en plus, pour les raretés hautes). Un exemplaire a pour identifiant
@@ -725,6 +843,43 @@ var RARITIES = {
   epique: { name: 'Épique', color: '#b86ae8', mult: 1.75, extra: 2, price: 3 }
 };
 var RARITY_IDS = ['commun', 'rare', 'epique'];
+// Légendaire : une rareté à part, dorée, réservée à quelques modèles (bandeaux et capes) qu'on ne trouve que sur le
+// Continent, très rarement (LEGEND_CHANCE). Leurs stats suivent le rang de la terre où ils tombent.
+RARITIES.legendaire = { name: 'Légendaire', color: '#f0c040', mult: 1, extra: 0, price: 6 };
+var ITEM_RARITIES = RARITY_IDS.concat(['legendaire']); // pour ranger les objets
+var LEGEND_CHANCE = { 0: 0.003, 1: 0.008, 2: 0.02 }; // par victoire sur le Continent : monstre commun, boss ou rare, épique
+function mkLegend(slot, name, stats, accent, desc) {
+  var gold = ['#f0c040', '#b08a1a', '#fff6c0'], dark = accent[1];
+  // weights : le poids de chaque caractéristique ; stats : celles d'un exemplaire tombé dans la première terre du Continent
+  var st = {}; Object.keys(stats).forEach(function (k) { st[k] = Math.round(stats[k] * 19); });
+  var it = { slot: slot, name: name, stats: st, weights: stats, drop: 0, legend: true, desc: desc, colors: { 1: gold[0], 2: gold[1], 3: gold[2], 4: accent[0], b: dark } };
+  if (slot === 'tete') { it.icon = 'bandeau'; it.look = { hat: 'bandeau' }; it.colors = { 1: gold[0], 2: gold[1], 3: accent[0], 4: gold[2] }; }
+  else { it.icon = 'cape'; it.scarf = [gold[0], accent[0]]; it.look = { cape: true }; }
+  return it;
+}
+// stats : le poids de chaque caractéristique (× le niveau de la terre où il tombe)
+var LEGENDS = {
+  leg_bandeau_soleil: mkLegend('tete', 'Bandeau du Soleil Levant', { force: 1.3, vitalite: 0.6, agilite: 0.4 }, ['#c9412f', '#6a1a1a'], 'Un bandeau d’or noué serré. On dit qu’il a vu mille aubes de combat.'),
+  leg_bandeau_tonnerre: mkLegend('tete', 'Bandeau du Tonnerre', { agilite: 1.3, esprit: 0.6, force: 0.4 }, ['#6af0ff', '#2a6ab0'], 'Sa plaque crépite encore. Qui le porte frappe avant qu’on l’ait vu bouger.'),
+  leg_bandeau_lune: mkLegend('tete', 'Bandeau de la Lune Noire', { esprit: 1.3, vitalite: 0.6, agilite: 0.4 }, ['#8a5ad0', '#3a1a6a'], 'Tissé une nuit sans lune, brodé de fil d’or. Les sorts y puisent leur force.'),
+  leg_bandeau_gardien: mkLegend('tete', 'Bandeau du Gardien', { vitalite: 1.3, force: 0.6, esprit: 0.4 }, ['#3aa05a', '#1a5a2a'], 'Celui des gardiens du Continent : il tient debout ceux qui devraient tomber.'),
+  leg_cape_aurore: mkLegend('echarpe', 'Cape de l’Aurore', { force: 1.3, agilite: 0.6, vitalite: 0.4 }, ['#e0602a', '#8a2a0a'], 'Une cape d’or et de feu, qui claque au vent comme un drapeau.'),
+  leg_cape_etoiles: mkLegend('echarpe', 'Cape d’Étoiles', { esprit: 1.3, agilite: 0.6, vitalite: 0.4 }, ['#3a4aa8', '#1a2260'], 'Sa doublure est un ciel de nuit. On y voit parfois filer une étoile.'),
+  leg_cape_dragon: mkLegend('echarpe', 'Cape du Dragon', { vitalite: 1.3, force: 0.6, esprit: 0.4 }, ['#a81a2a', '#4a0a12'], 'Taillée dans une aile de dragon. Rien ne la perce.'),
+  leg_cape_jade: mkLegend('echarpe', 'Cape de Jade', { agilite: 1.3, vitalite: 0.6, force: 0.4 }, ['#2aa07a', '#0a4a3a'], 'Légère comme une feuille, verte comme la mare au printemps.')
+};
+Object.keys(LEGENDS).forEach(function (id) { ITEMS[id] = LEGENDS[id]; });
+// Un Légendaire tombe : un exemplaire dont les stats suivent le rang de la terre (et le cycle)
+function rollLegend(save, tier) {
+  var ids = Object.keys(LEGENDS).filter(function (id) { return itemAvailable(save, id); }), base = ids[Math.floor(Math.random() * ids.length)];
+  var L = 8 * (tier - 1) + 5, unit = 0.36 * L * (1 + CYCLE.loot * Math.max(0, (save.cycle || 1) - 1)), stats = {};
+  Object.keys(LEGENDS[base].weights).forEach(function (k) { stats[k] = Math.max(1, Math.round(LEGENDS[base].weights[k] * unit * (0.95 + Math.random() * 0.1))); });
+  var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
+  save.items[id] = { base: base, rar: 'legendaire', stats: stats };
+  if ((save.cycle || 1) > 1) save.items[id].plus = save.cycle - 1;
+  registerItem(id, save.items[id]);
+  return id;
+}
 var BASE_IDS = Object.keys(ITEMS); // les modèles (les exemplaires s'ajoutent à ITEMS ensuite)
 function baseOf(id) { return String(id).split('#')[0]; }
 function rarityOf(id) { var it = ITEMS[id]; return !it ? 'commun' : (it.rarity || (it.reward ? 'epique' : 'commun')); }
@@ -737,15 +892,16 @@ function registerItem(id, inst) {
     var key = k === 'souffle' ? 'esprit' : k;
     if (BASE_STATS[key] !== undefined && typeof inst.stats[k] === 'number') stats[key] = (stats[key] || 0) + Math.round(inst.stats[k]);
   });
-  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base });
+  var plus = Math.max(0, Math.min(99, Math.floor(+inst.plus || 0))); // le « + » des objets trouvés dans les cycles suivants
+  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? b.name + ' +' + plus : b.name });
   return true;
 }
 // Un nouvel exemplaire d'un modèle : ses stats tirées selon la rareté
 function rollItem(save, base, rar) {
-  var b = ITEMS[base], R = RARITIES[rar], stats = {};
+  var b = ITEMS[base], R = RARITIES[rar], stats = {}, plus = Math.max(0, (save.cycle || 1) - 1), boost = 1 + CYCLE.loot * plus;
   Object.keys(b.stats).forEach(function (k) {
     var v = b.stats[k];
-    stats[k] = v < 0 ? v : Math.max(1, Math.round(v * R.mult * (0.8 + Math.random() * 0.4)));
+    stats[k] = v < 0 ? v : Math.max(1, Math.round(v * R.mult * boost * (0.8 + Math.random() * 0.4)));
   });
   var others = Object.keys(BASE_STATS).filter(function (k) { return stats[k] === undefined; });
   for (var i = 0; i < R.extra && others.length; i++) {
@@ -755,6 +911,7 @@ function rollItem(save, base, rar) {
   }
   var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
   save.items[id] = { base: base, rar: rar, stats: stats };
+  if (plus) save.items[id].plus = plus;
   registerItem(id, save.items[id]);
   return id;
 }
@@ -770,6 +927,10 @@ function lootPool(maxTier, save) {
 }
 function pickBase(maxTier, save) {
   var pool = lootPool(maxTier, save), weight = function (id) { return ITEMS[id].drop * ((ITEM_TIER[id] || 1) === maxTier ? 2 : 1); };
+  if (maxTier > 6) {
+    pool = pool.filter(function (id) { return (ITEM_TIER[id] || 1) >= maxTier - 2; });
+    weight = function (id) { return ITEMS[id].drop * ((ITEM_TIER[id] || 1) === maxTier ? 3 : 1); };
+  }
   var total = pool.reduce(function (s, id) { return s + weight(id); }, 0), r = Math.random() * total;
   for (var i = 0; i < pool.length; i++) { r -= weight(pool[i]); if (r <= 0) return pool[i]; }
   return pool[pool.length - 1];
@@ -792,7 +953,8 @@ function sellPrice(id) { return Math.max(3, Math.floor(itemPrice(id) / 4)); }
 
 // Butin : un nouvel exemplaire d'un modèle de rang autorisé, de rareté tirée au sort (luck : voir rollRarity)
 function rollLoot(save, maxTier, chance, luck) {
-  if (Math.random() > chance) return null;
+  if (maxTier > 6 && Math.random() < (LEGEND_CHANCE[luck || 0] || 0) * (1 + playerMutBonus.loot)) return rollLegend(save, maxTier); // ultra rare
+  if (Math.random() > chance * (1 + playerMutBonus.loot)) return null;
   return rollItem(save, pickBase(maxTier, save), rollRarity(luck));
 }
 
@@ -808,7 +970,10 @@ function newSave() {
     equip: Object.assign({}, DEFAULT_EQUIP), owned: STARTER_ITEMS.slice(),
     level: 1, xp: 0, points: 0, alloc: { vitalite: 0, agilite: 0, force: 0, esprit: 0 },
     skillPoints: 0, voie: null, arme: null, tree: [], deck: [], gold: 30,
-    progress: [0, 0, 0, 0, 0, 0], expedition: null, shop: [],
+    progress: BIOMES.map(function () { return 0; }), expedition: null, shop: [],
+    cycle: 1, // le cycle du monde (NG+) : 1, puis 2 une fois le Dragon-Tempête vaincu, etc.
+    seenContinent: false, // le Grand Plongeon (la cinématique du passage vers le Continent) a été vu
+    mutation: { n: 0, traits: {} }, // les mutations : combien, et les traits choisis (id -> fois)
     ach: [], // hauts faits obtenus (voir feats.js)
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
@@ -861,7 +1026,7 @@ function parseSave(data) {
   // les exemplaires d'abord, pour que l'inventaire, l'étal et l'équipement les reconnaissent
   // avant la version 6, les armes de jet donnaient de la Force : leurs exemplaires passent à l'Agilité
   if (data.items && typeof data.items === 'object' && data.v < 6) Object.keys(data.items).forEach(function (id) { var it = data.items[id], b = it && ITEMS[it.base]; if (b && b.kind === 'kunai' && it.stats) it.stats = swapThrown(it.stats); });
-  if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; });
+  if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) { save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; if (ITEMS[id].plus) save.items[id].plus = ITEMS[id].plus; } });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
   if (Array.isArray(data.progress)) data.progress.forEach(function (n, i) { if (i < save.progress.length) save.progress[i] = Math.min(10, int(n, 0) || 0); });
@@ -890,6 +1055,12 @@ function parseSave(data) {
     if (refund) { save.gold += refund; if (save.hero) save.notice = 'Les skins ont été refaits : ' + (back.length > 1 ? 'tes anciens skins te sont remboursés' : 'ton ancien skin t’est remboursé') + ' (' + refund + ' lucioles). Trois nouveaux skins t’attendent chaque jour !'; }
   }
   if (data.hero && PREMIUM_SKINS[data.hero.skin] && save.skins.indexOf(data.hero.skin) >= 0) save.hero.skin = data.hero.skin; // une peau achetée
+  save.cycle = Math.max(1, Math.min(999, int(data.cycle, 1) || 1));
+  save.seenContinent = !!data.seenContinent;
+  if (data.mutation && typeof data.mutation === 'object') {
+    save.mutation.n = Math.min(999, int(data.mutation.n, 0) || 0);
+    Object.keys(data.mutation.traits || {}).forEach(function (id) { if (MUTATIONS[id]) save.mutation.traits[id] = Math.min(999, int(data.mutation.traits[id], 0) || 0); });
+  }
   if (data.clanBonus) save.clanBonus = { xp: Math.min(0.2, Math.max(0, +data.clanBonus.xp || 0)), lucioles: Math.min(0.2, Math.max(0, +data.clanBonus.lucioles || 0)) };
   if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};

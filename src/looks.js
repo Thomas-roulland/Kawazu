@@ -35,6 +35,45 @@ var HATS = {
       '........kkkkk...................'
     ]]
   },
+  // le bandeau des Légendaires : noué sous les yeux, une plaque au milieu, les pans qui flottent
+  bandeau: {
+    front: [9, [
+      '..kHHHHHHHHHHkJJJJkHHHHHHHHHHk..',
+      '..kIIIIIIIIIIkJPPJkIIIIIIIIIIk.H',
+      '...............................H',
+      '...............................I'
+    ]],
+    side: [9, [
+      '.....HH..kHHHHHHHHHHJJJJk.......',
+      '.......HIkIIIIIIIIIIJPPJk.......',
+      '....HHI.........................',
+      '...HI...........................'
+    ]]
+  },
+  // le heaume à cornes des casques du Continent
+  cornes: {
+    front: [1, [
+      '.........kk..........kk.........',
+      '.........kJk........kJk.........',
+      '..........kJk......kJk..........',
+      '............kkkkkkkk............',
+      '...........kHHJJHHHHk...........',
+      '..........kHJJHHHHHHIk..........',
+      '..........kHHHHHHHHHIk..........',
+      '..........kIIIIIIIIIIk..........',
+      '..........kkkkkkkkkkkk..........'
+    ]],
+    side: [2, [
+      '..........kk....................',
+      '.........kJk....................',
+      '.........kJk....................',
+      '.........kkkkk..................',
+      '........kHJJHHk.................',
+      '........kHHHHIk.................',
+      '........kIIIIIk.................',
+      '........kkkkkkk.................'
+    ]]
+  },
   ecorce: {
     front: [4, [
       '............kkkkkkkk............',
@@ -54,6 +93,37 @@ var HATS = {
   }
 };
 
+// Les marques lumineuses de la mutation (M) : des taches sur la peau, plus nombreuses à chaque mutation
+function paintMutation(g, n) {
+  var spots = [];
+  for (var y = 9; y < g.length - 3; y++) for (var x = 0; x < g[y].length; x++) if (g[y][x] === 'm' || g[y][x] === 'g') spots.push([y, x]);
+  var count = Math.min(spots.length, 2 + 3 * n);
+  spots.sort(function (a, b) { return hash(a[0], a[1], 91) - hash(b[0], b[1], 91); });
+  for (var i = 0; i < count; i++) { // des taches de deux pixels, pour qu'elles se voient sur toutes les peaux
+    var y2 = spots[i][0], x2 = spots[i][1];
+    g[y2][x2] = 'M';
+    if (g[y2][x2 + 1] === 'm' || g[y2][x2 + 1] === 'g' || g[y2][x2 + 1] === 'l') g[y2][x2 + 1] = 'M';
+  }
+}
+// La cape des Légendaires (couleurs de l'écharpe, r et R) : dans le dos, elle couvre tout ; de profil, elle flotte
+// derrière la grenouille ; de face, on n'en voit que les bords
+function paintCape(g, view) {
+  var W = g[0].length, at = function (y, x) { return g[y] && x >= 0 && x < W ? g[y][x] : ''; };
+  var put = function (y, x, ch) { if (g[y] && x >= 0 && x < W) g[y][x] = ch; };
+  if (view === 'back') {
+    for (var y = 19; y <= 28; y++) for (var x = 2; x <= 29; x++) put(y, x, x === 2 || x === 29 ? 'k' : ((x + (y > 24 ? 1 : 0)) % 5 === 0 ? 'R' : 'r'));
+    for (var hx = 2; hx <= 29; hx++) put(29, hx, hx % 3 ? 'k' : at(29, hx));
+  } else if (view === 'front') {
+    for (var fy = 18; fy <= 28; fy++) [[0, 1], [31, 30]].forEach(function (p) { if (at(fy, p[1]) === '.') put(fy, p[1], 'R'); if (at(fy, p[0]) === '.') put(fy, p[0], 'k'); });
+  } else {
+    for (var sy = 16; sy <= 28; sy++) {
+      var x0 = 0; while (x0 < W && at(sy, x0) === '.') x0++;
+      if (x0 >= W) continue;
+      var from = Math.max(1, x0 - 2 - Math.floor((sy - 16) / 2));
+      for (var sx = from; sx < x0; sx++) put(sy, sx, sx === from ? 'k' : ((sx + sy) % 4 === 0 ? 'R' : 'r'));
+    }
+  }
+}
 function stampRows(g, r0, rows) {
   rows.forEach(function (row, i) {
     var y = r0 + i;
@@ -335,6 +405,7 @@ function dressKawazu(sp, look) {
   var c = function (g) { return g.map(function (r) { return r.slice(); }); };
   var out = Object.assign({}, sp);
   var main = c(sp.main), side = c(sp.side), back = c(sp.back), atk = c(sp.atk), ko = c(sp.ko);
+  if (look.mutation) [main, back, ko, side, atk].forEach(function (g) { paintMutation(g, look.mutation); });
   if (look.skin) { paintSkin(main, look.skin, 'front'); paintSkin(ko, look.skin, 'ko'); paintSkin(back, look.skin, 'back'); paintSkin(side, look.skin, 'side'); paintSkin(atk, look.skin, 'atk'); }
   var set = function (g, y, x, ch) { if (g[y] && x >= 0 && x < g[y].length) g[y][x] = ch; };
   var hermit = null;
@@ -419,6 +490,7 @@ function dressKawazu(sp, look) {
     stampPixels(atk, [[20, 28, 't'], [20, 29, 'S'], [20, 30, 't'], [20, 31, '.'], [19, 29, 't'], [18, 29, 'k'], [21, 29, 't'], [22, 29, 'k'], [20, 27, 'k']]);
   }
   var sides = [side, atk].concat(hermit || []);
+  if (look.cape) { paintCape(back, 'back'); paintCape(main, 'front'); paintCape(ko, 'front'); sides.forEach(function (g) { paintCape(g, 'side'); }); }
   if (look.hat && HATS[look.hat]) {
     var h = HATS[look.hat];
     [main, back, ko].forEach(function (g) { stampRows(g, h.front[0], h.front[1]); });
@@ -528,10 +600,420 @@ SPECIES.heron.frames.push(SPECIES.heron.frames[0].map(function (r, y) {
   if (y < 2) return '................................';
   return y < 14 ? SPECIES.heron.frames[0][y - 2] : r;
 }));
+// ---------- Les espèces du Continent ----------
+// Les nouvelles espèces du Continent (tournées vers la gauche, comme les autres). Une seule image par espèce
+// quand anim vaut 'bob' : la seconde est calculée (le corps s'affaisse d'un pixel). Les volants ont deux images.
+var NEW_SPECIES = {
+  rat: {
+    behavior: 'dasher', xp: 5, hp: 11, speed: 24, chase: 40, dash: 180, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#4a3a3a', 2: '#7a6a6a', 3: '#b0a4a0', p: '#e8a0a8', r: '#e0402a', w: '#f4f4e8' },
+    frames: [[
+      '................',
+      '................',
+      '................',
+      '....kk..........',
+      '...kppk.........',
+      '...kppkkkkkk....',
+      '..k2222222222k..',
+      '.k2r2222222222k.',
+      'k22222222222222k',
+      'kp222222222222k.',
+      '.kkw22233332k2k.',
+      '...kk2k33332kk.k',
+      '....k2kk2kk2k.kp',
+      '....kk..kk.kk.kp',
+      '..............kk',
+      '................'
+    ]]
+  },
+  corbeau: {
+    behavior: 'flyer', xp: 5, hp: 8, speed: 30, chase: 58, size: 16,
+    pal: { k: '#1a1c2c', 1: '#22222e', 2: '#3a3a4a', 3: '#5a5a70', y: '#e0b43a', r: '#e0402a' },
+    frames: [[
+      '................',
+      '........kkk.....',
+      '.......k333k....',
+      '......k3333k....',
+      '....kk3333k.....',
+      '...k1112kkkk....',
+      '.kyk12r22222k...',
+      'kyyk1222222222k.',
+      '.kkk12222222222k',
+      '....k1222222kkk.',
+      '.....k11222k....',
+      '......kk1kk.....',
+      '.......kyk......',
+      '......kykyk.....',
+      '................',
+      '................'
+    ], [
+      '................',
+      '................',
+      '................',
+      '................',
+      '....kk..........',
+      '...k1112kkkk....',
+      '.kyk12r22222k...',
+      'kyyk1222222222k.',
+      '.kkk12222222222k',
+      '....k1233333kkk.',
+      '.....k133333k...',
+      '......k3333k....',
+      '.......k33k.....',
+      '.......kyk......',
+      '......kykyk.....',
+      '................'
+    ]]
+  },
+  scarabee: {
+    behavior: 'walker', xp: 6, hp: 13, speed: 16, chase: 26, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#1f3a2a', 2: '#2f6a3a', 3: '#6ac05a', w: '#e8f7d0', h: '#3a2a1a', r: '#e0b43a' },
+    frames: [[
+      '................',
+      '................',
+      '................',
+      '................',
+      'kk..............',
+      'khk....kkkkk....',
+      '.khk.kk33222kk..',
+      '..kkk3w3222222k.',
+      '..kr2332222222k.',
+      '.k2222322222221k',
+      '.k2222k22222221k',
+      '..k222k2222221k.',
+      '...kkkkkkkkkkk..',
+      '...k.k.k.k.k.k..',
+      '..k.k.k..k.k..k.',
+      '................'
+    ]]
+  },
+  serpent: {
+    behavior: 'dasher', xp: 6, hp: 11, speed: 20, chase: 34, dash: 190, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#2a4a1a', 2: '#4a8a2a', 3: '#8ac050', y: '#e0d070', r: '#e0402a', w: '#f4f4e8' },
+    frames: [[
+      '................',
+      '................',
+      '...kkkk.........',
+      '..k2222k........',
+      '.k2r22y2k.......',
+      'k222222y2k......',
+      '.kkkk2222k......',
+      'r.r..k222k......',
+      '.....k2y2k......',
+      '....k22y2k......',
+      '...k2y22k..kkk..',
+      '..k2y22kkkk222k.',
+      '..k22y222222y22k',
+      '..k1122222y2221k',
+      '...kk11111111kk.',
+      '.....kkkkkkkk...'
+    ]]
+  },
+  scorpion: {
+    behavior: 'walker', xp: 6, hp: 12, speed: 18, chase: 30, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#6a3a1a', 2: '#a8641e', 3: '#e0a050', r: '#e0402a', w: '#f4f4e8' },
+    frames: [[
+      '.........kkk....',
+      '........k332k...',
+      '........kk.k2k..',
+      '............k2k.',
+      '............k2k.',
+      '...........k22k.',
+      '.kk.......k22k..',
+      'k32k....kk22k...',
+      'k2k.kkkk22222k..',
+      '.kk2r3322222222k',
+      '..k22222222222k.',
+      '...k1122222221k.',
+      '....kkkkkkkkkk..',
+      '....k.k.kk.k.k..',
+      '...k.k.k..k.k.k.',
+      '................'
+    ]]
+  },
+  squelette: {
+    behavior: 'walker', xp: 6, hp: 12, speed: 16, chase: 28, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#8a8478', 2: '#c8c2b0', 3: '#f0ecdc', r: '#e0402a', t: '#9a8a7a', o: '#5a3e25' },
+    frames: [[
+      '................',
+      '....kkkkkk......',
+      '...k333322k.....',
+      '..k3kk33kk2k....',
+      '..k3kr33kr2k....',
+      '...k3333222k....',
+      '..kk3k3k2kk.....',
+      'kt..kk3kk.......',
+      'kt.k3k2k2k......',
+      'kt.kk3k2kk2k....',
+      'ko.k3k3k2k.k....',
+      '.kk2kk2kk2kk....',
+      '...k2k..k2k.....',
+      '...k2k..k2k.....',
+      '..kk2k..k2kk....',
+      '..kkkk..kkkk....'
+    ]]
+  },
+  fantome: {
+    behavior: 'flyer', xp: 5, hp: 9, speed: 26, chase: 50, size: 16,
+    pal: { k: '#1a1c2c', 1: '#8a9ac8', 2: '#c0cce8', 3: '#eef2ff', r: '#3a2a6a', w: '#f4f4e8' },
+    frames: [[
+      '................',
+      '.....kkkkk......',
+      '....k33333k.....',
+      '...k3333322k....',
+      '..k3rr3rr322k...',
+      '..k3rr3rr3222k..',
+      '..k33333332222k.',
+      '..k3333r3332222k',
+      '..k33333332222k.',
+      '..k3333322222k..',
+      '..k33332222222k.',
+      '..k3222222222k..',
+      '..k2k22k22k22k..',
+      '..kk.kk.kk.kkk..',
+      '................',
+      '................'
+    ], [
+      '................',
+      '................',
+      '.....kkkkk......',
+      '....k33333k.....',
+      '...k3333322k....',
+      '..k3rr3rr322k...',
+      '..k3rr3rr32222k.',
+      '..k33333332222k.',
+      '..k3333r33322k..',
+      '..k33333332222k.',
+      '..k33332222222k.',
+      '..k3222222222k..',
+      '..k22k22k22k2k..',
+      '...kk.kk.kk.kk..',
+      '................',
+      '................'
+    ]]
+  },
+  golem: {
+    behavior: 'walker', xp: 7, hp: 16, speed: 12, chase: 20, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#4a4a4a', 2: '#7a7a72', 3: '#a8a89a', g: '#5a8a3a', y: '#f0d040' },
+    frames: [[
+      '................',
+      '.....kkkkkk.....',
+      '....k3322g2k....',
+      '....k3y22y2k....',
+      '....k322222k....',
+      '..kkkk2222kkkk..',
+      '.k33k222222k22k.',
+      '.k32k2g22222k2k.',
+      '.k22k22222222k2k',
+      '.k22k222222g2k2k',
+      '..kkk22222221kk.',
+      '....k22kk221k...',
+      '....k21kk211k...',
+      '...kk21k.k21kk..',
+      '...kkkkk.kkkkk..',
+      '................'
+    ]]
+  },
+  salamandre: {
+    behavior: 'dasher', xp: 6, hp: 11, speed: 22, chase: 36, dash: 200, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#8a1a1a', 2: '#d0402a', 3: '#f08a4a', y: '#f0d040', o: '#ff9a2a', w: '#f4f4e8' },
+    frames: [[
+      '................',
+      '................',
+      '.........o..o...',
+      '........oyo.oyo.',
+      '.......oyyo.yyo.',
+      '..kkkk..kook.kk.',
+      '.k2w22kk22222k..',
+      'k2222222222222k.',
+      'k33322222222222k',
+      '.kkk33332222222k',
+      '...k2kk3333222k.',
+      '...kk.k22kk22kkk',
+      '......kkk..kkk2k',
+      '..............kk',
+      '................',
+      '................'
+    ]]
+  },
+  fee: {
+    behavior: 'flyer', xp: 5, hp: 8, speed: 32, chase: 60, size: 16,
+    pal: { k: '#1a1c2c', 1: '#c060c0', 2: '#f0a0e0', 3: '#fff0ff', a: '#a0f0e0', b: '#60c0b0', y: '#fff6a0', r: '#3a1a4a' },
+    frames: [[
+      '................',
+      '..kk......kk....',
+      '.kaak....kaak...',
+      '.kaabk..kbaak...',
+      '..kabbkkbbak....',
+      '...kkk33kkk.....',
+      '....k3333k......',
+      '...k3r33r3k.....',
+      '...k333333k.....',
+      '....k2222k......',
+      '...kaak2kaak....',
+      '..kaak.k.kaak...',
+      '..kkk..y..kkk...',
+      '......yyy.......',
+      '.......y........',
+      '................'
+    ], [
+      '................',
+      '................',
+      '................',
+      '....kk....kk....',
+      '...kaabkkbaak...',
+      '...kkk33kkk.....',
+      '....k3333k......',
+      '...k3r33r3k.....',
+      '...k333333k.....',
+      '..kkak2222kakk..',
+      '.kaaak2kkkaaak..',
+      '.kaak..k..kaak..',
+      '.kkk...y...kkk..',
+      '......yyy.......',
+      '.......y........',
+      '................'
+    ]]
+  },
+  plante: {
+    behavior: 'walker', xp: 6, hp: 12, speed: 10, chase: 22, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#8a1a3a', 2: '#d04060', 3: '#f08aa0', w: '#f4f4e8', g: '#3a7a2a', G: '#6ac04a', d: '#1f4a1a' },
+    frames: [[
+      '................',
+      '..kkkkkk........',
+      '.k322223k.......',
+      'k3wkwkw22k......',
+      'k........k......',
+      'kw.kw.kw.k......',
+      '.k222222k.......',
+      '..kk22kkk.......',
+      '....kgk.........',
+      '.kk.kGk.kk......',
+      'kGGkkGkkGGk.....',
+      'kGggkGkgGdk.....',
+      '.kkkkGkkkk......',
+      '....kGk.........',
+      '...kdddk........',
+      '..kkkkkkk.......'
+    ]]
+  },
+  loup: {
+    behavior: 'dasher', xp: 6, hp: 12, speed: 24, chase: 40, dash: 210, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#3a3a4a', 2: '#6a6a7a', 3: '#b0b0c0', w: '#f4f4e8', y: '#f0d040' },
+    frames: [[
+      '................',
+      '................',
+      '....k.k.........',
+      '...k2k2k........',
+      '..k2y2222kkkkk..',
+      'kk22222222222k..',
+      'k3w22222222222k.',
+      '.kkk3222222222kk',
+      '...k33222222222k',
+      '....k3322222k22k',
+      '....k2kk222kk.kk',
+      '....k2k.k2kk....',
+      '....k2k.k2k.....',
+      '...kkk..kkk.....',
+      '................',
+      '................'
+    ]]
+  },
+  araignee: {
+    behavior: 'walker', xp: 6, hp: 12, speed: 18, chase: 30, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#1a1a24', 2: '#3a2a4a', 3: '#6a4a8a', r: '#e0402a', y: '#e0b43a' },
+    frames: [[
+      '................',
+      '................',
+      '................',
+      '.....kkkkk......',
+      '....k33322k.....',
+      '...k3322222k....',
+      '.kkk3y222y22kkk.',
+      'k.kk22222222kk.k',
+      '..kkrkr222222k..',
+      '.k.k222222222k.k',
+      'k..kkk22222kkk..',
+      '..k..kkkkkk..k..',
+      '.k..k..k.k..k.k.',
+      'k..k..k...k..k.k',
+      '................',
+      '................'
+    ]]
+  },
+  chevalier: {
+    behavior: 'walker', xp: 7, hp: 15, speed: 14, chase: 24, size: 16, anim: 'bob',
+    pal: { k: '#1a1c2c', 1: '#5a6070', 2: '#9aa0b0', 3: '#d8dce6', r: '#c9412f', y: '#e0b43a', o: '#6e4a2a' },
+    frames: [[
+      '.......rr.......',
+      '......rrr.......',
+      '.....kkkkk......',
+      '....k33322k.....',
+      '....kkkkk2k.....',
+      '....k322222k....',
+      '..kkkk2222kk....',
+      '.kyyyk22222kk...',
+      '.kyryk2222k2k...',
+      '.kyyyk2222k2k...',
+      '.kyryk2222kok...',
+      '..kkk22222kok...',
+      '....k22k22k.....',
+      '....k2k.k2k.....',
+      '...kk1k.k1kk....',
+      '...kkkk.kkkk....'
+    ]]
+  }
+};
+// Le dragon (32 × 32) : le seigneur des dernières terres
+NEW_SPECIES.dragon = {
+  behavior: 'dasher', xp: 0, hp: 30, speed: 22, chase: 40, dash: 230, size: 32,
+  pal: { k: '#1a1c2c', 1: '#1a3a6a', 2: '#2a6ab0', 3: '#6aa8f0', a: '#3a4a7a', b: '#6a7ab0', y: '#f0d040', w: '#f4f4e8', r: '#e0402a' },
+  frames: [[
+    '................................',
+    '..................kk............',
+    '.................kbak...........',
+    '................kbbak.......kk..',
+    '...............kbbaak......kbak.',
+    '.......kk.....kbbaaak.....kbbak.',
+    '......k3k....kbbbaaak....kbbaak.',
+    '.....k33kk..kbbbbaaak...kbbaaak.',
+    '....k3332kkkkbbbbaaaakkkbbbaaak.',
+    '...k33222222kbbbbaaaaabbbbaaaak.',
+    '..k3y22222222kkbbbaaaabbbaaakk..',
+    '.k3222222w2222222kkbbbaaakkk....',
+    'k32222222222222222222kkkkk......',
+    'k2222kkk222222222222222k........',
+    '.kkkk.kwk22222222222222k........',
+    '......kk.k222233333222222k......',
+    '..........k2233333333222222k....',
+    '...........k233333333322222k....',
+    '...........k2333333333222222k...',
+    '............k233333333222222k...',
+    '.............k2233332222222222k.',
+    '..............k22222222k22222k..',
+    '..............k222kk222kk22222k.',
+    '.............k222k.k222k.kk222k.',
+    '............kk22k...k22k...k222k',
+    '...........kyykk...kyykk....kk2k',
+    '...........kkkk....kkkk......kk.',
+    '................................',
+    '................................',
+    '................................',
+    '................................',
+    '................................'
+  ]]
+};
+Object.keys(NEW_SPECIES).forEach(function (id) { SPECIES[id] = NEW_SPECIES[id]; });
+
 // les grilles sont complétées avec des '.' à la bonne largeur
 Object.keys(SPECIES).forEach(function (id) {
   var n = SPECIES[id].size;
   SPECIES[id].frames = SPECIES[id].frames.map(function (f) { return f.map(function (r) { return (r + '.'.repeat(n)).slice(0, n); }); });
+});
+// la seconde image des espèces qui n'en ont qu'une : le corps s'affaisse d'un pixel (les pattes restent)
+Object.keys(SPECIES).forEach(function (id) {
+  var s = SPECIES[id], f = s.frames[0], n = f.length;
+  if (s.frames.length < 2) s.frames.push(f.map(function (r, y) { return y === 0 ? '.'.repeat(r.length) : (y < n - 3 ? f[y - 1] : r); }));
 });
 
 // L'arbre d'entraînement du dojo (32×32) : un tronc cerclé de paille, une cible peinte, deux moignons de branches

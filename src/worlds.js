@@ -17,8 +17,16 @@ function enemySize(e) {
 
 // La force des monstres, réglée pour que les voies (qui multiplient les points) trouvent encore du répondant
 var MONSTER_POWER = { hp: 2.2, dmg: 2.6 };
+// Le Continent est plus dur : ses monstres ont plus de PV et frappent plus fort, à niveau égal. On y avance en
+// farmant et en trouvant de meilleurs objets (réglé au simulateur, voir sim.js).
+// hp, dmg : au début du Continent ; hpK, dmgK : ce qui s'ajoute à chaque terre suivante (la grenouille y gagne plus vite en force)
+var CONTINENT_POWER = { hp: 2.8, dmg: 2.3, hpK: 0.03, dmgK: 0.025, normal: 1.25 }; // normal : les monstres des étapes ordinaires, un peu plus coriaces
 function makeEnemy(w, level, variant, rank, title) {
-  var b = BIOMES[w];
+  var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1;
+  level += CYCLE.level * cyc; // le cycle (NG+) : des monstres plus forts
+  var boost = Math.pow(CYCLE.power, cyc), k = w - ISLAND_WORLDS, CP = CONTINENT_POWER;
+  var hpX = (k >= 0 ? CP.hp * (1 + CP.hpK * k) : 1) * boost, dmgX = (k >= 0 ? CP.dmg * (1 + CP.dmgK * k) : 1) * boost;
+  if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= CP.normal; dmgX *= Math.sqrt(CP.normal); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
@@ -26,8 +34,9 @@ function makeEnemy(w, level, variant, rank, title) {
     name: isGuard ? v.name + ' ' + title : v.name, species: v.species, pal: v.pal, level: level,
     rank: rank || 'normal', behavior: s.behavior,
     scale: isBoss ? (s.size === 32 ? 1 : 1.9) : (isGuard ? 1.45 : 1),
-    maxHp: Math.round(s.hp * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1))),
-    dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1)),
+    // (sur le Continent, les espèces ont toutes la même base de PV : c'est la terre qui fait la force, et le dragon un peu plus)
+    maxHp: Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX),
+    dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX),
     agi: 6 + level * 0.6,
     dodge: s.behavior === 'flyer' ? 0.18 : 0.05
   };
@@ -59,6 +68,17 @@ function worldStages(w) {
 }
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
+// Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le Dragon-Tempête l'est
+function continentOpen(save) { return worldUnlocked(save, ISLAND_WORLDS); }
+function worldDone(save) { return save.progress[BIOMES.length - 1] >= STAGES; }
+// Le cycle suivant : tout recommence au Marais-Brume, en plus dur, et avec un meilleur butin
+function nextCycle(save) {
+  if (!worldDone(save)) return false;
+  save.cycle = (save.cycle || 1) + 1;
+  save.progress = BIOMES.map(function () { return 0; });
+  save.expedition = null;
+  return true;
+}
 
 // ---------- Monstres rares et épiques ----------
 // Un combat normal peut tomber sur une variante rare (16 %) ou épique (4 %) : recolorée, entourée d'une aura,
@@ -211,10 +231,11 @@ function dailyShop(save) {
   return true;
 }
 
+// Le rang de l'étal : sur l'île, un rang d'avance (jusqu'au 6) ; sur le Continent, celui de la terre atteinte
 function shopTier(save) {
   var maxTier = 1;
-  for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w + 2;
-  return Math.min(maxTier, 6);
+  for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w < ISLAND_WORLDS ? Math.min(6, w + 2) : w + 1;
+  return maxTier;
 }
 function refreshShop(save) {
   var stock = [];

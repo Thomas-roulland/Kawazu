@@ -183,7 +183,8 @@ const summaries = async (account) => (await Promise.all(account.grenouilles.map(
 const RANK = 'classement';
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v) || 0));
 function rankEntry(frog, pseudo) {
-  const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, 6).map((p) => num(p, 10)) : [];
+  const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, 22).map((p) => num(p, 10)) : [];
+  const cycle = Math.max(1, num(s.cycle || 1, 999)), mutations = num(s.mutation && s.mutation.n, 999);
   let monde = 0;
   progress.forEach((p, i) => { if (i === 0 || progress[i - 1] >= 10) monde = i; });
   const equip = {};
@@ -191,7 +192,8 @@ function rankEntry(frog, pseudo) {
   return {
     id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: pseudo,
     niveau: num(s.level || 1, 999), xp: num(s.xp, 1e9), voie: typeof s.voie === 'string' ? s.voie.slice(0, 12) : null,
-    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0),
+    // l'aventure : les étapes conquises, et chaque cycle (NG+) terminé compte pour tout le monde (22 terres × 10 étapes)
+    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * 220, cycle: cycle, mutations: mutations,
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
     dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 100)

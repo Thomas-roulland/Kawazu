@@ -1294,3 +1294,53 @@ button.wm-stage:hover { transform: scale(1.2); }
 .cl-don { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cl-don .btn { padding: 8px 10px; font-size: 8px; }
 .bt-clan { font-size: 13px; color: #8fce52; }
+
+/* les Légendaires : une bordure d'or qui scintille */
+.item.rar-legendaire { box-shadow: inset 0 0 0 1px #f0c040, 0 0 14px rgba(240, 192, 64, 0.6); animation: legend-glow 2.2s ease-in-out infinite; }
+.item.rar-legendaire img { filter: drop-shadow(0 0 4px rgba(255, 220, 120, 0.9)); }
+@keyframes legend-glow { 50% { box-shadow: inset 0 0 0 1px #fff0a0, 0 0 22px rgba(255, 220, 120, 0.85); } }
+
+/* ---------- Les deux cartes, le cycle ---------- */
+.wm-switch { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 4; display: flex; gap: 0; box-shadow: 0 0 0 2px #3a2a18, 0 4px 0 rgba(0, 0, 0, 0.4); }
+.wm-switch button { padding: 8px 16px; font-family: var(--pixel); font-size: 9px; color: #3a2718; background: #efe0b4; border: 0; }
+.wm-switch button.is-on { color: #2a1d0c; background: linear-gradient(var(--gold-2), var(--gold)); }
+.wm-cycle-tag { position: absolute; right: 14px; top: 14px; z-index: 4; padding: 6px 10px; font-family: var(--pixel); font-size: 9px; color: #fff6d8; background: rgba(26, 16, 8, 0.85); box-shadow: 0 0 0 2px #c9412f; }
+.wm-cycle { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; width: min(560px, calc(100% - 32px)); gap: 10px; text-align: center; }
+.wm-cycle h2 { color: var(--gold-2); }
+.wm-cycle p { margin: 0; font-size: 15px; line-height: 1.35; color: #c8e0da; }
+.wm-cycle .btn.is-armed { color: #fff; background: #c9412f; border-color: #ff8a7a; }
+/* ---------- Le Grand Plongeon ---------- */
+.cinematic { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: #05070a; }
+.cinematic[hidden] { display: none; }
+.cinematic canvas { width: min(100vw, 177.7vh); max-height: 82vh; aspect-ratio: 16 / 9; image-rendering: pixelated; }
+.cine-caption { max-width: 820px; margin: 0; padding: 0 20px; font-size: 20px; line-height: 1.4; text-align: center; color: #fff6d8; opacity: 0; }
+.cine-caption.in { animation: cine-in 0.9s ease forwards; }
+.cine-caption b { display: block; margin-bottom: 6px; font-family: var(--pixel); font-weight: 400; font-size: 22px; color: var(--gold-2); }
+@keyframes cine-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.cine-skip { position: absolute; right: 18px; bottom: 18px; }
+/* ---------- La mutation ---------- */
+.mutation { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: linear-gradient(rgba(122, 240, 208, 0.08), rgba(0, 0, 0, 0)); box-shadow: inset 0 0 0 2px rgba(122, 240, 208, 0.35); }
+.mutation.is-ready { box-shadow: inset 0 0 0 2px #7af0d0, 0 0 18px rgba(122, 240, 208, 0.35); }
+.mutation h2 { color: #7af0d0; }
+.mu-help, .mu-sum { margin: 0; font-size: 15px; line-height: 1.35; color: #c8e0da; }
+.mu-sum { display: flex; align-items: center; gap: 8px; color: #fff6d8; }
+.mu-glow { width: 12px; height: 12px; background: var(--g); box-shadow: 0 0 8px var(--g); }
+.mu-traits { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.mu-traits li { display: flex; flex-direction: column; padding: 5px 8px; background: rgba(0, 0, 0, 0.25); }
+.mu-traits b { font-size: 14px; color: #fff6d8; }
+.mu-traits small { font-size: 12px; color: #8fb8aa; }
+.mu-track { height: 8px; }
+.mu-lvl { font-size: 13px; color: #8fb8aa; }
+.mu-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mu-choice { display: flex; flex-direction: column; gap: 4px; padding: 10px; text-align: left; color: #fff6d8; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(122, 240, 208, 0.35); }
+.mu-choice:hover { border-color: #7af0d0; }
+.mu-choice.is-picked { border-color: #7af0d0; background: rgba(122, 240, 208, 0.15); box-shadow: 0 0 12px rgba(122, 240, 208, 0.4); }
+.mu-choice b { font-size: 16px; }
+.mu-choice small { font-size: 13px; color: #a8d8c8; }
+.scard .mut { color: #7af0d0; }
+.sb-badges { display: inline-flex; gap: 4px; margin-left: 6px; }
+.sb-badges i { font-style: normal; font-family: var(--pixel); font-size: 7px; padding: 2px 4px; }
+.sb-cyc { color: #fff; background: #c9412f; }
+.sb-mut { color: #0b100d; background: var(--g); box-shadow: 0 0 6px var(--g); }
+#sb-portrait.mutating { animation: mutating 1.6s ease; }
+@keyframes mutating { 0% { filter: none; } 30% { filter: brightness(2.2) drop-shadow(0 0 10px #7af0d0); } 100% { filter: none; } }

@@ -35,7 +35,24 @@ var CampScene = (function () {
     saules: { shift: { h: -85, s: 1.1, l: 1.05 }, fog: '230,205,160', halo: '255,225,170', fire: '#ffd27a', fires: 10, leaves: true },
     grottes: { shift: { h: 150, s: 0.7, l: 0.75 }, fog: '150,150,210', halo: '190,205,255', fire: '#9ef0ff', fires: 16, cave: true },
     temple: { shift: { h: 70, s: 0.55, l: 0.95 }, fog: '170,205,205', halo: '210,240,240', fire: '#8af0d0', fires: 14, ruins: true },
-    sommet: { shift: { h: 110, s: 0.25, l: 1.35 }, fog: '230,236,246', halo: '240,246,255', fire: null, fires: 0, snow: true }
+    sommet: { shift: { h: 110, s: 0.25, l: 1.35 }, fog: '230,236,246', halo: '240,246,255', fire: null, fires: 0, snow: true },
+    // le Continent
+    plaine: { shift: { h: -40, s: 1.1, l: 1.15 }, fog: '230,225,190', halo: '255,240,200', fire: '#ffd27a', fires: 14 },
+    bataille: { shift: { h: -80, s: 0.45, l: 0.85 }, fog: '190,170,150', halo: '230,200,170', fire: '#ff9a4a', fires: 8, ruins: true },
+    epines: { shift: { h: -140, s: 0.8, l: 0.7 }, fog: '170,150,160', halo: '210,180,200', fire: '#e05a8a', fires: 10, leaves: true },
+    dunes: { shift: { h: -70, s: 0.9, l: 1.35 }, fog: '245,225,180', halo: '255,240,200', fire: null, fires: 0 },
+    canyon: { shift: { h: -95, s: 1.1, l: 1.0 }, fog: '230,180,150', halo: '255,210,170', fire: '#ffb04a', fires: 6 },
+    toundra: { shift: { h: 90, s: 0.3, l: 1.5 }, fog: '235,242,250', halo: '245,250,255', fire: null, fires: 0, snow: true },
+    volcan: { shift: { h: -110, s: 1.3, l: 0.6 }, fog: '200,120,90', halo: '255,160,110', fire: '#ff6a1a', fires: 30 },
+    cimetiere: { shift: { h: 50, s: 0.35, l: 0.7 }, fog: '170,190,185', halo: '200,230,220', fire: '#8af0c0', fires: 18, ruins: true },
+    feerique: { shift: { h: 170, s: 1.2, l: 0.9 }, fog: '200,170,230', halo: '240,200,255', fire: '#f0a0e0', fires: 40 },
+    ciel: { shift: { h: 100, s: 0.4, l: 1.45 }, fog: '235,240,255', halo: '250,252,255', fire: '#fff6a0', fires: 12, ruins: true },
+    jungle: { shift: { h: 10, s: 1.3, l: 0.85 }, fog: '170,210,160', halo: '210,245,190', fire: '#e04a8a', fires: 20, leaves: true },
+    mines: { shift: { h: -80, s: 0.3, l: 0.6 }, fog: '140,130,120', halo: '200,180,150', fire: '#e0b43a', fires: 8, cave: true },
+    forteresse: { shift: { h: 110, s: 0.2, l: 0.9 }, fog: '180,185,195', halo: '215,220,230', fire: '#ff9a4a', fires: 10, ruins: true },
+    abysse: { shift: { h: 160, s: 1.0, l: 0.5 }, fog: '130,100,170', halo: '190,150,240', fire: '#c080ff', fires: 26, cave: true },
+    dragons: { shift: { h: -65, s: 1.2, l: 1.05 }, fog: '230,200,150', halo: '255,225,160', fire: '#ff8a2a', fires: 16 },
+    orage: { shift: { h: 105, s: 0.8, l: 0.7 }, fog: '150,170,210', halo: '190,220,255', fire: '#6af0ff', fires: 22, ruins: true }
   };
 
   function rgbToHsl(r, g, b) {

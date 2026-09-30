@@ -105,8 +105,10 @@ Les **lucioles** sont la monnaie du jeu.
   L’étape n coûte n points (niveau 1 à 75) ; la grenouille avance de dalle en dalle et l’eau des branches apprises prend
   la couleur de la voie. Un **deck** de 4 sorts accompagne l’attaque de base de l’arme (Coup de bâton, Estoc,
   Entaille, Coup de masse, Lancer de kunaï, Lancer de shurikens, Frappe du crapaud).
-- **Carte du monde** : un continent détaillé (arbres, rochers, cristaux, monuments), une région par biome (Marais-Brume, Lagune
-  des Lucioles, Forêt des Saules, Grottes Luisantes, Temple Englouti, Sommet du Héron).
+- **Carte du monde** : deux cartes détaillées (arbres, rochers, cristaux, monuments), une région par biome. **L’Île du
+  départ** (Marais-Brume, Lagune des Lucioles, Forêt des Saules, Grottes Luisantes, Temple Englouti, Sommet du Héron),
+  puis, une fois le Héron vaincu, **le Continent** (voir plus bas), plus grand et plus dense ; une bascule passe de l’une
+  à l’autre.
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
   la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante, et la vue se recadre
   sur ce qui est découvert. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
@@ -192,6 +194,37 @@ Les **lucioles** sont la monnaie du jeu.
   (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
+## Le Continent, les cycles et la mutation
+
+- **Le Grand Plongeon** : une fois le Héron Ancestral vaincu, une cinématique (qu’on peut passer) montre la grenouille
+  au sommet, qui plonge dans la mer ; un tourbillon de lumière l’emporte, et elle ressort sur la plage du **Continent**.
+- **Le Continent** : **16 terres** de plus, loin des marais — Plaine des Vents, Champ de Bataille, Forêt d’Épines,
+  Désert des Os, Canyon Rouge, Toundra Gelée, Volcan de Braise, Cimetière des Rois, Bois Féerique, Îles Célestes,
+  Jungle Carnivore, Mines Noires, Forteresse de Fer, Marches de l’Abysse, Terres des Dragons et Trône de l’Orage — avec
+  leurs décors (haies, palissades, grès, glace, lave, tombes, nuages, vide…), leur ambiance au camp et **14 nouvelles
+  espèces** (rats, corbeaux, scarabées, serpents, scorpions, squelettes, fantômes, golems, salamandres, fées, plantes
+  carnivores, loups, araignées, chevaliers) et un **dragon** pour les deux derniers boss. Niveaux 49 à 178.
+- **Plus dur** : les monstres y ont bien plus de PV et frappent plus fort (un peu plus à chaque terre), et ceux des
+  étapes ordinaires sont plus coriaces. On y avance en **farmant** : les étapes normales se gagnent avec le butin de la
+  terre, les gardiens et les boss demandent du butin rare ou épique (ou quelques niveaux d’avance). Réglé au simulateur.
+- **160 objets du Continent**, dix par terre (les six armes, écharpe, ceinture, anneau, kasa ou heaume à cornes), avec
+  **leurs propres formes** (trident, morgenstern, lame courbe, kriss, étoile en X, écharpe à franges, ceinture à gemme,
+  anneau serti…) et bien plus forts que ceux de l’île : leur force suit le niveau de leur terre. Sur le Continent, le
+  butin tombe surtout au rang de la terre en cours ; l’étal propose ce rang-là.
+- **Les Légendaires** : une rareté dorée, **ultra rare** (≈ 0,3 % par victoire sur le Continent, 0,8 % contre un boss
+  ou un monstre rare, 2 % contre un épique) : quatre **bandeaux** noués sur la tête et quatre **capes** qui flottent
+  dans le dos, qui se voient sur la grenouille. Leurs stats suivent la terre où ils tombent.
+- **Les cycles (NG+)** : une fois le Dragon-Tempête vaincu, on peut entrer dans le **cycle suivant** : tout recommence
+  au Marais-Brume, mais les monstres ont 15 niveaux de plus par cycle et 20 % de PV et de dégâts en plus (cumulés), et
+  tout ce qu’on trouve ou achète devient « +1 », « +2 »… (+20 % de stats par +). On garde son niveau, ses objets et ses
+  lucioles. Sans fin ; le classement Aventure compte les cycles.
+- **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
+  zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
+  caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
+  nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent, et des
+  **marques lumineuses** apparaissent sur sa peau, de plus en plus nombreuses (leur couleur change avec le nombre).
+- Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire.
+
 ## Objets et raretés
 
 - **3 raretés**, reconnaissables à leur bordure : **Commun** (gris), **Rare** (bleu), **Épique** (violet). Les trésors
@@ -251,13 +284,13 @@ puissance des voies.
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, signes des skins (paintSkin), ondes de choc, kunaï lancé, espèces de monstres
-- `src/biomes.js` : les 6 biomes (décor, monstres, boss)
+- `src/biomes.js` : les 22 biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde
 - `src/worlds.js` : étapes des mondes, ennemis, météo, expéditions, boutique
 - `src/tiles.js` : dessin des tuiles
-- `src/map.js` : carte du monde et brume
+- `src/map.js` : les cartes du monde (l’Île et le Continent, fabriquées par makeWorldMap) et leur brume
 - `src/shop.js` : décor animé de la boutique et Gamako
 - `src/scene.js` : décor animé du camp et logo
 - `src/battle.js` : le duel au tour par tour (`BattleScene.start`)

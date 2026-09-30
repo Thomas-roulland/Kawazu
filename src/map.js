@@ -1,18 +1,57 @@
-// Carte du monde (640×400, pixel art) : un continent entouré d'eau, découpé en six régions (une par biome),
-// reliées par un chemin qui monte du Marais-Brume jusqu'au Sommet du Héron.
-// Chaque région est peinte avec les tuiles de son biome, ses arbres, ses rochers et son monument.
-// Les terres pas encore ouvertes restent sous la brume : on n'aperçoit qu'un bout de la prochaine,
-// et la vue se recadre sur ce qui a été découvert.
-var WorldMap = (function () {
-  var W = 640, H = 400, YS = 1.15;
-  var REGIONS = [
-    { x: 120, y: 300 }, { x: 290, y: 322 }, { x: 196, y: 190 }, { x: 350, y: 176 }, { x: 490, y: 270 }, { x: 530, y: 96 }
-  ];
+// Les cartes du monde, en pixel art : des terres entourées d'eau, découpées en régions (une par biome), reliées par
+// un sentier. Chaque région est peinte avec les tuiles de son biome, ses décors et son monument. Les terres pas encore
+// ouvertes restent sous la brume : on n'aperçoit qu'un bout de la prochaine, et la vue se recadre sur ce qui a été
+// découvert. Deux cartes : l'Île du départ (six régions, du Marais-Brume au Sommet du Héron) et le Continent (seize
+// régions, de la Plaine des Vents au Trône de l'Orage). makeWorldMap fabrique l'une ou l'autre à partir de sa description.
+var MAP_K = '#10170f';
+var MAP_SPR = {
+  tree: ['...kkkk...', '..kGGggk..', '.kGGgggdk.', 'kGgggggddk', 'kggggggddk', '.kgggdddk.', '..kkdbkk..', '....kbk...', '...kbbbk..'],
+  reeds: ['.c....', '.c..c.', '.g..c.', 'gg.gg.', '.gg.g.', '..ggg.', '..dd..'],
+  willow: ['...kkkkkk...', '..kGGGgggk..', '.kGGggggggk.', 'kGgggggggddk', 'kgdggggggdgk', 'kgdgkbbkgdgk', 'kgd.kbbk.dgk', '.gd..bb..dg.', '.d...bb...d.', '.d...bb...d.', '....kbbbk...'],
+  pine: ['...k...', '..kwk..', '..kgk..', '.kwggk.', '.kgggk.', 'kwgggdk', 'kgggddk', 'kkkbkkk', '...b...'],
+  rock: ['..kkk..', '.kLLlk.', 'kLllllk', 'klllssk', '.kkkkk.'],
+  crystal: ['..k..', '.kLk.', '.kLBk', 'kLBBk', 'kLBDk', 'kBBDk', '.kkk.'],
+  pillar: ['kkkkk', 'kLLBk', '.kLk.', '.kLk.', '.kBk.', '.kLk.', '.kBk.', '.kLk.', 'kLBDk', 'kkkkk'],
+  stub: ['.kk..', 'kLBk.', 'kLBk.', 'kLBDk', 'kkkkk'],
+  mushroom: ['.kkk.', 'kRwRk', 'kRRRk', '.kwk.', '.kwk.'],
+  glow: ['..y...', '.kgk.y', 'kgGgk.', 'kgggk.', '.kkk..'],
+  grass: ['g.G.g', '.gGg.', '..d..'],
+  // le Continent
+  cactus: ['..kk...', '.kgGk..', 'kkgGk..', 'kGgGkkk', 'kkgGkGk', '.kgGggk', '.kgGkkk', '.kgGk..', '.kkkk..'],
+  bones: ['k.....k', 'wk...kw', '.wkkkw.', '..www..', '.wkkkw.', 'wk...kw'],
+  tomb: ['.kkk.', 'kLLLk', 'kLkLk', 'kkkkk', 'kLLDk', 'kLLDk', 'kkkkk'],
+  banner: ['kk....', 'kbkkkk', 'kbRRRk', 'kbRyRk', 'kbRRRk', 'kbkRkR', 'kb....', 'kb....', 'kk....'],
+  deadtree: ['k..k..k', '.k.k.k.', '..kbk..', '.k.bk..', '...bk..', '...bk..', '..kbbk.'],
+  lavarock: ['..kkk..', '.kDLDk.', 'kDyDDDk', 'kDDyLDk', '.kkkkk.'],
+  flower: ['.R.R.', 'RRyRR', '.RRR.', '..g..', '.gg..', '..gg.', '..g..'],
+  cloudp: ['...wwww..', '.wwwwwwww', 'wwwwwwwww', '.kkkkkkk.'],
+  palm: ['gg.k.gg', '.ggkgg.', 'gg.b.gg', '...b...', '...b...', '...bk..', '..kbbk.'],
+  thorn: ['.d..d.', 'dRd.dR', '.ddRd.', 'd.dd.d', '.dRdd.', '..dd..'],
+  sword: ['..k..', '.kLk.', '.kLk.', '.kLk.', '.kLk.', 'kyyyk', '..b..', '..b..']
+};
+var MAP_FIXED = { // les décors qui gardent leurs couleurs, quelle que soit la région
+  rock: { k: MAP_K, L: '#b0ae9e', l: '#85836f', s: '#5a594c' },
+  pine: { k: MAP_K, g: '#3a6a4a', d: '#24452f', w: '#f4f4e8', b: '#4a3322' },
+  cactus: { k: MAP_K, g: '#3a7a2a', G: '#6ab04a' },
+  bones: { k: MAP_K, w: '#f0ecdc' },
+  tomb: { k: MAP_K, L: '#9a9aa2', D: '#5a5a62' },
+  banner: { k: MAP_K, b: '#6e4a2a', R: '#c9412f', y: '#e0b43a' },
+  deadtree: { k: MAP_K, b: '#5a4a3a' },
+  lavarock: { k: MAP_K, D: '#2a2230', L: '#4a3a50', y: '#ff8a2a' },
+  flower: { k: MAP_K, R: '#f0a0e0', y: '#fff6a0', g: '#3a8a4a' },
+  cloudp: { k: '#a8b8d0', w: '#ffffff' },
+  palm: { k: MAP_K, g: '#3a9a3a', b: '#6e4a2a' },
+  thorn: { k: MAP_K, d: '#3a2a2a', R: '#c0406a' },
+  sword: { k: MAP_K, L: '#d0d4dc', y: '#e0b43a', b: '#6e4a2a' }
+};
+
+function makeWorldMap(cfg) {
+  var W = cfg.W, H = cfg.H, YS = 1.15, REGIONS = cfg.regions, FIRST = cfg.first;
   var BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-  var K = '#10170f';
+  var K = MAP_K;
+  var biomeOf = function (i) { return BIOMES[FIRST + i]; };
 
   function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-  function smooth(a, b, v) { var t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); }
   function vnoise(x, y, s, seed) {
     x /= s; y /= s;
     var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
@@ -27,11 +66,11 @@ var WorldMap = (function () {
   }
 
   // ---------- Géographie ----------
-  var blobs = REGIONS.map(function (r) { return { x: r.x, y: r.y, r: 88 }; });
+  var blobs = REGIONS.map(function (r) { return { x: r.x, y: r.y, r: cfg.radius || 88 }; });
   for (var bi = 1; bi < REGIONS.length; bi++) {
-    blobs.push({ x: (REGIONS[bi].x + REGIONS[bi - 1].x) / 2, y: (REGIONS[bi].y + REGIONS[bi - 1].y) / 2, r: 60 });
+    blobs.push({ x: (REGIONS[bi].x + REGIONS[bi - 1].x) / 2, y: (REGIONS[bi].y + REGIONS[bi - 1].y) / 2, r: cfg.bridge || 60 });
   }
-  blobs.push({ x: 60, y: 230, r: 34 }, { x: 420, y: 350, r: 40 }, { x: 600, y: 190, r: 30 }, { x: 440, y: 60, r: 36 });
+  (cfg.blobs || []).forEach(function (b) { blobs.push(b); });
   function landField(x, y) {
     var best = 1e9;
     for (var i = 0; i < blobs.length; i++) {
@@ -55,9 +94,9 @@ var WorldMap = (function () {
     return ((x - A.x) * (x - A.x) + (py - ay) * (py - ay) - (x - B.x) * (x - B.x) - (py - by) * (py - by)) / (2 * ab);
   }
   // ---------- Les sentiers ----------
-  // Un sentier par région : il entre par la frontière de la région précédente (la plage pour le Marais),
+  // Un sentier par région : il entre par la frontière de la région précédente (la plage pour la première),
   // serpente jusqu'à l'antre du boss et ressort vers la région suivante. Les 10 étapes sont posées dessus.
-  var START = { x: 60, y: 318 }, NEST = { x: 548, y: 50 };
+  var START = cfg.start, NEST = cfg.nest;
   var mid = function (a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
   function onLand(p, toward) {
     for (var i = 0; i < 40 && landField(p.x, p.y) > -8; i++) { p.x += (toward.x - p.x) * 0.1; p.y += (toward.y - p.y) * 0.1; }
@@ -103,14 +142,6 @@ var WorldMap = (function () {
       landmark: onLand({ x: C.x + px * 20 * side, y: C.y + py * 20 * side }, C)
     };
   });
-  var TRAIL_PAL = [
-    { e: '#3a2c18', f: '#8a6a3a', l: '#b08a52' },
-    { e: '#2a1c10', f: '#8a6038', l: '#b0844e', planks: true },
-    { e: '#34240f', f: '#7a5a30', l: '#a07a44' },
-    { e: '#23232e', f: '#6e6e80', l: '#9a9aac' },
-    { e: '#2a3034', f: '#9a9680', l: '#c8c4aa', planks: true },
-    { e: '#55544a', f: '#d8d4c8', l: '#f4f4ec' }
-  ];
   function pathDist(x, y) {
     var d = 1e9;
     for (var i = 0; i < TRAILS.length; i++) {
@@ -119,9 +150,9 @@ var WorldMap = (function () {
     }
     return d;
   }
-  // Sentier en terre battue (ou en planches sur l'eau et dans le temple), avec une clairière à chaque étape
+  // Sentier en terre battue (ou en planches), avec une clairière à chaque étape
   function drawTrail(ctx, i) {
-    var tr = TRAILS[i], P = TRAIL_PAL[i], R = Math.round;
+    var tr = TRAILS[i], P = cfg.trailPal[i], R = Math.round;
     tr.pts.forEach(function (p) { ctx.fillStyle = P.e; ctx.fillRect(R(p.x) - 3, R(p.y) - 2, 6, 5); });
     tr.stages.forEach(function (p, k) { if (k) { ctx.fillStyle = P.e; ctx.fillRect(R(p.x) - 6, R(p.y) - 3, 12, 7); } });
     tr.pts.forEach(function (p) { ctx.fillStyle = P.f; ctx.fillRect(R(p.x) - 2, R(p.y) - 1, 4, 3); });
@@ -135,105 +166,30 @@ var WorldMap = (function () {
 
   // Sol de chaque biome : ses vraies tuiles, avec des mares et des bosquets groupés
   function biomeTexture(i) {
-    // le Sommet : de la roche plutôt que des dalles
-    var b = i === 5 ? Object.assign({}, BIOMES[i], { wall: 'rock' }) : BIOMES[i], w = W / TILE, h = Math.ceil(H / TILE), tiles = new Uint8Array(w * h);
+    var b = cfg.texture ? cfg.texture(i, biomeOf(i)) : biomeOf(i), w = W / TILE, h = Math.ceil(H / TILE), tiles = new Uint8Array(w * h);
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
-        var n = vnoise(x, y, 4, i * 31 + 3), r = hash(x, y, i * 13 + 1);
+        var n = vnoise(x, y, 4, (FIRST + i) * 31 + 3), r = hash(x, y, (FIRST + i) * 13 + 1);
         tiles[y * w + x] = b.water && n < 0.26 ? RT.WATER : (r < 0.035 ? RT.BLOCK : (n > 0.66 && r < 0.55 ? RT.BUSH : (r < 0.22 ? RT.ALT : RT.FLOOR)));
       }
     }
-    var c = renderMap({ biome: b, w: w, h: h, tiles: tiles, seed: i * 7 });
+    var c = renderMap({ biome: b, w: w, h: h, tiles: tiles, seed: (FIRST + i) * 7 });
     return c.getContext('2d').getImageData(0, 0, W, H).data;
   }
 
   // ---------- Décors ----------
-  var ROCK = { k: K, L: '#b0ae9e', l: '#85836f', s: '#5a594c' };
-  var PINE = { k: K, g: '#3a6a4a', d: '#24452f', w: '#f4f4e8', b: '#4a3322' };
   function palOf(i) {
-    var P = BIOMES[i].pal;
+    var P = biomeOf(i).pal;
     return { k: K, g: P.bush, G: P.bushLight, d: P.bushDark, b: '#4a3322', c: '#7a4a2a', y: '#f3e27a', w: '#f4f4e8',
       B: P.block, L: P.blockLight, D: P.blockDark, R: '#c9412f' };
   }
-  var SPR = {
-    tree: ['...kkkk...', '..kGGggk..', '.kGGgggdk.', 'kGgggggddk', 'kggggggddk', '.kgggdddk.', '..kkdbkk..', '....kbk...', '...kbbbk..'],
-    reeds: ['.c....', '.c..c.', '.g..c.', 'gg.gg.', '.gg.g.', '..ggg.', '..dd..'],
-    willow: ['...kkkkkk...', '..kGGGgggk..', '.kGGggggggk.', 'kGgggggggddk', 'kgdggggggdgk', 'kgdgkbbkgdgk', 'kgd.kbbk.dgk', '.gd..bb..dg.', '.d...bb...d.', '.d...bb...d.', '....kbbbk...'],
-    pine: ['...k...', '..kwk..', '..kgk..', '.kwggk.', '.kgggk.', 'kwgggdk', 'kgggddk', 'kkkbkkk', '...b...'],
-    rock: ['..kkk..', '.kLLlk.', 'kLllllk', 'klllssk', '.kkkkk.'],
-    crystal: ['..k..', '.kLk.', '.kLBk', 'kLBBk', 'kLBDk', 'kBBDk', '.kkk.'],
-    pillar: ['kkkkk', 'kLLBk', '.kLk.', '.kLk.', '.kBk.', '.kLk.', '.kBk.', '.kLk.', 'kLBDk', 'kkkkk'],
-    stub: ['.kk..', 'kLBk.', 'kLBk.', 'kLBDk', 'kkkkk'],
-    mushroom: ['.kkk.', 'kRwRk', 'kRRRk', '.kwk.', '.kwk.'],
-    glow: ['..y...', '.kgk.y', 'kgGgk.', 'kgggk.', '.kkk..'],
-    grass: ['g.G.g', '.gGg.', '..d..']
-  };
-  var DECOR = [
-    ['tree', 'tree', 'reeds', 'reeds', 'grass'],
-    ['glow', 'reeds', 'glow', 'tree', 'grass'],
-    ['willow', 'willow', 'mushroom', 'tree', 'grass'],
-    ['rock', 'crystal', 'crystal', 'rock', 'stub'],
-    ['pillar', 'stub', 'rock', 'glow', 'grass'],
-    ['pine', 'pine', 'rock', 'rock', 'grass']
-  ];
   var sprCache = {};
   function spr(name, i) {
     var key = name + i;
-    if (!sprCache[key]) sprCache[key] = sprite(SPR[name], name === 'rock' ? ROCK : (name === 'pine' ? PINE : palOf(i)));
+    if (!sprCache[key]) sprCache[key] = sprite(MAP_SPR[name], MAP_FIXED[name] || palOf(i));
     return sprCache[key];
   }
-
-  // Monuments : un par région
-  var HUT = ['.......kk.......', '......kRRk......', '.....kRRRRk.....', '....kRRrRRRk....', '...kRRRRRrRRk...', '..kRRrRRRRRRRk..', '.kkkkkkkkkkkkkk.',
-    '...kWWWWWWWWk...', '...kWkkWWyyWk...', '...kWkkWWyyWk...', '...kWkkWWWWWk...', '..kkkkkkkkkkkk..', '...k.k....k.k...', '...k.k....k.k...', '.~~~~~~~~~~~~~~.'];
-  var CAVE = ['......kkkkk.......', '....kkLLLllkk.....', '...kLLllllllsk....', '..kLllkkkkllssk...', '.kLllkKKKKkllssk..', 'kLlllkKKKKklllssk.', 'kllllkKKKKkllsssk.', 'kkkkkkKKKKkkkkkkkk'];
-  var TEMPLE = ['.........kkk.........', '........kLyLk........', '.......kkkkkkk.......', '.......kLlKlLk.......', '.....kkkkkkkkkkk.....', '.....kLlLlKlLlLk.....',
-    '...kkkkkkkkkkkkkkk...', '...kLlLlLKKKlLlLlk...', '.kkkkkkkkkkkkkkkkkkk.', '.kLlLlLlLKKKLlLlLlLk.', 'kkkkkkkkkkkkkkkkkkkkk', '~~~~~~~~~~~~~~~~~~~~~'];
   var landmarks = null;
-  function buildLandmarks() {
-    var lag = palOf(1);
-    var bigTree = document.createElement('canvas');
-    bigTree.width = 20; bigTree.height = 18;
-    var bt = bigTree.getContext('2d');
-    bt.imageSmoothingEnabled = false;
-    bt.drawImage(sprite(SPR.tree, lag), 0, 0, 20, 18);
-    [[5, 4], [12, 3], [8, 8], [15, 9], [3, 10]].forEach(function (p) { bt.fillStyle = '#fff6b0'; bt.fillRect(p[0], p[1], 1, 1); });
-    var bigWillow = document.createElement('canvas');
-    bigWillow.width = 24; bigWillow.height = 22;
-    var bw = bigWillow.getContext('2d');
-    bw.imageSmoothingEnabled = false;
-    bw.drawImage(sprite(SPR.willow, palOf(2)), 0, 0, 24, 22);
-    landmarks = [
-      sprite(HUT, { k: K, R: '#b08a3a', r: '#8a6f1f', W: '#7a5634', y: '#f3d27a', '~': '#4f7a5a' }),
-      bigTree,
-      bigWillow,
-      sprite(CAVE, { k: K, L: '#6a6a80', l: '#4a4a5e', s: '#34344a', K: '#05070a' }),
-      sprite(TEMPLE, { k: K, L: '#b8b49a', l: '#8a866e', K: '#1a1c2c', y: '#e0b43a', '~': '#5fb3a0' }),
-      null
-    ];
-  }
-
-  function drawMountains(ctx) {
-    [[508, 92, 30], [548, 80, 40], [584, 102, 24], [486, 110, 20], [566, 124, 18]].forEach(function (m) {
-      for (var yy = 0; yy < m[2]; yy++) {
-        var half = Math.round(yy * 0.95), top = m[1] - m[2] + yy;
-        ctx.fillStyle = K; ctx.fillRect(m[0] - half - 1, top, half * 2 + 3, 1);
-        ctx.fillStyle = '#8a8578'; ctx.fillRect(m[0] - half, top, half + 1, 1);
-        ctx.fillStyle = '#6b6556'; ctx.fillRect(m[0] + 1, top, half, 1);
-        if (yy < m[2] * 0.32) {
-          ctx.fillStyle = '#f4f4e8'; ctx.fillRect(m[0] - half, top, half + 1, 1);
-          ctx.fillStyle = '#c8ccd6'; ctx.fillRect(m[0] + 1, top, half, 1);
-        } else if (yy < m[2] * 0.42 && (yy + m[0]) % 2) {
-          ctx.fillStyle = '#f4f4e8'; ctx.fillRect(m[0] - half + (yy % 3), top, 2, 1);
-        }
-      }
-    });
-    // le nid du Héron, sur le plus haut pic
-    ctx.fillStyle = K; ctx.fillRect(543, 38, 11, 4);
-    ctx.fillStyle = '#8a6f1f'; ctx.fillRect(544, 39, 9, 2);
-    ctx.fillStyle = '#e8ecf0'; ctx.fillRect(548, 33, 2, 6); ctx.fillRect(549, 31, 3, 2);
-    ctx.fillStyle = '#e0b43a'; ctx.fillRect(552, 32, 2, 1);
-  }
 
   function drawCompass(ctx, cx, cy) {
     ctx.fillStyle = '#1a1c2c'; ctx.fillRect(cx - 1, cy - 12, 3, 25); ctx.fillRect(cx - 12, cy - 1, 25, 3);
@@ -247,8 +203,8 @@ var WorldMap = (function () {
   function render(unlocked) {
     var key = unlocked.join(',');
     if (cache && cache.key === key) return cache;
-    if (!texCache) texCache = BIOMES.map(function (_, i) { return biomeTexture(i); });
-    if (!landmarks) buildLandmarks();
+    if (!texCache) texCache = REGIONS.map(function (_, i) { return biomeTexture(i); });
+    if (!landmarks) landmarks = cfg.landmarks ? cfg.landmarks({ sprite: sprite, palOf: palOf }) : [];
     var open = function (k) { return unlocked.indexOf(k) >= 0; };
     var peek = unlocked.length < REGIONS.length ? Math.max.apply(null, unlocked) + 1 : -1;
 
@@ -285,7 +241,7 @@ var WorldMap = (function () {
     ctx.putImageData(img, 0, 0);
 
     // vaguelettes et rochers en mer
-    for (var n = 0; n < 160; n++) {
+    for (var n = 0; n < 160 * (W * H) / 256000; n++) {
       var wx = Math.floor(hash(n, 1, 3) * W), wy = Math.floor(hash(n, 2, 3) * H), wf = landField(wx, wy);
       if (wf > 24) { ctx.fillStyle = '#2a5d66'; ctx.fillRect(wx, wy, 4, 1); ctx.fillRect(wx + 1, wy - 1, 2, 1); }
       else if (wf > 8 && wf < 14 && n % 5 === 0) ctx.drawImage(spr('rock', 0), wx - 3, wy - 4);
@@ -296,20 +252,20 @@ var WorldMap = (function () {
 
     // décors dispersés, rangés du fond vers l'avant
     var props = [];
-    for (n = 0; n < 2600; n++) {
+    for (n = 0; n < 2600 * (cfg.density || 1) * (W * H) / 256000; n++) {
       var px = Math.floor(hash(n, 7, 91) * W), py = Math.floor(hash(n, 8, 91) * H);
       if (landField(px, py) > -5) continue;
       var k2 = nearest(px, py), lm2 = TRAILS[k2].landmark;
       if (pathDist(px, py) < 10) continue;
       if (Math.abs(px - lm2.x) < 26 && py > lm2.y - 30 && py < lm2.y + 22) continue; // place du monument et de son étiquette
-      var list = DECOR[k2];
+      var list = cfg.decor[k2];
       props.push({ x: px, y: py, img: spr(list[Math.floor(hash(n, 9, 91) * list.length)], k2) });
     }
     props.sort(function (a, b) { return a.y - b.y; });
     props.forEach(function (o) { ctx.drawImage(o.img, o.x - (o.img.width >> 1), o.y - o.img.height); });
 
-    // monuments
-    drawMountains(ctx);
+    // reliefs et monuments
+    if (cfg.mountains) cfg.mountains(ctx, TRAILS);
     TRAILS.forEach(function (t, k) {
       var lm = landmarks[k];
       if (lm) ctx.drawImage(lm, Math.round(t.landmark.x) - (lm.width >> 1), Math.round(t.landmark.y) + 4 - lm.height);
@@ -366,7 +322,7 @@ var WorldMap = (function () {
       view.y = Math.round(Math.max(0, Math.min(H - view.h, cy - view.h / 2)));
     }
     var peekAt = null;
-    if (peek >= 0) {
+    if (peek > 0) {
       var A = REGIONS[peek - 1], B = REGIONS[peek], L = Math.hypot(B.x - A.x, B.y - A.y), tt = 0.5 + 44 / L;
       peekAt = { x: A.x + (B.x - A.x) * tt, y: A.y + (B.y - A.y) * tt };
     }
@@ -375,5 +331,150 @@ var WorldMap = (function () {
     return cache;
   }
 
-  return { W: W, H: H, REGIONS: REGIONS, TRAILS: TRAILS, render: render, drawCompass: drawCompass };
-})();
+  return { W: W, H: H, FIRST: FIRST, REGIONS: REGIONS, TRAILS: TRAILS, render: render, drawCompass: drawCompass };
+}
+
+// ---------- L'Île du départ ----------
+var WorldMap = makeWorldMap({
+  W: 640, H: 400, first: 0,
+  regions: [{ x: 120, y: 300 }, { x: 290, y: 322 }, { x: 196, y: 190 }, { x: 350, y: 176 }, { x: 490, y: 270 }, { x: 530, y: 96 }],
+  blobs: [{ x: 60, y: 230, r: 34 }, { x: 420, y: 350, r: 40 }, { x: 600, y: 190, r: 30 }, { x: 440, y: 60, r: 36 }],
+  start: { x: 60, y: 318 }, nest: { x: 548, y: 50 },
+  trailPal: [
+    { e: '#3a2c18', f: '#8a6a3a', l: '#b08a52' },
+    { e: '#2a1c10', f: '#8a6038', l: '#b0844e', planks: true },
+    { e: '#34240f', f: '#7a5a30', l: '#a07a44' },
+    { e: '#23232e', f: '#6e6e80', l: '#9a9aac' },
+    { e: '#2a3034', f: '#9a9680', l: '#c8c4aa', planks: true },
+    { e: '#55544a', f: '#d8d4c8', l: '#f4f4ec' }
+  ],
+  decor: [
+    ['tree', 'tree', 'reeds', 'reeds', 'grass'],
+    ['glow', 'reeds', 'glow', 'tree', 'grass'],
+    ['willow', 'willow', 'mushroom', 'tree', 'grass'],
+    ['rock', 'crystal', 'crystal', 'rock', 'stub'],
+    ['pillar', 'stub', 'rock', 'glow', 'grass'],
+    ['pine', 'pine', 'rock', 'rock', 'grass']
+  ],
+  // le Sommet : de la roche plutôt que des dalles
+  texture: function (i, b) { return i === 5 ? Object.assign({}, b, { wall: 'rock' }) : b; },
+  landmarks: function (m) {
+    var K = MAP_K, lag = m.palOf(1);
+    var bigTree = document.createElement('canvas');
+    bigTree.width = 20; bigTree.height = 18;
+    var bt = bigTree.getContext('2d');
+    bt.imageSmoothingEnabled = false;
+    bt.drawImage(m.sprite(MAP_SPR.tree, lag), 0, 0, 20, 18);
+    [[5, 4], [12, 3], [8, 8], [15, 9], [3, 10]].forEach(function (p) { bt.fillStyle = '#fff6b0'; bt.fillRect(p[0], p[1], 1, 1); });
+    var bigWillow = document.createElement('canvas');
+    bigWillow.width = 24; bigWillow.height = 22;
+    var bw = bigWillow.getContext('2d');
+    bw.imageSmoothingEnabled = false;
+    bw.drawImage(m.sprite(MAP_SPR.willow, m.palOf(2)), 0, 0, 24, 22);
+    var HUT = ['.......kk.......', '......kRRk......', '.....kRRRRk.....', '....kRRrRRRk....', '...kRRRRRrRRk...', '..kRRrRRRRRRRk..', '.kkkkkkkkkkkkkk.',
+      '...kWWWWWWWWk...', '...kWkkWWyyWk...', '...kWkkWWyyWk...', '...kWkkWWWWWk...', '..kkkkkkkkkkkk..', '...k.k....k.k...', '...k.k....k.k...', '.~~~~~~~~~~~~~~.'];
+    var CAVE = ['......kkkkk.......', '....kkLLLllkk.....', '...kLLllllllsk....', '..kLllkkkkllssk...', '.kLllkKKKKkllssk..', 'kLlllkKKKKklllssk.', 'kllllkKKKKkllsssk.', 'kkkkkkKKKKkkkkkkkk'];
+    var TEMPLE = ['.........kkk.........', '........kLyLk........', '.......kkkkkkk.......', '.......kLlKlLk.......', '.....kkkkkkkkkkk.....', '.....kLlLlKlLlLk.....',
+      '...kkkkkkkkkkkkkkk...', '...kLlLlLKKKlLlLlk...', '.kkkkkkkkkkkkkkkkkkk.', '.kLlLlLlLKKKLlLlLlLk.', 'kkkkkkkkkkkkkkkkkkkkk', '~~~~~~~~~~~~~~~~~~~~~'];
+    return [
+      m.sprite(HUT, { k: K, R: '#b08a3a', r: '#8a6f1f', W: '#7a5634', y: '#f3d27a', '~': '#4f7a5a' }),
+      bigTree,
+      bigWillow,
+      m.sprite(CAVE, { k: K, L: '#6a6a80', l: '#4a4a5e', s: '#34344a', K: '#05070a' }),
+      m.sprite(TEMPLE, { k: K, L: '#b8b49a', l: '#8a866e', K: '#1a1c2c', y: '#e0b43a', '~': '#5fb3a0' }),
+      null
+    ];
+  },
+  mountains: function (ctx) {
+    var K = MAP_K;
+    [[508, 92, 30], [548, 80, 40], [584, 102, 24], [486, 110, 20], [566, 124, 18]].forEach(function (m) {
+      for (var yy = 0; yy < m[2]; yy++) {
+        var half = Math.round(yy * 0.95), top = m[1] - m[2] + yy;
+        ctx.fillStyle = K; ctx.fillRect(m[0] - half - 1, top, half * 2 + 3, 1);
+        ctx.fillStyle = '#8a8578'; ctx.fillRect(m[0] - half, top, half + 1, 1);
+        ctx.fillStyle = '#6b6556'; ctx.fillRect(m[0] + 1, top, half, 1);
+        if (yy < m[2] * 0.32) {
+          ctx.fillStyle = '#f4f4e8'; ctx.fillRect(m[0] - half, top, half + 1, 1);
+          ctx.fillStyle = '#c8ccd6'; ctx.fillRect(m[0] + 1, top, half, 1);
+        } else if (yy < m[2] * 0.42 && (yy + m[0]) % 2) {
+          ctx.fillStyle = '#f4f4e8'; ctx.fillRect(m[0] - half + (yy % 3), top, 2, 1);
+        }
+      }
+    });
+    // le nid du Héron, sur le plus haut pic
+    ctx.fillStyle = K; ctx.fillRect(543, 38, 11, 4);
+    ctx.fillStyle = '#8a6f1f'; ctx.fillRect(544, 39, 9, 2);
+    ctx.fillStyle = '#e8ecf0'; ctx.fillRect(548, 33, 2, 6); ctx.fillRect(549, 31, 3, 2);
+    ctx.fillStyle = '#e0b43a'; ctx.fillRect(552, 32, 2, 1);
+  }
+});
+
+// ---------- Le Continent ----------
+// Seize régions en lacets, du rivage de la Plaine des Vents (en bas à gauche) au Trône de l'Orage (en haut à gauche).
+var ContinentMap = makeWorldMap({
+  W: 960, H: 624, first: ISLAND_WORLDS, radius: 89, bridge: 60, density: 1.35,
+  regions: [
+    { x: 134, y: 538 }, { x: 334, y: 554 }, { x: 542, y: 528 }, { x: 754, y: 547 },
+    { x: 840, y: 403 }, { x: 648, y: 384 }, { x: 446, y: 403 }, { x: 235, y: 384 },
+    { x: 132, y: 245 }, { x: 324, y: 228 }, { x: 528, y: 247 }, { x: 734, y: 235 },
+    { x: 840, y: 98 }, { x: 638, y: 84 }, { x: 432, y: 101 }, { x: 223, y: 84 }
+  ],
+  blobs: [{ x: 48, y: 456, r: 41 }, { x: 924, y: 300, r: 36 }, { x: 36, y: 156, r: 38 }, { x: 924, y: 504, r: 31 }],
+  start: { x: 36, y: 569 }, nest: { x: 96, y: 53 },
+  trailPal: [
+    { e: '#3a2c18', f: '#a88a4a', l: '#d0b070' }, { e: '#2a2018', f: '#6a5a44', l: '#8a7a60' },
+    { e: '#221810', f: '#5a4430', l: '#7a6044' }, { e: '#8a6a3a', f: '#f0dcb0', l: '#fff4d8' },
+    { e: '#4a1a0c', f: '#b06a44', l: '#d08a60' }, { e: '#5a7a9a', f: '#e8f0f8', l: '#ffffff' },
+    { e: '#100808', f: '#4a3430', l: '#6a4a40' }, { e: '#16161c', f: '#6a6a72', l: '#8a8a92' },
+    { e: '#1a1a3a', f: '#6a6aa0', l: '#9a9ad0' }, { e: '#8a9ab8', f: '#ffffff', l: '#ffffff', planks: true },
+    { e: '#1a2a12', f: '#6a5a32', l: '#8a7a44' }, { e: '#0a0908', f: '#4a4038', l: '#6a5a4a', planks: true },
+    { e: '#22222a', f: '#8a8a94', l: '#b0b0b8' }, { e: '#050208', f: '#4a2a7a', l: '#8a5ad0', planks: true },
+    { e: '#2a1a0c', f: '#a8844a', l: '#d0a860' }, { e: '#0e1018', f: '#5a6078', l: '#8a94b0' }
+  ],
+  decor: [
+    ['tree', 'grass', 'grass', 'rock', 'flower'], ['sword', 'banner', 'rock', 'deadtree', 'grass'],
+    ['deadtree', 'thorn', 'thorn', 'tree', 'grass'], ['cactus', 'cactus', 'bones', 'rock', 'grass'],
+    ['rock', 'rock', 'cactus', 'bones', 'grass'], ['pine', 'pine', 'rock', 'crystal', 'grass'],
+    ['lavarock', 'lavarock', 'rock', 'deadtree', 'grass'], ['tomb', 'tomb', 'deadtree', 'glow', 'grass'],
+    ['mushroom', 'mushroom', 'flower', 'glow', 'willow'], ['cloudp', 'cloudp', 'pillar', 'stub', 'grass'],
+    ['palm', 'palm', 'tree', 'flower', 'grass'], ['rock', 'crystal', 'crystal', 'stub', 'rock'],
+    ['banner', 'pillar', 'stub', 'rock', 'sword'], ['crystal', 'crystal', 'glow', 'rock', 'stub'],
+    ['bones', 'bones', 'rock', 'lavarock', 'grass'], ['pillar', 'stub', 'crystal', 'rock', 'glow']
+  ],
+  // les monuments : un moulin, une tour brisée, une pyramide, un château, un crâne de dragon, la flèche de l'orage
+  landmarks: function (m) {
+    var K = MAP_K, out = [];
+    out[0] = m.sprite(['......k.....', '..k...k...k.', '...k..k..k..', '....k.k.k...', 'kkkkkkWkkkkk', '....kWWWk...', '...kWWWWWk..', '...kWkkWWk..', '...kWkkWWk..', '..kkWWWWWkk.', '..kWWWWWWWk.', '..kkkkkkkkk.'],
+      { k: K, W: '#d8cfb0' });
+    out[1] = m.sprite(['..k.kk.k..', '..kkLLkk..', '..kLLlLk..', '..kLlLLk..', '..kLKKLk..', '..kLKKLk..', '..kLllLk..', '.kkLLLlkk.', '.kLlLLllk.', 'kkkkkkkkkk'],
+      { k: K, L: '#8a8478', l: '#6a6458', K: '#1a1c2c' });
+    out[3] = m.sprite(['.......kk.......', '......kLlk......', '.....kLLllk.....', '....kLLLlllk....', '...kLLLLllllk...', '..kLLLKKKllllk..', '.kLLLLKKKlllllk.', 'kkkkkkkkkkkkkkkk'],
+      { k: K, L: '#f0d498', l: '#c8a468', K: '#3a2410' });
+    out[12] = m.sprite(['k.k.......k.k', 'kkk..kkk..kkk', 'kLk.kLlLk.kLk', 'kLkkkLlLkkkLk', 'kLLLLlKlLLLLk', 'kLLlLKKKLlLLk', 'kLLLLKKKLLLLk', 'kkkkkkkkkkkkk'],
+      { k: K, L: '#8a8a94', l: '#6a6a74', K: '#1a1c2c' });
+    out[14] = m.sprite(['..kkkkkk.....', '.kwwwwwwk....', 'kwwkkwwwwkk..', 'kwwkkwwwwwwk.', 'kwwwwwwwkwwwk', '.kwwwwwkwkwk.', '..kkwwk.k.k..', '....kk.......'],
+      { k: K, w: '#f0ecdc' });
+    out[15] = m.sprite(['.....y.....', '....kyk....', '....kLk....', '...kLlLk...', '...kLlLk...', '..kLLlLLk..', '..kLlKlLk..', '.kLLlKlLLk.', '.kLllKllLk.', 'kkkkkkkkkkk'],
+      { k: K, L: '#4a5068', l: '#343a50', K: '#6af0ff', y: '#f0f040' });
+    return out;
+  },
+  // un volcan qui fume au-dessus de sa région, et les pics gelés de la toundra
+  mountains: function (ctx, T) {
+    var K = MAP_K, cone = function (mx, my, hgt, lit, dark, snow) {
+      for (var yy = 0; yy < hgt; yy++) {
+        var half = Math.round(yy * 0.9), top = my - hgt + yy;
+        ctx.fillStyle = K; ctx.fillRect(mx - half - 1, top, half * 2 + 3, 1);
+        ctx.fillStyle = lit; ctx.fillRect(mx - half, top, half + 1, 1);
+        ctx.fillStyle = dark; ctx.fillRect(mx + 1, top, half, 1);
+        if (snow && yy < hgt * 0.3) { ctx.fillStyle = '#f4f4e8'; ctx.fillRect(mx - half, top, half * 2 + 1, 1); }
+      }
+    };
+    var v = T[6].landmark;
+    cone(Math.round(v.x), Math.round(v.y) + 2, 26, '#5a3a30', '#3a2420', false);
+    ctx.fillStyle = '#ff6a1a'; ctx.fillRect(Math.round(v.x) - 2, Math.round(v.y) - 24, 5, 2);
+    ctx.fillStyle = '#ffd040'; ctx.fillRect(Math.round(v.x) - 1, Math.round(v.y) - 25, 3, 1);
+    [[-6, -30], [-3, -34], [1, -38], [-2, -42]].forEach(function (s, k) { ctx.fillStyle = k % 2 ? '#8a8a8a' : '#6a6a6a'; ctx.fillRect(Math.round(v.x) + s[0], Math.round(v.y) + s[1], 4, 3); });
+    var t = T[5].landmark;
+    [[-14, 6, 22], [0, 0, 30], [14, 8, 20]].forEach(function (p) { cone(Math.round(t.x) + p[0], Math.round(t.y) + p[1], p[2], '#9ab0c0', '#6a8098', true); });
+  }
+});
