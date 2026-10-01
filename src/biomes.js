@@ -383,3 +383,15 @@ BIOMES.push(
     boss: { species: 'dragon', name: 'Dragon-Tempête', scale: 1.25 }
   }
 );
+var CONTINENT_END = BIOMES.length; // les terres du Continent s'arrêtent ici
+
+// ---------- Les îles du monde ----------
+// Dans l'ordre où on les découvre : leurs terres vont de BIOMES[from] à BIOMES[to - 1]. La carte de chacune (map) est
+// posée par map.js, son film d'arrivée par hub.js. Les îles suivantes s'ajoutent à la suite (colosses.js…), et le cycle
+// suivant (NG+) ne s'ouvre qu'au bout de la dernière.
+var ISLES = [
+  { id: 'ile', name: 'L’Île du départ', short: 'L’Île', from: 0, to: ISLAND_WORLDS },
+  { id: 'continent', name: 'le Continent', short: 'Le Continent', from: ISLAND_WORLDS, to: CONTINENT_END }
+];
+function isleOf(w) { for (var i = ISLES.length - 1; i > 0; i--) if (w >= ISLES[i].from) return ISLES[i]; return ISLES[0]; }
+function isleById(id) { return ISLES.filter(function (s) { return s.id === id; })[0] || ISLES[0]; }

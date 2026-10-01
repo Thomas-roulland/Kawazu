@@ -107,10 +107,15 @@ Les **lucioles** sont la monnaie du jeu.
   L’étape n coûte n points (niveau 1 à 75) ; la grenouille avance de dalle en dalle et l’eau des branches apprises prend
   la couleur de la voie. Un **deck** de 4 sorts accompagne l’attaque de base de l’arme (Coup de bâton, Estoc,
   Entaille, Coup de masse, Lancer de kunaï, Lancer de shurikens, Frappe du crapaud).
-- **Carte du monde** : deux cartes détaillées (arbres, rochers, cristaux, monuments), une région par biome. **L’Île du
-  départ** (Marais-Brume, Lagune des Lucioles, Forêt des Saules, Grottes Luisantes, Temple Englouti, Sommet du Héron),
-  puis, une fois le Héron vaincu, **le Continent** (voir plus bas), plus grand et plus dense ; une bascule passe de l’une
-  à l’autre.
+  **Les Maîtrises** : une fois toutes les dalles de sa voie apprises, les points de voie vont dans quatre maîtrises
+  sans fin — Force (+2 % de dégâts par rang), Carapace (+2 % de PV), Instinct (+1 % de critique), Souffle (+3 % de
+  puissance des sorts) ; le rang r coûte 1 + r/4 points. Tous les 10 rangs, un sort du deck **s’éveille** (au choix,
+  ✦) : un coup de plus s’il frappe plusieurs fois, sinon un tour de relance en moins (ou +30 % de puissance). Les
+  Maîtrises et les éveils restent pour toujours, même après une mutation. Niveau maximum : 300.
+- **Carte du monde** : une carte détaillée par île (arbres, rochers, cristaux, monuments), une région par biome. **L’Île
+  du départ** (Marais-Brume, Lagune des Lucioles, Forêt des Saules, Grottes Luisantes, Temple Englouti, Sommet du
+  Héron), puis, une fois le Héron vaincu, **le Continent**, et une fois le Dragon-Tempête vaincu, **l’Île des Colosses**
+  (voir plus bas) ; une bascule passe de l’une à l’autre. Chaque île s’ouvre sur son film d’arrivée.
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
   la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante.
   La carte s’ouvre **centrée sur l’étape en cours** ; on la **promène** en la glissant (souris ou doigt), un bouton
@@ -143,7 +148,13 @@ Les **lucioles** sont la monnaie du jeu.
   l’étage choisi donne le sage (force comparée à la tienne, sorts, récompense) et tout ce que la tour a déjà rapporté
   (lucioles, XP, et les dix trésors, obtenus ou à gagner).
   Chaque étage est gardé par un **ancien sage grenouille**, un vrai combattant (niveau, points, voie, dalles du
-  temple, sorts, équipement), de plus en plus fort (niveau 3 au 1er étage, 145 au 100e). Tous les 10 étages, un
+  temple, sorts, équipement), de plus en plus fort (niveau 3 au 1er étage, 145 au 100e). Au-dessus, une fois les Cent
+  Sages conquis : **la Tour des Ancêtres**, 500 étages de plus (101 à 600), **de nuit** (quatre ciels d’encre, de lune
+  rouge ou d’aurore, pagode laquée de noir et de violet aux fenêtres d’esprits, cascades spectrales). Ses Ancêtres
+  montent jusqu’au niveau 300 et frappent de plus en plus fort (+0,4 % par étage) ; bien plus de lucioles et d’XP ;
+  tous les 10 étages un Ancêtre majeur, tous les 50 un **Grand Ancêtre** qui garde une **Relique** (dix Légendaires
+  qu’on ne trouve que là : bandeaux, capes, anneaux, ceintures) ; au 600e, **le Premier Crapaud**, et sa peau d’obsidienne
+  striée d’or (le skin « Premier Crapaud », jamais en boutique). Une bascule passe d’une tour à l’autre. Tous les 10 étages, un
   **Grand Sage** (Doyenne Hasuno, Maître Iwagama… jusqu’au Premier Sage) garde un **trésor** : 10 objets exclusifs.
   Première victoire sur un étage : lucioles et XP ; on peut rejouer les étages conquis, sans récompense.
 - **Cascade des duels** (avec un compte, sauf l’entraînement) : deux rochers de part et d’autre d’une grande
@@ -197,7 +208,7 @@ Les **lucioles** sont la monnaie du jeu.
   (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
-## Le Continent, les cycles et la mutation
+## Le Continent, l’Île des Colosses, les cycles et la mutation
 
 - **Le Grand Plongeon** : une fois le Héron Ancestral vaincu, une cinématique de 17 secondes (qu’on peut passer :
   bouton, Échap, Espace) : la grenouille au sommet à l’aube, au-dessus d’une mer de nuages, face au soleil qui se lève
@@ -231,7 +242,17 @@ Les **lucioles** sont la monnaie du jeu.
   ou un monstre rare, 2 % contre un épique) : quatre **bandeaux** noués sur la tête et quatre **capes** qui flottent
   dans le dos, qui se voient sur la grenouille et **flottent au vent** (les pans du bandeau et la cape ondulent, une
   image sur deux, au camp, en combat, partout). Leurs stats suivent la terre où ils tombent.
-- **Les cycles (NG+)** : une fois le Dragon-Tempête vaincu, on peut entrer dans le **cycle suivant** : tout recommence
+- **L’Île des Colosses** : une fois le Dragon-Tempête vaincu, un second film, **la Traversée** : le dragon s’effondre
+  dans l’orage ; à l’aube, des titans marchent sur la mer dans la brume, une tortue vieille comme le monde se soulève et
+  prend la grenouille sur son dos, un léviathan passe dessous ; sur le rivage, des arbres hauts comme le ciel, et le pied
+  d’un titan qui s’abat. Puis **trois terres immenses** (niveaux 177 à 202) : la **Forêt des Géants**, la **Forge des
+  Titans** et l’**Abîme des Léviathans**, sur leur propre carte. Tout y est géant : **sept nouvelles espèces** en 32 × 32
+  (sylvain, cerf-titan, ours des cimes, cyclope forgeron, kraken, crabe-titan, léviathan), sculptées en code
+  (`src/colosses.js`), qui font deux fois la taille des monstres de l’île en combat, et des boss très durs (le
+  Roi-Chêne, le Titan de Braise, le Léviathan Ancestral). Leur butin a ses propres armes et ses propres formes (Bourdon,
+  Trident, Ōdachi, Marteau, Coutelas, Étoile, Mante, Baudrier, Chevalière, Heaume de titan).
+- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Léviathan Ancestral, au bout de l’Île
+  des Colosses), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), toutes les terres
   partent de la force du milieu du Continent, et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
   échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
@@ -241,7 +262,8 @@ Les **lucioles** sont la monnaie du jeu.
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
   nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent, et des
   **marques lumineuses** apparaissent sur sa peau, de plus en plus nombreuses (leur couleur change avec le nombre).
-- Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire.
+- Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
+  Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.
 
 ## Objets et raretés
 
@@ -305,7 +327,8 @@ puissance des voies.
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, signes des skins (paintSkin), ondes de choc, kunaï lancé, espèces de monstres
-- `src/biomes.js` : les 22 biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss)
+- `src/biomes.js` : les biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss) et la liste des îles (`ISLES`) ;
+  `src/colosses.js` : l’Île des Colosses (l’outil de sculpture des sprites, ses espèces, ses 3 terres, son butin)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde

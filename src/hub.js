@@ -971,7 +971,32 @@
     });
   }
 
+  // Les Maîtrises : quand toutes les dalles de la voie sont apprises, les points de voie vont dans quatre pistes sans fin,
+  // et tous les 10 rangs un sort du deck s'éveille (on le choisit ; un clic sur un sort éveillé le rendort)
+  function renderMastery() {
+    var box = $('mastery'), voie = chosenVoie(save);
+    box.hidden = !voie;
+    if (!voie) return;
+    if (!treeComplete(save)) {
+      box.innerHTML = '<p class="ms-tease">Les <b>Maîtrises</b> s’ouvrent quand toutes les dalles de ta voie sont apprises : tes points de voie iront alors dans quatre maîtrises sans fin, pour toujours (même après une mutation).</p>';
+      return;
+    }
+    var m = save.mastery, total = masteryRanks(save), allowed = awakeningsAllowed(save), woke = save.awakened;
+    var html = '<h2>MAÎTRISES <small>' + total + ' rang' + (total > 1 ? 's' : '') + '</small></h2><div class="ms-list">' + MASTERIES.map(function (x) {
+      var r = m[x.id] || 0, cost = masteryCost(r), bonus = x.dmg ? Math.round(x.dmg * r * 100) + ' % de dégâts' : (x.hp ? Math.round(x.hp * r * 100) + ' % de PV' : (x.crit ? Math.round(x.crit * r * 100) + ' % de critique' : Math.round(x.spell * r * 100) + ' % de puissance des sorts'));
+      return '<div class="ms-row" style="--ms:' + x.color + '"><span class="ms-name"><b>' + x.name + ' <i>' + r + '</i></b><small>+' + bonus + ' · ' + x.desc + '</small></span>' +
+        '<button class="ms-up" data-mastery="' + x.id + '"' + (save.skillPoints >= cost ? '' : ' disabled') + ' title="Rang ' + (r + 1) + ' : ' + cost + ' point' + (cost > 1 ? 's' : '') + ' de voie">+' + cost + '</button></div>';
+    }).join('') + '</div>';
+    var deck = save.deck.map(skillById).filter(Boolean);
+    html += '<div class="ms-awake"><h3>ÉVEILS <small>' + woke.length + ' / ' + allowed + (allowed < 1 || woke.length >= allowed ? ' · le prochain à ' + (allowed + 1) * AWAKEN_EVERY + ' rangs' : '') + '</small></h3>' +
+      (deck.length ? deck.map(function (s) {
+        var on = woke.indexOf(s.id) >= 0, can = on || woke.length < allowed;
+        return '<button class="ms-spell' + (on ? ' on' : '') + '" data-awaken="' + s.id + '"' + (can ? '' : ' disabled') + ' title="' + (on ? 'Éveillé : ' + awakenDesc(s) + '. Clic pour le rendormir.' : 'Éveiller : ' + awakenDesc(s)) + '">' + s.name + (on ? ' ✦' : '') + '</button>';
+      }).join('') : '<p class="muted">Ajoute des sorts à ton deck pour pouvoir les éveiller.</p>') + '</div>';
+    box.innerHTML = html;
+  }
   function renderTree() {
+    renderMastery();
     var pts = $('skill-points');
     pts.textContent = save.skillPoints > 0 ? save.skillPoints + (save.skillPoints > 1 ? ' points de voie' : ' point de voie') : 'Aucun point : monte de niveau';
     pts.classList.toggle('has', save.skillPoints > 0);
@@ -1201,11 +1226,11 @@
   }
 
   // ---------- Carte du monde : l'Île du départ et le Continent ----------
-  function mapOf(view) { return view === 'continent' ? ContinentMap : WorldMap; }
-  // la carte affichée : celle choisie, sinon celle où l'on en est (le Continent ne se montre qu'une fois ouvert)
+  function mapOf(view) { return isleById(view).map; }
+  // la carte affichée : celle choisie (si son île est ouverte), sinon celle où l'on en est
   function mapView() {
-    if (state.mapView === 'continent' && !continentOpen(save)) state.mapView = 'ile';
-    return state.mapView || (currentWorld() >= ISLAND_WORLDS ? 'continent' : 'ile');
+    if (state.mapView && !isleOpen(save, isleById(state.mapView))) state.mapView = null;
+    return state.mapView || isleOf(currentWorld()).id;
   }
   // ---------- La caméra de la carte ----------
   // cam.s : pixels d'écran par pixel de carte (fixe : la terre en cours remplit l'écran, la carte déborde et se promène) ;
@@ -1266,7 +1291,9 @@
   }
   var cycleArmed = 0;
   function renderWorldMap() {
-    if (continentOpen(save) && !save.seenContinent) { playDive(); return; } // la première fois : le Grand Plongeon
+    // la première fois qu'une île s'ouvre : son film d'arrivée
+    var arrival = ISLES.filter(function (s, i) { return i > 0 && isleOpen(save, s) && save.seenIsles.indexOf(s.id) < 0; })[0];
+    if (arrival) { playArrival(arrival); return; }
     var view = mapView(), M = mapOf(view), off = M.FIRST, unlocked = [];
     for (var li = 0; li < M.REGIONS.length; li++) if (worldUnlocked(save, off + li)) unlocked.push(li);
     var m = M.render(unlocked), c = $('worldmap-canvas');
@@ -1316,14 +1343,15 @@
     // les deux cartes, une fois le Continent ouvert ; le cycle en cours ; la boussole et le zoom
     ui += '<canvas class="wm-compass" width="28" height="28" aria-hidden="true"></canvas>' +
       '<div class="wm-zoom"><button data-wm-zoom="me" title="Revenir à ma grenouille" aria-label="Revenir à ma grenouille"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v2.1A4 4 0 0 1 9.9 5H12v2H9.9A4 4 0 0 1 7 9.9V12H5V9.9A4 4 0 0 1 2.1 7H0V5h2.1A4 4 0 0 1 5 2.1zM6 4a2 2 0 1 0 0 4a2 2 0 0 0 0-4z" fill="currentColor"/></svg></button></div>';
-    if (continentOpen(save)) {
-      ui += '<div class="wm-switch">' + [['ile', 'L’Île'], ['continent', 'Le Continent']].map(function (o) { return '<button class="' + (view === o[0] ? 'is-on' : '') + '" data-map-view="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+    var opened = ISLES.filter(function (s) { return isleOpen(save, s); });
+    if (opened.length > 1) {
+      ui += '<div class="wm-switch">' + opened.map(function (s) { return '<button class="' + (view === s.id ? 'is-on' : '') + '" data-map-view="' + s.id + '">' + s.short + '</button>'; }).join('') + '</div>';
     }
     if ((save.cycle || 1) > 1) ui += '<div class="wm-cycle-tag">CYCLE ' + romanCycle(save.cycle) + '</div>';
     // le monde vaincu : le cycle suivant
     if (worldDone(save)) {
       var nc = (save.cycle || 1) + 1;
-      ui += '<div class="wm-cycle panel"><h2>LE MONDE EST VAINCU</h2><p>Le Dragon-Tempête est tombé. Le cycle ' + romanCycle(nc) + ' peut commencer : tout recommence au Marais-Brume, mais les monstres se mettent à ton niveau, et ils ont ' + Math.round((Math.pow(CYCLE.power, nc - 1) - 1) * 100) + ' % de PV et de dégâts en plus. En échange, tout ce que tu trouves devient « +' + (nc - 1) + ' » (+' + Math.round(CYCLE.loot * (nc - 1) * 100) + ' % de stats). Tu gardes ton niveau, tes objets et tes lucioles.</p>' +
+      ui += '<div class="wm-cycle panel"><h2>LE MONDE EST VAINCU</h2><p>' + BIOMES[BIOMES.length - 1].boss.name + ', le dernier boss du monde, est tombé. Le cycle ' + romanCycle(nc) + ' peut commencer : tout recommence au Marais-Brume, mais les monstres se mettent à ton niveau, et ils ont ' + Math.round((Math.pow(CYCLE.power, nc - 1) - 1) * 100) + ' % de PV et de dégâts en plus. En échange, tout ce que tu trouves devient « +' + (nc - 1) + ' » (+' + Math.round(CYCLE.loot * (nc - 1) * 100) + ' % de stats). Tu gardes ton niveau, tes objets et tes lucioles.</p>' +
         '<button class="btn' + (cycleArmed ? ' is-armed' : '') + '" data-next-cycle>' + (cycleArmed ? 'Confirmer : entrer dans le cycle ' + romanCycle(nc) : 'Entrer dans le cycle ' + romanCycle(nc) + ' ▶') + '</button></div>';
     }
     html += '<img id="wm-frog" class="wm-frog" src="' + $('sb-portrait').toDataURL() + '" alt="Ta grenouille">';
@@ -1393,23 +1421,32 @@
     })(t0);
   }
 
-  // ---------- Le Grand Plongeon : la cinématique du passage vers le Continent (voir cinematic.js) ----------
-  // Au sommet, le Héron est tombé ; la grenouille saute, plonge dans la mer, un tourbillon de lumière l'emporte…
-  // et elle ressort sur la plage du Continent. On peut la passer. Elle ne se joue qu'une fois (save.seenContinent).
-  function playDive() {
-    Sfx.music('calm');
-    Cinematic.play(Cinematic.dive(HERO_IMG, ContinentMap), function () {
-      save.seenContinent = true; persist();
-      state.mapView = 'continent';
+  // ---------- Les films d'arrivée sur chaque île (voir cinematic.js) ----------
+  // Le Grand Plongeon (le Héron tombé, la grenouille plonge et ressort sur la plage du Continent), puis la Traversée
+  // (le Dragon-Tempête tombé, une tortue géante la porte jusqu'à l'Île des Colosses). On peut les passer ; chacun ne se
+  // joue qu'une fois (save.seenIsles).
+  var FILMS = {
+    continent: function () { return Cinematic.dive(HERO_IMG, ContinentMap); },
+    colosses: function () { return Cinematic.crossing(HERO_IMG, ColossesMap); }
+  };
+  function playArrival(isle) {
+    var done = function () {
+      if (save.seenIsles.indexOf(isle.id) < 0) save.seenIsles.push(isle.id);
+      if (isle.id === 'continent') save.seenContinent = true;
+      persist();
+      state.mapView = isle.id;
       if (state.page === 'map') renderWorldMap(); else showPage('map');
-    });
+    };
+    if (!FILMS[isle.id]) { done(); return; }
+    Sfx.music('calm');
+    Cinematic.play(FILMS[isle.id](), done);
   }
 
   // ---------- Une étape : le panneau qui s'ouvre sur la carte ----------
   // Un clic sur une étape de la carte ouvre ce panneau : combattre tout de suite, ou partir en mission.
   function openStage(w, st) {
     state.sheet = { w: w, st: st };
-    state.mapView = w >= ISLAND_WORLDS ? 'continent' : 'ile'; // la carte de cette terre
+    state.mapView = isleOf(w).id; // la carte de cette terre
     if (state.page !== 'map') showPage('map'); else renderWorldMap();
   }
   function renderStageSheet() {
@@ -2267,16 +2304,24 @@
   // La tour se dresse au milieu du mont Kaeru : un étage par sage, la grenouille sur le prochain à conquérir,
   // les étages du dessus perdus dans la brume. À droite, la fiche de l'étage choisi : le sage, sa force comparée
   // à la nôtre, ses sorts, et ce que rapporte la première victoire.
-  var tower = { sel: null, view: 0 };
-  function towerNext() { return Math.min(TOWER_FLOORS, save.tower + 1); }
+  // mode : 'sages' (étages 1 à 100) ou 'ancetres' (101 à 600, une fois les Cent Sages conquis)
+  var tower = { sel: null, view: 0, mode: null };
+  function towerTop() { return save.tower >= TOWER_FLOORS ? TOWER_TOP : TOWER_FLOORS; }
+  function towerNext() { return Math.min(towerTop(), save.tower + 1); }
+  function towerRange() { return tower.mode === 'ancetres' ? [TOWER_FLOORS + 1, TOWER_TOP] : [1, TOWER_FLOORS]; }
+  // la force d'un gardien de la tour (les Grands Sages un peu plus, les Ancêtres bien plus)
+  function towerFoe(card) {
+    var en = Object.assign({}, dojoFighter(card), { rank: 'sage' }), bump = card.boss || (card.ancestor && card.major);
+    en.maxHp = Math.round(en.maxHp * (bump ? 1.15 : 1) * card.power); en.dmg *= (bump ? 1.1 : 1) * card.power;
+    return en;
+  }
   function towerFight(f) {
-    var card = towerCard(f), en = Object.assign({}, dojoFighter(card), { rank: 'sage' });
-    if (card.boss) { en.maxHp = Math.round(en.maxHp * 1.15); en.dmg *= 1.1; }
+    var card = towerCard(f), en = towerFoe(card);
     return {
-      kind: 'tour', floor: f, card: card, enemy: en, title: 'Tour des Cent Sages · étage ' + f, backdrop: TowerScene.arena(f), bgFx: TowerScene.arenaFx,
-      intro: card.boss ? 'Étage ' + f + ' : le Grand Sage ' + card.nom + ', ' + card.titre + ', t’attend (niv. ' + card.niveau + ') !' : 'Étage ' + f + ' : ' + card.nom + ' (niv. ' + card.niveau + ') t’attend pour son épreuve.',
+      kind: 'tour', floor: f, card: card, enemy: en, title: (isAncestor(f) ? 'Tour des Ancêtres' : 'Tour des Cent Sages') + ' · étage ' + f, backdrop: TowerScene.arena(f), bgFx: TowerScene.arenaFx,
+      intro: card.boss ? 'Étage ' + f + ' : ' + (card.ancestor ? 'le Grand Ancêtre ' : 'le Grand Sage ') + card.nom + ', ' + card.titre + ', t’attend (niv. ' + card.niveau + ') !' : 'Étage ' + f + ' : ' + card.nom + ' (niv. ' + card.niveau + ') t’attend pour son épreuve.',
       settle: function (win) { return Promise.resolve(settleTower(f, card, win)); },
-      next: f < TOWER_FLOORS ? function () { return towerFight(f + 1); } : null,
+      next: f < towerTop() && f !== TOWER_FLOORS ? function () { return towerFight(f + 1); } : null,
       again: function () { return towerFight(f); }
     };
   }
@@ -2294,23 +2339,34 @@
     if (card.boss) albumKill(save, 's-' + f);
     persist();
     Sfx.play(levels ? 'levelup' : 'pickup');
-    tower.sel = Math.min(TOWER_FLOORS, f + 1);
+    var skin = f === TOWER_TOP && save.skins.indexOf('ancetre') < 0; // au sommet des Ancêtres : la peau du Premier Crapaud
+    if (skin) { save.skins.push('ancetre'); persist(); }
+    tower.sel = Math.min(towerTop(), f + 1);
+    if (f === TOWER_FLOORS) { tower.mode = 'ancetres'; tower.sel = TOWER_FLOORS + 1; tower.view = TOWER_FLOORS + 1; }
     return '<p>Étage ' + f + ' conquis ! +' + r.gold + ' lucioles · +' + r.xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
-      (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> Trésor du Grand Sage : <b>' + ITEMS[r.item].name + '</b>' + (swap ? ' — ce n’est pas ton arme : les Sages te donnent <b>' + swap + ' lucioles</b> à la place.' : '') + '</p>' : '') +
-      (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline devant toi.</p>' : '');
+      (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> ' + (isAncestor(f) ? 'Relique du Grand Ancêtre' : 'Trésor du Grand Sage') + ' : <b>' + ITEMS[r.item].name + '</b>' + (swap ? ' — ce n’est pas ton arme : les Sages te donnent <b>' + swap + ' lucioles</b> à la place.' : '') + '</p>' : '') +
+      (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline… et montre le ciel : au-dessus, dans la nuit, la <b>Tour des Ancêtres</b> s’éveille. 500 étages.</p>' : '') +
+      (f === TOWER_TOP ? '<p class="bt-unlock">Le Premier Crapaud s’incline devant toi. Tu as conquis la Tour des Ancêtres' + (skin ? ', et sa peau est à toi : <b>Premier Crapaud</b> (page Skins).' : '.') + '</p>' : '');
   }
   function openTower() {
-    if (!tower.sel) tower.sel = towerNext();
-    tower.view = Math.max(1, towerNext() - 2);
+    if (!tower.mode) tower.mode = save.tower >= TOWER_FLOORS ? 'ancetres' : 'sages';
+    var rg = towerRange(), next = towerNext();
+    if (!tower.sel || tower.sel < rg[0] || tower.sel > rg[1]) tower.sel = Math.max(rg[0], Math.min(rg[1], next));
+    tower.view = Math.max(rg[0], Math.min(rg[1], next) - 2);
     renderTower();
   }
   // La tour dessinée (tower.js), et par-dessus un bouton par étage : son numéro, son sage devant la porte, le trésor
   // des Grands Sages, et ta grenouille sur le balcon de l'étage à conquérir. La molette fait monter et descendre.
   function renderTower() {
     var page = $('page-tower'), pw = page.clientWidth, ph = page.clientHeight, wide = pw > 1000, side = wide ? 400 : 0;
-    var S = ph < 620 ? 2 : 3, next = towerNext();
-    tower.view = Math.max(1, Math.min(tower.view || 1, Math.min(TOWER_FLOORS, next + 3) - 1));
-    var lay = TowerPage.render($('tower-bg'), { w: pw, h: wide ? ph : Math.round(ph * 0.58), s: S, cx: (pw - side) / 2 / S, view: tower.view, next: next, sky: TowerScene.skyOf(next) });
+    var S = ph < 620 ? 2 : 3, next = towerNext(), rg = towerRange(), anc = tower.mode === 'ancetres';
+    tower.view = Math.max(rg[0], Math.min(tower.view || rg[0], Math.min(rg[1], Math.max(rg[0], next) + 3) - 1));
+    $('page-tower').classList.toggle('ancestral', anc);
+    $('tower-title').textContent = anc ? 'LA TOUR DES ANCÊTRES' : 'LA TOUR DES CENT SAGES';
+    $('tower-sub').textContent = anc ? 'Au-dessus des Sages, dans la nuit : cinq cents Ancêtres, un Grand Ancêtre et sa Relique tous les cinquante étages.' : 'Les Épreuves des Anciens Sages, au sommet du mont Kaeru : un sage par étage, un trésor tous les dix.';
+    $('tower-modes').hidden = save.tower < TOWER_FLOORS;
+    $('tower-modes').innerHTML = [['sages', 'Les Cent Sages'], ['ancetres', 'Les Ancêtres']].map(function (m) { return '<button data-tower-mode="' + m[0] + '"' + (tower.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>'; }).join('');
+    var lay = TowerPage.render($('tower-bg'), { w: pw, h: wide ? ph : Math.round(ph * 0.58), s: S, cx: (pw - side) / 2 / S, view: tower.view, next: Math.max(rg[0] - 1, next), base: rg[0], top: rg[1], sky: TowerScene.skyOf(Math.max(rg[0], Math.min(rg[1], next))) });
     var me = $('sb-portrait').toDataURL(), html = '';
     lay.floors.forEach(function (fl) {
       var f = fl.f, st = f <= save.tower ? 'done' : (f === next ? 'next' : 'locked'), boss = f % 10 === 0;
@@ -2319,7 +2375,7 @@
         '<span class="tfl-num">' + f + '</span>' +
         (card ? '<img class="px tfl-sage" src="' + portraitOf(card) + '" alt="" style="left:' + (dx - 12 * S) + 'px;top:' + 8 * S + 'px;width:' + 24 * S + 'px;height:' + 24 * S + 'px">' : '<span class="tfl-q" style="left:' + (dx - 6 * S) + 'px;top:' + 16 * S + 'px;width:' + 12 * S + 'px">?</span>') +
         (prize ? '<img class="px tfl-prize" src="' + iconUrls[prize] + '" alt="" title="' + ITEMS[prize].name + '">' : '') +
-        (f === next && save.tower < TOWER_FLOORS ? '<span class="tfl-here">TU ES ICI</span>' : '') + '</button>';
+        (f === next && save.tower < towerTop() ? '<span class="tfl-here">TU ES ICI</span>' : '') + '</button>';
     });
     $('tower-col').innerHTML = html;
     renderTowerSheet();
@@ -2327,35 +2383,37 @@
   $('page-tower').addEventListener('wheel', function (e) {
     if (e.target.closest('#tower-side')) return;
     e.preventDefault();
-    var v = tower.view + (e.deltaY < 0 ? 1 : -1);
+    var v = Math.max(towerRange()[0], tower.view + (e.deltaY < 0 ? 1 : -1));
     if (v !== tower.view) { tower.view = v; renderTower(); }
   }, { passive: false });
   function renderTowerSheet() {
-    var f = tower.sel, next = towerNext(), card = towerCard(f), boss = f % 10 === 0, r = towerRewards(f), me = myFight();
-    var fighter = f <= next ? dojoFighter(card) : null, hp = fighter ? Math.round(fighter.maxHp * (boss ? 1.15 : 1)) : 0, dmg = fighter ? fighter.dmg * (boss ? 1.1 : 1) : 0;
+    var f = tower.sel, next = towerNext(), card = towerCard(f), boss = f % 10 === 0, r = towerRewards(f), me = myFight(), rg = towerRange(), anc = tower.mode === 'ancetres';
+    var fighter = f <= next ? towerFoe(card) : null, hp = fighter ? fighter.maxHp : 0, dmg = fighter ? fighter.dmg : 0;
     var cmp = function (a, b) { return a > b * 1.08 ? 'down' : (a < b * 0.92 ? 'up' : ''); }; // plus fort que nous : rouge
-    var nextBoss = Math.min(TOWER_FLOORS, Math.ceil((save.tower + 1) / 10) * 10);
-    var html = '<div class="tw-progress"><b>' + save.tower + '</b><span>étages conquis sur ' + TOWER_FLOORS + '</span></div>';
+    var done = Math.max(0, Math.min(rg[1], save.tower) - rg[0] + 1), grands = anc ? GRAND_ANCESTORS : GRAND_SAGES;
+    var nextBoss = Math.min(rg[1], Math.ceil((Math.max(save.tower, rg[0] - 1) + 1) / (anc ? 50 : 10)) * (anc ? 50 : 10));
+    var html = '<div class="tw-progress"><b>' + done + '</b><span>étages conquis sur ' + (rg[1] - rg[0] + 1) + '</span></div>';
     if (f > next) {
       html += '<div class="tw-sheet locked"><h2>ÉTAGE ' + f + '</h2><p class="muted">Cet étage est encore dans la brume : conquiers d’abord l’étage ' + next + '.</p></div>';
     } else {
-      html += '<div class="tw-sheet' + (boss ? ' boss' : '') + '"><span class="tw-floor">' + (boss ? 'GRAND SAGE · ' : '') + 'ÉTAGE ' + f + '</span>' +
+      html += '<div class="tw-sheet' + (boss ? ' boss' : '') + '"><span class="tw-floor">' + (card.boss ? (anc ? 'GRAND ANCÊTRE · ' : 'GRAND SAGE · ') : (anc && boss ? 'ANCÊTRE MAJEUR · ' : '')) + 'ÉTAGE ' + f + '</span>' +
         '<div class="tw-sage"><img class="px" src="' + portraitOf(card) + '" alt=""><div><h3>' + escapeHtml(card.nom) + '</h3>' + (card.titre ? '<span class="muted">' + card.titre + '</span>' : '') +
         '<span class="muted">Niveau ' + card.niveau + '</span>' + dojoVoie(card) + '</div></div>' +
         '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(hp, me.maxHp) + '">' + hp + '</b></li><li><span>Dégâts</span><b class="' + cmp(dmg, me.dmg) + '">' + Math.round(dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(fighter.agi, me.agi) + '">' + fighter.agi + '</b></li></ul>' +
         (fighter.skills.length > 1 ? '<p class="tw-spells">Sorts : ' + fighter.skills.slice(1).map(function (s) { return '<i>' + s.name + '</i>'; }).join('') + '</p>' : '') +
         '<div class="tw-reward"><h2>' + (f <= save.tower ? 'DÉJÀ CONQUIS' : 'RÉCOMPENSE') + '</h2>' + (f <= save.tower ? '<p class="muted">Tu peux rejouer l’épreuve, sans récompense.</p>' :
           '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + (itemAvailable(save, r.item) ? statLine(ITEMS[r.item].stats) : 'Pas ton arme : ' + itemPrice(r.item) + ' lucioles à la place') + '</small></p>' : '')) + '</div>' +
-        '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (boss ? 'Défier le Grand Sage ▶' : 'Affronter ▶')) + '</button></div>';
+        '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (card.boss ? (anc ? 'Défier le Grand Ancêtre ▶' : 'Défier le Grand Sage ▶') : 'Affronter ▶')) + '</button></div>';
     }
     // tout ce que la tour a déjà rapporté : lucioles, XP et les trésors des Grands Sages
     var won = { gold: 0, xp: 0 };
-    for (var wf = 1; wf <= save.tower; wf++) { var wr = towerRewards(wf); won.gold += wr.gold; won.xp += wr.xp; }
-    var trs = Object.keys(GRAND_SAGES).map(function (k) { var fl = +k, id = towerTreasure(fl), got = save.tower >= fl; return '<div class="tw-tr' + (got ? ' got' : '') + '" title="' + (got ? ITEMS[id].name : 'Étage ' + fl + ' : ' + GRAND_SAGES[fl].nom) + '"><img class="px" src="' + (got ? iconUrls[id] : lockedUrls[id]) + '" alt=""><small>' + fl + '</small></div>'; }).join('');
-    html += '<div class="tw-won"><h2>RÉCOMPENSES OBTENUES</h2><p>' + won.gold + ' lucioles · ' + won.xp + ' XP · ' + Math.floor(save.tower / 10) + ' / 10 trésors</p><div class="tw-trs">' + trs + '</div></div>';
-    if (save.tower < TOWER_FLOORS) {
+    for (var wf = rg[0]; wf <= Math.min(rg[1], save.tower); wf++) { var wr = towerRewards(wf); won.gold += wr.gold; won.xp += wr.xp; }
+    var keys = Object.keys(grands), gotN = keys.filter(function (k) { return save.tower >= +k; }).length;
+    var trs = keys.map(function (k) { var fl = +k, id = towerTreasure(fl), got = save.tower >= fl; return '<div class="tw-tr' + (got ? ' got' : '') + '" title="' + (got ? ITEMS[id].name : 'Étage ' + fl + ' : ' + grands[fl].nom) + '"><img class="px" src="' + (got ? iconUrls[id] : lockedUrls[id]) + '" alt=""><small>' + fl + '</small></div>'; }).join('');
+    html += '<div class="tw-won"><h2>RÉCOMPENSES OBTENUES</h2><p>' + won.gold + ' lucioles · ' + won.xp + ' XP · ' + gotN + ' / ' + keys.length + (anc ? ' reliques' : ' trésors') + '</p><div class="tw-trs">' + trs + '</div></div>';
+    if (save.tower < rg[1]) {
       var tp = towerTreasure(nextBoss);
-      html += '<p class="tw-hint">Prochain Grand Sage : étage <b>' + nextBoss + '</b>' + (tp ? ', qui garde <b style="color:' + RARITIES.epique.color + '">' + ITEMS[tp].name + '</b>' : '') + '.</p>';
+      html += '<p class="tw-hint">Prochain ' + (anc ? 'Grand Ancêtre' : 'Grand Sage') + ' : étage <b>' + nextBoss + '</b>' + (tp ? ', qui garde <b style="color:' + RARITIES[rarityOf(tp)].color + '">' + ITEMS[tp].name + '</b>' : '') + '.</p>';
     }
     $('tower-side').innerHTML = html;
   }
@@ -2413,10 +2471,13 @@
         return '<div class="bk-prog"><span>' + label + ' <b>' + found + ' / ' + total + '</b></span><span class="al-bar"><i style="width:' + (found / total * 100) + '%"></i></span></div>';
       };
       var toc = function (cat) {
-        var cont = ALBUM_CHAPTERS.filter(function (c) { return c.cat === cat && c.continent; }), first = ALBUM_CHAPTERS.indexOf(cont[0]);
-        var cf = cont.reduce(function (s, c) { return s + chapterFound(c); }, 0), ct = cont.reduce(function (s, c) { return s + chapterTotal(c); }, 0);
-        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat || c.continent ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + (chapterTotal(c) ? chapterFound(c) + ' / ' + chapterTotal(c) : '—') + '</b></button>'; }).join('') +
-          (cont.length && continentOpen(save) ? '<button class="bk-toc cont" data-book-go="' + (first + 1) + '"><span>Le Continent · ' + cont.length + ' terres ▶</span><i></i><b>' + cf + ' / ' + ct + '</b></button>' : '');
+        var groups = ISLES.slice(1).map(function (s) { return { isle: s, list: ALBUM_CHAPTERS.filter(function (c) { return c.cat === cat && c.isle === s.id; }) }; })
+          .filter(function (gr) { return gr.list.length && isleOpen(save, gr.isle); });
+        return ALBUM_CHAPTERS.map(function (c, i) { return c.cat !== cat || c.isle ? '' : '<button class="bk-toc" data-book-go="' + (i + 1) + '"><span>' + c.name + '</span><i></i><b>' + (chapterTotal(c) ? chapterFound(c) + ' / ' + chapterTotal(c) : '—') + '</b></button>'; }).join('') +
+          groups.map(function (gr) {
+            var first = ALBUM_CHAPTERS.indexOf(gr.list[0]), gf = gr.list.reduce(function (s, c) { return s + chapterFound(c); }, 0), gt = gr.list.reduce(function (s, c) { return s + chapterTotal(c); }, 0);
+            return '<button class="bk-toc cont" data-book-go="' + (first + 1) + '"><span>' + gr.isle.short + ' · ' + gr.list.length + ' terres ▶</span><i></i><b>' + gf + ' / ' + gt + '</b></button>';
+          }).join('');
       };
       left = '<h1 class="bk-title">ALBUM DU MARAIS</h1><p class="bk-intro">Chaque créature vaincue et chaque objet trouvé colle sa carte dans ce livre. Les cartes rares et épiques ont leur cadre bleu ou violet.</p>' +
         bar('monstres', 'Bestiaire') + bar('objets', 'Objets') +
@@ -2692,6 +2753,22 @@
     if (t.dataset.slot) { var sid = save.equip[t.dataset.slot]; if (sid) state.selected = sid; state.filter = t.dataset.slot; renderAll(); return; }
     if (t.dataset.filter) { state.filter = t.dataset.filter; renderInventory(); return; }
     if (t.dataset.view) { state.view = t.dataset.view; renderAll(); return; }
+    if (t.dataset.mastery) {
+      var mx = t.dataset.mastery, mr = save.mastery[mx] || 0, mc = masteryCost(mr);
+      if (!treeComplete(save) || save.skillPoints < mc) return;
+      save.skillPoints -= mc; save.mastery[mx] = mr + 1;
+      setPlayer(save); persist(); Sfx.play('point'); renderAll();
+      return;
+    }
+    if (t.dataset.awaken) {
+      var wid = t.dataset.awaken, wi = save.awakened.indexOf(wid);
+      if (wi >= 0) save.awakened.splice(wi, 1);
+      else if (save.awakened.length < awakeningsAllowed(save)) save.awakened.push(wid);
+      else return;
+      persist(); Sfx.play(wi >= 0 ? 'click' : 'levelup'); renderAll();
+      return;
+    }
+    if (t.dataset.towerMode) { tower.mode = t.dataset.towerMode; tower.sel = null; Sfx.play('click'); openTower(); return; }
     if (t.dataset.mapView) { state.mapView = t.dataset.mapView; state.sheet = null; Sfx.play('click'); renderWorldMap(); return; }
     if (t.dataset.wmZoom) {
       var zM = mapOf(mapView()), zL = camLimits(zM), z = t.dataset.wmZoom;

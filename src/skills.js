@@ -110,7 +110,7 @@ var SKILLS = [
 // Une dalle s'apprend quand la précédente de la même branche est apprise ; l'étape n coûte n points et demande
 // un niveau. Aux étapes 1, 4, 7 et 10 : un sort ; 2, 5 et 8 : une caractéristique ; 3, 6 et 9 : un passif.
 // La dalle-sommet s'ouvre dès qu'une branche est terminée : un sort ultime et un grand passif.
-var MAX_LEVEL = 200;
+var MAX_LEVEL = 300;
 var STEPS = 10;
 var BRANCHES = 3;
 var STEP_LEVEL = [0, 1, 3, 6, 10, 16, 24, 34, 46, 60, 75]; // niveau requis pour l'étape n
@@ -251,9 +251,44 @@ function skillUsable(s, weapon) { return KIND_VOIE[weapon.kind] === s.voie; }
 function baseSkill(weapon) { return SKILLS.filter(function (s) { return s.base === weaponType(weapon); })[0] || SKILLS[0]; }
 function deckSkills(save, weapon) {
   var known = learnedSkills(save).map(function (s) { return s.id; });
+  var woke = save.awakened || [];
   return [baseSkill(weapon)].concat(save.deck.filter(function (id) { return known.indexOf(id) >= 0; }).slice(0, DECK_SIZE).map(skillById)
-    .filter(function (s) { return skillUsable(s, weapon); }));
+    .filter(function (s) { return skillUsable(s, weapon); }).map(function (s) { return woke.indexOf(s.id) >= 0 ? awaken(s) : s; }));
 }
+// ---------- Les Maîtrises : une fois toutes les dalles de sa voie apprises (les trois branches et le sommet) ----------
+// Les points de voie suivants vont dans quatre maîtrises sans fin ; le rang r d'une maîtrise coûte 1 + r / 4 points
+// (1 point pour les quatre premiers, 2 pour les quatre suivants…). Elles restent pour toujours, même après une mutation.
+// Tous les 10 rangs (en tout), un sort du deck peut s'éveiller : un coup de plus s'il frappe plusieurs fois, sinon un
+// tour de relance en moins (ou +30 % de puissance s'il n'en a presque pas) ; il porte alors une étoile (✦).
+var MASTERIES = [
+  { id: 'force', name: 'Force', desc: '+2 % de dégâts par rang', dmg: 0.02, color: '#e0603a' },
+  { id: 'carapace', name: 'Carapace', desc: '+2 % de PV par rang', hp: 0.02, color: '#4ab06a' },
+  { id: 'instinct', name: 'Instinct', desc: '+1 % de critique par rang', crit: 0.01, color: '#e0b43a' },
+  { id: 'souffle', name: 'Souffle', desc: '+3 % de puissance des sorts par rang', spell: 0.03, color: '#8a6af0' }
+];
+var AWAKEN_EVERY = 10;
+function masteryCost(rank) { return 1 + Math.floor(rank / 4); }
+function treeComplete(save) {
+  var v = chosenVoie(save);
+  return !!v && TREE.every(function (n) { return n.voie !== v || save.tree.indexOf(n.id) >= 0; });
+}
+function masteryRanks(save) { var m = save.mastery || {}; return MASTERIES.reduce(function (s, x) { return s + (m[x.id] || 0); }, 0); }
+function masteryBonus(save) {
+  var m = (save && save.mastery) || {}, b = { dmg: 0, hp: 0, crit: 0, spell: 0 };
+  MASTERIES.forEach(function (x) { Object.keys(b).forEach(function (k) { if (x[k]) b[k] += x[k] * (m[x.id] || 0); }); });
+  return b;
+}
+function awakeningsAllowed(save) { return Math.floor(masteryRanks(save) / AWAKEN_EVERY); }
+// un sort éveillé : la même chose, en mieux (et marqué d'une étoile)
+function awaken(s) {
+  var a = Object.assign({}, s, { awakened: true, name: s.name + ' ✦' });
+  if (s.hits > 1) a.hits = s.hits + 1;
+  else if (s.cd >= 2) a.cd = s.cd - 1;
+  else a.power = s.power * 1.3;
+  return a;
+}
+function awakenDesc(s) { return s.hits > 1 ? 'un coup de plus (' + (s.hits + 1) + ' au lieu de ' + s.hits + ')' : (s.cd >= 2 ? 'un tour de relance en moins (' + (s.cd - 1) + ' au lieu de ' + s.cd + ')' : '+30 % de puissance'); }
+
 // Les meilleurs sorts d'une liste, pour une grenouille jouée par l'ordinateur (les sages de la tour) : les dégâts par
 // tour d'abord (étourdissement, saignement, poison, marque compris), puis un soin, un renfort ou une garde
 function skillValue(s) {

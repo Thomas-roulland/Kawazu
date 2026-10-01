@@ -37,6 +37,8 @@ var ISLAND_POWER = [
 // douce, entière à partir du boss de la Forêt d'Épines (le premier boss du Continent reprend là où le Héron s'arrêtait)
 var CONTINENT_RAMP = 0.8;
 var CYCLE_FLOOR = 8;
+// L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
+var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {
   var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1, st = level - stageLevel(w, 0);
   // dans un cycle (NG+), les monstres se mettent à la hauteur de la grenouille (étape 1 : 6 niveaux de moins, boss : 3 de
@@ -52,12 +54,14 @@ function makeEnemy(w, level, variant, rank, title) {
   var hpX = (k >= 0 ? up(CP.hp * (1 + CP.hpK * k)) : ip) * boost, dmgX = (k >= 0 ? up(CP.dmg * (1 + CP.dmgK * k)) : 1 + (ip - 1) / 2) * boost;
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
+  if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1; hpX *= GP.hp * bb; dmgX *= GP.dmg * Math.sqrt(bb); }
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
   return {
     name: isGuard ? v.name + ' ' + title : v.name, species: v.species, pal: v.pal, level: level,
     rank: rank || 'normal', behavior: s.behavior,
-    scale: isBoss ? (s.size === 32 ? 1 : 1.9) : (isGuard ? 1.45 : 1),
+    // (chez les Colosses, tout est géant : ~110 px, les gardiens ~126, les boss ~140, quelle que soit l'espèce)
+    scale: b.giant ? (isBoss ? 140 : (isGuard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (isBoss ? (s.size === 32 ? 1 : 1.9) : (isGuard ? 1.45 : 1)),
     // (sur le Continent, les espèces ont toutes la même base de PV : c'est la terre qui fait la force, et le dragon un peu plus)
     maxHp: Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX),
     dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX),
@@ -97,8 +101,11 @@ var XP_GAP = 5;
 function xpGapMult(heroLevel, foeLevel) { var gap = heroLevel - foeLevel - XP_GAP; return gap <= 0 ? 1 : Math.max(0.1, 1 - 0.12 * gap); }
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
-// Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le Dragon-Tempête l'est
+// Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le boss de la toute dernière terre
+// l'est (celui de la dernière île : le Léviathan Ancestral, pour l'instant)
 function continentOpen(save) { return worldUnlocked(save, ISLAND_WORLDS); }
+// une île est ouverte quand le boss de la dernière terre de la précédente est tombé
+function isleOpen(save, isle) { return worldUnlocked(save, isle.from); }
 function worldDone(save) { return save.progress[BIOMES.length - 1] >= STAGES; }
 // Le cycle suivant : tout recommence au Marais-Brume, en plus dur, et avec un meilleur butin
 function nextCycle(save) {
@@ -239,7 +246,7 @@ function dayKey(t) { var d = t ? new Date(t) : new Date(); return d.getFullYear(
 // Les trois skins en vente aujourd'hui : tirés au sort d'après la date, les mêmes pour toutes les grenouilles
 var SKINS_PER_DAY = 3;
 function skinsOfDay(t) {
-  var ids = Object.keys(PREMIUM_SKINS), key = dayKey(t), seed = 7, out = [];
+  var ids = Object.keys(PREMIUM_SKINS).filter(function (id) { return !PREMIUM_SKINS[id].reward; }), key = dayKey(t), seed = 7, out = [];
   for (var i = 0; i < key.length; i++) seed = (seed * 31 + key.charCodeAt(i)) % 2147483647;
   while (out.length < Math.min(SKINS_PER_DAY, ids.length)) {
     seed = (seed * 48271) % 2147483647;

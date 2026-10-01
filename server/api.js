@@ -47,7 +47,7 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
+const ALL_SKINS = SKINS.concat(['ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
 // les skins renommés : une sauvegarde pas encore relue par le jeu les porte encore sous leur ancien nom
 const RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
   gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
@@ -182,8 +182,9 @@ const summaries = async (account) => (await Promise.all(account.grenouilles.map(
 // vu : l'heure (arrondie) de la dernière partie, pour ne pas réécrire la fiche à chaque sauvegarde.
 const RANK = 'classement';
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v) || 0));
+const TERRES = 25; // les terres du monde (src/biomes.js : l'île, le Continent, les Colosses) ; à suivre quand une île s'ajoute
 function rankEntry(frog, pseudo) {
-  const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, 22).map((p) => num(p, 10)) : [];
+  const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, TERRES).map((p) => num(p, 10)) : [];
   const cycle = Math.max(1, num(s.cycle || 1, 999)), mutations = num(s.mutation && s.mutation.n, 999);
   let monde = 0;
   progress.forEach((p, i) => { if (i === 0 || progress[i - 1] >= 10) monde = i; });
@@ -192,11 +193,11 @@ function rankEntry(frog, pseudo) {
   return {
     id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: pseudo,
     niveau: num(s.level || 1, 999), xp: num(s.xp, 1e9), voie: typeof s.voie === 'string' ? s.voie.slice(0, 12) : null,
-    // l'aventure : les étapes conquises, et chaque cycle (NG+) terminé compte pour tout le monde (22 terres × 10 étapes)
-    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * 220, cycle: cycle, mutations: mutations,
+    // l'aventure : les étapes conquises, et chaque cycle (NG+) terminé compte pour tout le monde (TERRES × 10 étapes)
+    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations,
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
-    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 100)
+    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 600)
   };
 }
 // Met la fiche à jour si elle a changé (compare à l'ancienne version de la grenouille, déjà lue)

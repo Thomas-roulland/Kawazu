@@ -1321,6 +1321,35 @@ button.wm-stage:hover { transform: scale(1.2); }
 .item.rar-legendaire img { filter: drop-shadow(0 0 4px rgba(255, 170, 80, 0.9)); }
 @keyframes legend-glow { 50% { box-shadow: inset 0 0 0 1px #ffc070, 0 0 22px rgba(255, 150, 50, 0.85); } }
 
+/* ---------- Les Maîtrises (page de la Voie) ---------- */
+.mastery { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; margin-bottom: 6px; border-bottom: 1px solid rgba(224, 180, 58, 0.25); }
+.mastery h2 small, .mastery h3 small { margin-left: 6px; font-family: var(--body); font-size: 13px; color: var(--muted); }
+.mastery h3 { margin: 4px 0 0; font-family: var(--pixel); font-weight: 400; font-size: 9px; color: var(--gold-2); }
+.ms-tease { margin: 0; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.ms-list { display: grid; gap: 6px; }
+.ms-row { display: grid; grid-template-columns: minmax(0, 1fr) 46px; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; background: rgba(0, 0, 0, 0.25); box-shadow: inset 3px 0 0 var(--ms); }
+.ms-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ms-name b { font-size: 15px; color: var(--text); }
+.ms-name b i { margin-left: 4px; font-style: normal; font-family: var(--pixel); font-size: 10px; color: var(--ms); }
+.ms-name small { font-size: 13px; line-height: 1.25; color: var(--muted); }
+.ms-up { height: 30px; padding: 0; font-family: var(--pixel); font-size: 9px; color: #2a1d0c; background: linear-gradient(var(--gold-2), var(--gold)); border: 2px solid #3a2a18; }
+.ms-up:disabled { opacity: 0.4; cursor: not-allowed; }
+.ms-awake { display: flex; flex-wrap: wrap; gap: 6px; }
+.ms-awake h3 { flex-basis: 100%; }
+.ms-spell { padding: 6px 9px; font-size: 14px; color: var(--text); background: rgba(0, 0, 0, 0.3); border: 2px solid #3a4a40; }
+.ms-spell.on { color: #2a1d0c; background: linear-gradient(#fff0a0, var(--gold)); border-color: #fff0a0; box-shadow: 0 0 10px rgba(255, 220, 120, 0.5); }
+.ms-spell:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- La Tour des Ancêtres ---------- */
+.tower-modes { display: flex; gap: 0; margin-top: 8px; pointer-events: auto; }
+.tower-modes button { padding: 7px 12px; font-family: var(--pixel); font-size: 8px; color: #3a2718; background: #efe0b4; border: 2px solid #3a2a18; }
+.tower-modes button + button { border-left: 0; }
+.tower-modes button.is-on { color: #2a1d0c; background: linear-gradient(var(--gold-2), var(--gold)); }
+#page-tower.ancestral .tower-head h1 { color: #e0d0ff; text-shadow: 0 3px 0 #0a0614, 0 0 18px rgba(160, 120, 255, 0.5); }
+#page-tower.ancestral .tower-head p { color: #b8a8d8; }
+#page-tower.ancestral .tower-side { background: linear-gradient(rgba(30, 20, 50, 0.95), rgba(12, 8, 24, 0.96)); box-shadow: inset 0 0 0 2px #a080e0, inset 0 0 0 4px #0a0614, 0 8px 24px rgba(0, 0, 0, 0.5); }
+#page-tower.ancestral { background: #0a0614; }
+
 /* ---------- Les deux cartes, le cycle ---------- */
 .wm-switch { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 4; display: flex; gap: 0; box-shadow: 0 0 0 2px #3a2a18, 0 4px 0 rgba(0, 0, 0, 0.4); }
 .wm-switch button { padding: 8px 16px; font-family: var(--pixel); font-size: 9px; color: #3a2718; background: #efe0b4; border: 0; }

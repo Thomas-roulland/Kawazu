@@ -168,6 +168,7 @@
         <div id="voie-pick" class="voie-pick" hidden></div>
         <div id="deck-side" class="deck-side">
           <div id="arme-pick" class="arme-pick" hidden></div>
+          <div id="mastery" class="mastery" hidden></div>
           <h2>TON DECK</h2>
           <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 4 sorts appris : chacun a son temps de relance.</p>
           <div id="deck" class="deck"></div>
@@ -208,8 +209,9 @@
     <section id="page-tower" class="page" aria-label="Tour des Cent Sages" hidden>
       <canvas id="tower-bg" aria-hidden="true"></canvas>
       <header class="tower-head">
-        <h1>LA TOUR DES CENT SAGES</h1>
-        <p>Les Épreuves des Anciens Sages, au sommet du mont Kaeru : un sage par étage, un trésor tous les dix.</p>
+        <h1 id="tower-title">LA TOUR DES CENT SAGES</h1>
+        <p id="tower-sub">Les Épreuves des Anciens Sages, au sommet du mont Kaeru : un sage par étage, un trésor tous les dix.</p>
+        <div id="tower-modes" class="tower-modes" hidden></div>
       </header>
       <div id="tower-col" class="tower-col"></div>
       <aside id="tower-side" class="panel tower-side"></aside>
@@ -342,6 +344,7 @@
 <script src="src/sprites.js"></script>
 <script src="src/looks.js"></script>
 <script src="src/biomes.js"></script>
+<script src="src/colosses.js"></script>
 <script src="src/skills.js"></script>
 <script src="src/items.js"></script>
 <script src="src/tiles.js"></script>

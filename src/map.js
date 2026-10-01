@@ -478,3 +478,64 @@ var ContinentMap = makeWorldMap({
     [[-14, 6, 22], [0, 0, 30], [14, 8, 20]].forEach(function (p) { cone(Math.round(t.x) + p[0], Math.round(t.y) + p[1], p[2], '#9ab0c0', '#6a8098', true); });
   }
 });
+
+// ---------- L'Île des Colosses ----------
+// Trois régions immenses : la Forêt des Géants (au sud-ouest, où l'on débarque), la Forge des Titans (au nord, sous
+// son volcan) et l'Abîme des Léviathans (à l'est, autour d'un tourbillon).
+var ColossesMap = makeWorldMap({
+  W: 720, H: 448, first: COLOSSES_FROM, radius: 138, bridge: 84, density: 1.4,
+  regions: [{ x: 178, y: 300 }, { x: 372, y: 150 }, { x: 566, y: 292 }],
+  blobs: [{ x: 60, y: 120, r: 34 }, { x: 680, y: 90, r: 30 }, { x: 360, y: 400, r: 38 }],
+  start: { x: 54, y: 404 }, nest: { x: 600, y: 330 },
+  trailPal: [
+    { e: '#2a1c10', f: '#7a5a34', l: '#a8844e' },
+    { e: '#1a0c08', f: '#5a3a30', l: '#ff8a3a' },
+    { e: '#0a1a22', f: '#c8d8d0', l: '#ffffff', planks: true }
+  ],
+  decor: [
+    ['tree', 'tree', 'pine', 'willow', 'grass'],
+    ['lavarock', 'lavarock', 'rock', 'pillar', 'stub'],
+    ['crystal', 'bones', 'glow', 'rock', 'stub']
+  ],
+  // les monuments : l'arbre-roi, la tête du titan forgeron, le crâne du léviathan
+  landmarks: function (m) {
+    var K = MAP_K;
+    return [
+      m.sprite(['.......kkkkkk.......', '....kkkGGLLGGkkk....', '..kkGGLLLGGGGGGGkk..', '.kGGGLLGGGGgGGGGGGk.', 'kGGGGGGGGGGGGGgGGGGk', 'kGgGGGGGGLGGGGGGGgGk', 'kGGGGgGGGGGGGgGGGGGk',
+        '.kGGGGGGGGgGGGGGGGk.', '..kkgGGGGGGGGGGgkk..', '....kkkk2222kkkk....', '.......k2322k.......', '.......k2222k.......', '.......k2322k.......', '......k223222k......', '....kk22222222kk....', '...k22k2k22k2k22k...'],
+        { k: K, G: '#3a7a2a', L: '#7ac04a', g: '#22501a', 2: '#6a4a2a', 3: '#9a7444' }),
+      m.sprite(['....kkkkkkkk....', '...kMMMMMMMMk...', '..kMMMkkkkMMMk..', '..kMMkwwwwkMMk..', '..kMMkwrrwkMMk..', '..kMMkwwwwkMMk..', '..kMMMkkkkMMMk..', '..kMMMMMMMMMMk..', '..kMkkkkkkkkMk..', '..kMkwkwkwkkMk..', '...kMMMMMMMMk...', '..kkkkkkkkkkkk..'],
+        { k: K, M: '#7a7a9a', w: '#f4f4e8', r: '#ff5a1a' }),
+      m.sprite(['..kkkkkkk...........', '.kwwwwwwwkk.........', 'kwwkkwwwwwwkkkkkkk..', 'kwwkkwwwwwwwwwwwwwk.', 'kwwwwwwwkkwwwwwwwwwk', '.kwwwwwk..kkwkwkwkwk', '..kkwwk....k.k.k.k.k', '....kk..............'],
+        { k: K, w: '#e8e4d0' })
+    ];
+  },
+  // des arbres géants autour de la forêt, le cône de la forge qui crache du feu, et le tourbillon de l'abîme
+  mountains: function (ctx, T) {
+    var K = MAP_K, R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    var bigTree = function (x, y, s) {
+      R(x - 2 * s, y - 2, 4 * s, 10 * s, K); R(x - 2 * s + 1, y - 2, 4 * s - 2, 10 * s - 1, '#5a3a20');
+      for (var dy = -7 * s; dy <= 3 * s; dy++) { var hw = Math.round(Math.sqrt(Math.max(0, 1 - Math.pow(dy / (7 * s), 2))) * 8 * s); R(x - hw - 1, y - 6 * s + dy, hw * 2 + 2, 1, K); }
+      for (var dy2 = -7 * s + 1; dy2 <= 3 * s - 1; dy2++) { var hw2 = Math.round(Math.sqrt(Math.max(0, 1 - Math.pow(dy2 / (7 * s), 2))) * 8 * s) - 1; R(x - hw2, y - 6 * s + dy2, hw2 * 2, 1, dy2 < -3 * s ? '#5aa03a' : (dy2 < 0 ? '#3a7a2a' : '#2a5a1e')); }
+    };
+    var f = T[0].landmark;
+    [[-62, -30, 2], [58, -40, 2], [-40, 44, 2], [70, 36, 1], [-90, 10, 1], [10, -70, 1]].forEach(function (p) { bigTree(f.x + p[0], f.y + p[1], p[2]); });
+    var v = T[1].landmark, vx = Math.round(v.x), vy = Math.round(v.y) - 26;
+    for (var yy = 0; yy < 40; yy++) {
+      var half = Math.round(6 + yy * 1.1), top = vy - 40 + yy;
+      R(vx - half - 1, top, half * 2 + 3, 1, K); R(vx - half, top, half + 1, 1, '#5a3a30'); R(vx + 1, top, half, 1, '#3a2420');
+      if (yy < 4) R(vx - 5, top, 11, 1, yy < 2 ? '#ffd040' : '#ff6a1a');
+      if (yy > 4 && yy % 7 === 0) R(vx - half + 4 + (yy * 3) % (half * 2 - 6), top, 2, 4, '#ff5a1a'); // des coulées de lave
+    }
+    [[-6, -48], [-2, -54], [3, -60], [-1, -66]].forEach(function (s, k) { R(vx + s[0], vy + s[1], 6, 4, k % 2 ? '#8a8a8a' : '#5a5a5a'); });
+    var n = T[2].stages[STAGES] || T[2].landmark, nx = Math.round(n.x) + 30, ny = Math.round(n.y) + 18;
+    for (var a = 0; a < 3; a++) {
+      ctx.strokeStyle = ['#4ab0b0', '#2a7a8a', '#a0f0e0'][a]; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(nx, ny, 22 - a * 6, 9 - a * 2.5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    R(nx - 2, ny - 1, 4, 2, '#e0fff8');
+  }
+});
+
+// la carte de chaque île
+ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap }[s.id]; });

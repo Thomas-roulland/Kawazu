@@ -90,6 +90,25 @@ var Cinematic = (function () {
     return end;
   }
 
+
+  // ---------- Le final commun : on s'élève au-dessus d'une île, sa carte se découvre, et son nom s'écrit ----------
+  function mapReveal(ctx, k, F, map, land, title, sub, size) {
+    var r0 = map.REGIONS[0], z = 3.2 - ease(k * 1.3) * (3.2 - Math.max(W / map.W, H / map.H) * 1.02);
+    var vw = W / z, vh = H / z, cx = r0.x + (map.W / 2 - r0.x) * ease(k * 1.3), cy = r0.y + (map.H / 2 - r0.y) * ease(k * 1.3);
+    ctx.drawImage(land, Math.max(0, Math.min(map.W - vw, cx - vw / 2)), Math.max(0, Math.min(map.H - vh, cy - vh / 2)), vw, vh, 0, 0, W, H);
+    F.alpha(0.3 + 0.25 * clamp((k - 0.1) / 0.3), function () { F.R(0, 0, W, H, '#0a0c1c'); });
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = size + 'px "Press Start 2P", monospace';
+    var n = Math.floor(clamp((k - 0.12) / 0.4) * title.length + 0.001), txt = title.slice(0, n);
+    [[2, 2, '#1a0c04'], [-1, 0, '#1a0c04'], [1, 0, '#1a0c04'], [0, -1, '#1a0c04'], [0, 1, '#1a0c04'], [0, 0, '#ffd870']].forEach(function (o) { ctx.fillStyle = o[2]; ctx.fillText(txt, 160 + o[0] - (title.length - n) * size / 2, 70 + o[1]); });
+    if (k > 0.55) {
+      ctx.font = '8px "Press Start 2P", monospace';
+      F.alpha((k - 0.55) / 0.15, function () { ctx.fillStyle = '#1a0c04'; ctx.fillText(sub, 161, 97); ctx.fillStyle = '#fff6d8'; ctx.fillText(sub, 160, 96); });
+    }
+    F.fade(1 - k * 8, '#ffffff');
+    F.fade((k - 0.9) / 0.1);
+  }
+
   // ---------- Le Grand Plongeon ----------
   // hero : les images de la grenouille (face, profil : quelques images au repos, la cape y flotte) ; map : la carte du Continent
   function dive(hero, map) {
@@ -270,21 +289,7 @@ var Cinematic = (function () {
     // ---- 7. On s'élève au-dessus du Continent : sa carte se découvre, et son nom ----
     function reveal(ctx, k, t, F) {
       if (!land) { var all = []; for (var li = 0; li < map.REGIONS.length; li++) all.push(li); land = map.render(all).canvas; }
-      var r0 = map.REGIONS[0], z = 3.2 - ease(k * 1.3) * (3.2 - Math.max(W / map.W, H / map.H) * 1.02);
-      var vw = W / z, vh = H / z, cx = r0.x + (map.W / 2 - r0.x) * ease(k * 1.3), cy = r0.y + (map.H / 2 - r0.y) * ease(k * 1.3);
-      ctx.drawImage(land, Math.max(0, Math.min(map.W - vw, cx - vw / 2)), Math.max(0, Math.min(map.H - vh, cy - vh / 2)), vw, vh, 0, 0, W, H);
-      F.alpha(0.3 + 0.25 * clamp((k - 0.1) / 0.3), function () { F.R(0, 0, W, H, '#0a0c1c'); });
-      // le titre, lettre après lettre, puis la ligne du dessous
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = '16px "Press Start 2P", monospace';
-      var n = Math.floor(clamp((k - 0.12) / 0.4) * title.length + 0.001), txt = title.slice(0, n);
-      [[2, 2, '#1a0c04'], [-1, 0, '#1a0c04'], [1, 0, '#1a0c04'], [0, -1, '#1a0c04'], [0, 1, '#1a0c04'], [0, 0, '#ffd870']].forEach(function (o) { ctx.fillStyle = o[2]; ctx.fillText(txt, 160 + o[0] - (title.length - n) * 8, 70 + o[1]); });
-      if (k > 0.55) {
-        ctx.font = '8px "Press Start 2P", monospace';
-        F.alpha((k - 0.55) / 0.15, function () { ctx.fillStyle = '#1a0c04'; ctx.fillText('SEIZE TERRES À CONQUÉRIR', 161, 97); ctx.fillStyle = '#fff6d8'; ctx.fillText('SEIZE TERRES À CONQUÉRIR', 160, 96); });
-      }
-      F.fade(1 - k * 8, '#ffffff');
-      F.fade((k - 0.9) / 0.1);
+      mapReveal(ctx, k, F, map, land, title, 'SEIZE TERRES À CONQUÉRIR', 16);
     }
 
     return {
@@ -309,5 +314,166 @@ var Cinematic = (function () {
     };
   }
 
-  return { play: play, dive: dive };
+
+  // ---------- La Traversée : du Trône de l'Orage à l'Île des Colosses ----------
+  // Le Dragon-Tempête s'effondre dans l'orage ; à l'aube, des titans marchent sur la mer, une tortue géante se soulève
+  // et prend la grenouille sur son dos ; un léviathan passe dessous ; sur le rivage, des arbres hauts comme le ciel, et
+  // le pied d'un titan qui s'abat. Puis la carte de l'île et son nom.
+  function crossing(hero, map) {
+    var face = hero.face, side = hero.profil, at = function (list, t) { return list[Math.floor(t / (1000 / list.length)) % list.length]; };
+    var dragon = null, land = null, sea = ridgeOf(2.3, 400, 0, 1, 0);
+    var rain = []; for (var i = 0; i < 70; i++) rain.push({ x: rnd(i, 90) * 360, y: rnd(i, 91) * 200, v: 0.8 + rnd(i, 92) * 0.6 });
+    var bolts = [[500, 620], [1700, 1780], [2900, 2970]];
+    function bolt(F, x0, seed) { var x = x0, y = 0; while (y < 120) { var nx = x + (rnd(seed, y) - 0.5) * 14, ny = y + 6 + rnd(seed + 1, y) * 6; F.ctx.strokeStyle = '#e8f4ff'; F.ctx.lineWidth = 2; F.ctx.beginPath(); F.ctx.moveTo(x, y); F.ctx.lineTo(nx, ny); F.ctx.stroke(); x = nx; y = ny; } }
+    // la mer, vue de côté : des bandes et des vaguelettes qui défilent (vitesse v)
+    function waves(F, y0, t, v, stops) {
+      F.bands(y0, F.H, stops, 2);
+      for (var w = 0; w < 40; w++) { var wx = ((rnd(w, 93) * 400 - t * v) % 400 + 400) % 400 - 40, wy = y0 + 3 + rnd(w, 94) * (F.H - y0); F.R(wx, wy, 5 + rnd(w, 95) * 6, 1, 'rgba(230,245,255,0.5)'); }
+      for (var x = 0; x < F.W; x += 2) F.R(x, y0 + Math.round(Math.sin((x + t * v) / 9) * 1.2), 2, 1, '#e8f6ff');
+    }
+    // la tortue, vue de côté : une carapace en écailles, de la mousse et un petit arbre dessus, la tête tendue
+    function turtle(F, cx, cy, s, t, rise) {
+      var ctx = F.ctx;
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
+      for (var fl = 0; fl < 2; fl++) { var a = Math.sin(t / 260 + fl * 2) * 0.5; ctx.save(); ctx.translate(-30 + fl * 50, 8); ctx.rotate(a); F.R(-4, 0, 22, 6, '#3a5a3a'); ctx.restore(); }
+      F.R(54, -6, 18, 9, '#4a6a44'); F.R(66, -9, 10, 8, '#4a6a44'); F.R(72, -7, 2, 2, '#f0e060'); F.R(73, -7, 1, 1, '#101010'); // la tête
+      ctx.fillStyle = '#1a2a18'; ctx.beginPath(); ctx.ellipse(0, 0, 62, 26, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#3a5a30'; ctx.beginPath(); ctx.ellipse(0, 0, 60, 24, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#4e7040'; ctx.beginPath(); ctx.ellipse(-6, -2, 50, 19, 0, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = '#26401e'; ctx.lineWidth = 1.5;
+      [[-34, -10], [-12, -16], [12, -16], [34, -10], [-22, -4], [0, -6], [22, -4]].forEach(function (p) { ctx.beginPath(); ctx.ellipse(p[0], p[1], 9, 5, 0, 0, Math.PI * 2); ctx.stroke(); });
+      F.R(-58, -2, 116, 3, '#26401e');
+      F.R(8, -40, 3, 16, '#5a3a20'); ctx.fillStyle = '#3a8a2a'; ctx.beginPath(); ctx.arc(9, -42, 8, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#6ac04a'; ctx.beginPath(); ctx.arc(7, -44, 4, 0, Math.PI * 2); ctx.fill(); // le petit arbre
+      [[-40, -14], [-20, -21], [30, -18], [44, -8]].forEach(function (p) { F.R(p[0], p[1], 5, 2, '#6aa04a'); }); // la mousse
+      if (rise) for (var d = 0; d < 14; d++) { var dy = ((t / 4 + d * 17) % 40); F.alpha(1 - dy / 40, function () { F.R(-60 + d * 9, -6 + dy, 2, 3, '#e8f6ff'); }); } // l'eau qui ruisselle
+      ctx.restore();
+    }
+
+    // ---- 1. Le Trône foudroyé : le Dragon-Tempête tombe, la pluie, les éclairs, puis la lumière ----
+    function storm(ctx, k, t, F) {
+      if (!dragon) { var p = {}; Object.keys(SPECIES.dragon.pal).forEach(function (c) { p[c] = '#0e1022'; }); p.y = '#6af0ff'; p.w = '#6af0ff'; dragon = stringsToCanvas(SPECIES.dragon.frames[0], p); }
+      var dawn = clamp((k - 0.62) / 0.38);
+      F.bands(0, F.H, [[0, mix('#101428', '#3a3a6a', dawn)], [0.55, mix('#262c50', '#b0707a', dawn)], [1, mix('#3a4064', '#f0b080', dawn)]]);
+      // la mer, démontée, tout en bas
+      waves(F, 142, t, 0.05, [[0, mix('#1a2440', '#5a6a90', dawn)], [1, mix('#060a16', '#1a2a48', dawn)]]);
+      for (var c = 0; c < 9; c++) { var cx = ((rnd(c, 96) * 420 + t / (30 + c * 6)) % 440) - 60, cy = 10 + rnd(c, 97) * 60; F.alpha(0.9 - dawn * 0.5, function () { F.R(cx, cy, 70 + rnd(c, 98) * 50, 10, '#1e2240'); F.R(cx + 10, cy - 6, 40, 6, '#262a4c'); }); }
+      // le dragon qui tombe en tournoyant, sous les éclairs
+      var fall = ease(clamp((k - 0.12) / 0.6));
+      ctx.save(); ctx.translate(230 + fall * 30, 30 + fall * 190); ctx.rotate(-0.4 + fall * 1.6); ctx.drawImage(dragon, -48, -48, 96, 96); ctx.restore();
+      bolts.forEach(function (b, i) { if (t > b[0] && t < b[1]) { F.fade(0.55, '#ffffff'); bolt(F, 190 + i * 30, i * 7 + 3); } });
+      // les rayons de l'aube qui percent
+      if (dawn > 0) for (var r = 0; r < 5; r++) { ctx.fillStyle = 'rgba(255,220,150,' + 0.12 * dawn + ')'; ctx.beginPath(); ctx.moveTo(260 + r * 22, 0); ctx.lineTo(276 + r * 22, 0); ctx.lineTo(160 + r * 40, F.H); ctx.lineTo(130 + r * 40, F.H); ctx.fill(); }
+      // le trône brisé : une plate-forme de pierre, deux piliers cassés
+      F.R(0, 132, 176, 48, '#1a1c2c'); F.R(0, 130, 172, 3, '#3a3e58'); for (var px = 0; px < 172; px += 12) F.R(px, 133, 1, 47, '#14162a');
+      F.R(20, 70, 14, 62, '#262a40'); F.R(20, 70, 3, 62, '#3a3e58'); F.R(18, 66, 18, 5, '#2e3250');
+      F.R(140, 96, 12, 36, '#262a40'); F.R(140, 96, 3, 36, '#3a3e58'); F.R(138, 92, 10, 4, '#2e3250');
+      F.frog(at(side, t), 104, 118, 0.85, 0);
+      // la pluie, qui cesse à l'aube
+      rain.forEach(function (d) { var y = (d.y + t * 0.35 * d.v) % 200 - 10, x = (d.x - t * 0.08) % 360; F.alpha(0.5 * (1 - dawn), function () { F.R(x, y, 1, 6, '#9ab0d0'); }); });
+      F.fade(1 - k * 6);
+    }
+
+    // ---- 2. À l'aube : des titans marchent dans la brume, la tortue se soulève, la grenouille saute ----
+    function rise(ctx, k, t, F) {
+      F.bands(0, 100, [[0, '#3a4a7a'], [0.55, '#c88a8a'], [1, '#ffd8a0']]);
+      ctx.fillStyle = '#fff0c8'; ctx.beginPath(); ctx.arc(250, 100, 14, Math.PI, 0); ctx.fill();
+      // les titans, très loin
+      var walk = t / 600;
+      F.alpha(0.55, function () {
+        var tx = 40 + t * 0.006;
+        F.R(tx, 38, 16, 30, '#6a6a8a'); F.ctx.fillStyle = '#6a6a8a'; F.ctx.beginPath(); F.ctx.arc(tx + 8, 33, 7, 0, Math.PI * 2); F.ctx.fill();
+        F.R(tx - 6, 42, 6, 20, '#6a6a8a'); F.R(tx + 16, 42, 6, 22, '#6a6a8a');
+        F.R(tx + 2 + Math.sin(walk) * 3, 68, 5, 32, '#6a6a8a'); F.R(tx + 9 - Math.sin(walk) * 3, 68, 5, 32, '#6a6a8a');
+        var gx = 168 - t * 0.003;
+        F.R(gx, 58, 8, 42, '#5a6a6a'); F.ctx.beginPath(); F.ctx.ellipse(gx + 4, 52, 22, 13, 0, 0, Math.PI * 2); F.ctx.fillStyle = '#5a6a6a'; F.ctx.fill();
+      });
+      waves(F, 100, t, 0.01, [[0, '#8a8ab0'], [0.4, '#3a5a80'], [1, '#1a2a48']]);
+      F.alpha(0.35, function () { F.R(0, 92, F.W, 12, '#f0e0e8'); }); // la brume
+      // la tortue qui monte des profondeurs
+      var up = ease(clamp((k - 0.15) / 0.45)), ty = 196 - up * 52;
+      turtle(F, 150, ty, 1, t, up > 0 && up < 1 || k < 0.75);
+      if (up < 1) for (var b = 0; b < 16; b++) F.R(90 + rnd(b, 99) * 120, ty + 4 - rnd(b, 100) * 10 * up, 2, 2, '#e8f6ff');
+      // la grenouille sur son rocher, puis le saut sur la carapace
+      F.R(236, 140, 60, 40, '#2a2a3a'); F.R(236, 140, 60, 2, '#4a4a5a');
+      var jump = clamp((k - 0.62) / 0.2);
+      if (jump <= 0) F.frog(at(face, t), 262, 127, 0.8, 0);
+      else F.frog(at(side, t), 262 - jump * 104, 127 - Math.sin(jump * Math.PI) * 50 + (ty - 157) * jump, 0.8, -jump * 0.6);
+      F.fade(1 - k * 6);
+    }
+
+    // ---- 3. La traversée : la tortue nage, la grenouille sur son dos ; un léviathan passe dessous ----
+    function swim(ctx, k, t, F) {
+      F.bands(0, 104, [[0, '#4a7ad0'], [1, '#d8eaf0']]);
+      for (var c = 0; c < 6; c++) { var cx = ((rnd(c, 101) * 420 - t * 0.012 * (1 + c % 3)) % 440 + 440) % 440 - 60; F.alpha(0.8, function () { F.R(cx, 14 + c * 9, 50, 6, '#ffffff'); F.R(cx + 8, 10 + c * 9, 28, 4, '#ffffff'); }); }
+      for (var bd = 0; bd < 3; bd++) { var bx = ((t / 25 + bd * 90) % 380) - 30, by = 40 + bd * 8, wg = Math.sin(t / 110 + bd) > 0 ? -1 : 1; F.R(bx, by, 2, 1, '#2a2a3a'); F.R(bx - 2, by + wg, 2, 1, '#2a2a3a'); F.R(bx + 2, by + wg, 2, 1, '#2a2a3a'); }
+      F.alpha(0.5, function () { for (var x = 0; x < 160; x++) F.R(((x * 2 - t * 0.02) % 420 + 420) % 420 - 50, 98 - 4 - sea[x] * 0, 2, 6 + Math.round(3 * Math.sin(x / 7)), '#7a8aa0'); }); // une île qui défile au loin
+      waves(F, 104, t, 0.06, [[0, '#4a8ab0'], [0.5, '#1a4a70'], [1, '#08182a']]);
+      // le léviathan, une ombre immense qui ondule sous l'eau
+      var lk = clamp((k - 0.2) / 0.65);
+      if (lk > 0 && lk < 1) F.alpha(0.5 * Math.sin(lk * Math.PI), function () { for (var s = 0; s < 70; s++) { var lx = 380 - lk * 520 + s * 4, ly = 160 + Math.sin(s / 6 + t / 400) * 6; F.R(lx, ly, 5, 7 - Math.abs(s - 20) / 10, '#04101c'); } });
+      // la tortue, qui monte et descend sur la houle, la grenouille dessus
+      var bob = Math.sin(t / 500) * 3;
+      turtle(F, 160, 132 + bob, 1, t, false);
+      F.frog(at(side, t), 158, 92 + bob, 0.8, 0);
+      for (var sp = 0; sp < 8; sp++) { var sa = ((t / 70 + sp * 13) % 30); F.R(228 + sa * 0.8, 128 + bob - sa * 0.4 + sa * sa * 0.02, 2, 2, '#e8f6ff'); } // l'écume à la proue
+      F.fade(1 - k * 8);
+    }
+
+    // ---- 4. Le rivage des géants : des troncs qui touchent le ciel, et un pied de titan qui s'abat ----
+    function shore(ctx, k, t, F) {
+      var stomp = clamp((k - 0.5) / 0.12), shake = stomp > 0.9 && k < 0.75 ? (rnd(Math.floor(t / 40), 102) - 0.5) * 6 : 0;
+      ctx.setTransform(1, 0, 0, 1, 0, Math.round(shake));
+      F.bands(0, F.H, [[0, '#2a4a3a'], [0.6, '#6a9a6a'], [1, '#c8d8a0']]);
+      // les troncs géants, de plus en plus près
+      [[30, 46, '#2a1a10'], [118, 30, '#3a2414'], [206, 58, '#24160c'], [292, 40, '#3a2414']].forEach(function (tr, i) {
+        F.R(tr[0], 0, tr[1], 150, tr[2]); F.R(tr[0], 0, 4, 150, '#5a3a20');
+        for (var y = 6; y < 150; y += 11) F.R(tr[0] + 6 + (y * 7) % (tr[1] - 10), y, 3, 6, '#1a0e06');
+        F.alpha(0.9, function () { F.R(tr[0] - 20, 0, tr[1] + 40, 14 + i * 3, '#1e4a1a'); F.R(tr[0] - 10, 12 + i * 3, tr[1] + 20, 4, '#2a6a24'); });
+      });
+      F.R(0, 150, F.W, 30, '#c8b07a'); F.R(0, 150, F.W, 2, '#e8d8a0');
+      for (var y2 = 152; y2 < F.H; y2++) F.R(0, y2, 70 - (y2 - 152) * 1.5 + Math.sin(t / 400 + y2 / 4) * 3, 1, '#3a7a9a'); // la mer, à gauche
+      turtle(F, 30, 166, 0.6, t, false);
+      // la grenouille saute de la tortue, avance… et recule quand le pied tombe
+      var hop = clamp(k / 0.25), fx = 40 + hop * 110 - stomp * 24, fy = 137 - Math.sin(hop * Math.PI) * 30 - (stomp > 0 && stomp < 1 ? Math.sin(stomp * Math.PI) * 14 : 0);
+      F.frog(k < 0.6 ? at(side, t) : at(face, t), fx, fy, 0.8, 0);
+      // le pied du titan : il descend du haut de l'image et s'écrase sur le sable
+      if (k > 0.4) {
+        var fyp = -120 + ease(stomp) * 270;
+        F.R(214, fyp - 200, 52, 200, '#5a5a6e'); F.R(214, fyp - 200, 6, 200, '#7a7a90');
+        F.R(196, fyp - 26, 90, 26, '#5a5a6e'); F.R(196, fyp - 26, 90, 4, '#7a7a90');
+        for (var toe = 0; toe < 4; toe++) F.R(198 + toe * 22, fyp - 6, 18, 8, '#4a4a5a');
+        if (stomp >= 1) for (var du = 0; du < 30; du++) { var dk = clamp((k - 0.62) / 0.3); F.alpha(1 - dk, function () { F.R(200 + (rnd(du, 103) - 0.5) * 160 * (0.3 + dk), 150 - rnd(du, 104) * 30 * dk, 3, 3, '#e0d0a0'); }); }
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      F.fade(1 - k * 8);
+      F.fade((k - 0.88) / 0.12, '#ffffff');
+    }
+
+    // ---- 5. Le nom de l'île, sur sa carte ----
+    function title(ctx, k, t, F) {
+      if (!land) { var all = []; for (var li = 0; li < map.REGIONS.length; li++) all.push(li); land = map.render(all).canvas; }
+      mapReveal(ctx, k, F, map, land, 'L\'ILE DES COLOSSES', 'TROIS TERRES DE GÉANTS', 14);
+    }
+
+    return {
+      dur: 17500,
+      captions: [
+        [0, 'Le Dragon-Tempête s’effondre dans les nuages. L’orage se tait, pour la première fois depuis toujours.'],
+        [3800, 'À l’aube, dans la brume, des silhouettes immenses marchent sur la mer… et sous la grenouille, l’océan se soulève.'],
+        [7500, 'Une tortue vieille comme le monde la prend sur son dos. Dessous, quelque chose de très grand nage dans le noir.'],
+        [11300, 'Sur le rivage, les arbres touchent le ciel. Et le sol tremble à chaque pas d’un titan.'],
+        [13500, 'L’ÎLE DES COLOSSES · Trois terres où tout est géant : les monstres, les boss… et le danger.']
+      ],
+      sounds: [[520, 'slam'], [1720, 'slam'], [2920, 'impact'], [4600, 'riser'], [6200, 'splash'], [6700, 'whoosh'], [9000, 'energy'], [12650, 'slam'], [12700, 'thud'], [13600, 'levelup']],
+      scenes: [
+        { from: 0, to: 3800, draw: storm },
+        { from: 3800, to: 7500, draw: rise },
+        { from: 7500, to: 11300, draw: swim },
+        { from: 11300, to: 13500, draw: shore },
+        { from: 13500, to: 17500, draw: title }
+      ]
+    };
+  }
+
+  return { play: play, dive: dive, crossing: crossing };
 })();

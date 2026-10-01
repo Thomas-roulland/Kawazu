@@ -101,14 +101,15 @@ var ALBUM_CHAPTERS = (function () {
     obj('tresors', 'Les Trésors', 'Ni en boutique ni en butin : la tour, les duels de la cascade et l’album lui-même.', function (it) { return !!it.reward; }),
     obj('legendaires', 'Les Légendaires', 'Des bandeaux et des capes d’or, qu’on ne trouve que sur le Continent… très, très rarement.', function (it) { return !!it.legend; })
   ];
-  // le Continent : pour chaque terre, son bestiaire, puis son butin (le sommaire les regroupe)
+  // les îles suivantes (le Continent, les Colosses…) : pour chaque terre, son bestiaire, puis son butin (le sommaire
+  // les regroupe par île)
   BIOMES.forEach(function (b, w) {
     if (w < ISLAND_WORLDS) return;
-    var m = mon('c-' + b.id, b.name, b.tagline, function (x) { return x.biome === w; }); m.continent = true; chapters.push(m);
+    var m = mon('c-' + b.id, b.name, b.tagline, function (x) { return x.biome === w; }); m.continent = true; m.isle = isleOf(w).id; chapters.push(m);
   });
   BIOMES.forEach(function (b, w) {
     if (w < ISLAND_WORLDS) return;
-    var o = obj('o-' + b.id, 'Butin : ' + b.name, 'Les objets de cette terre du Continent, plus forts que ceux de l’île.', function (it) { return it.continent === w; }); o.continent = true; chapters.push(o);
+    var o = obj('o-' + b.id, 'Butin : ' + b.name, 'Les objets de cette terre de ' + isleOf(w).name + ', plus forts à chaque terre.', function (it) { return it.continent === w; }); o.continent = true; o.isle = isleOf(w).id; chapters.push(o);
   });
   // les bestiaires d'abord, puis les objets (les marque-pages du livre en dépendent)
   return chapters.filter(function (c) { return c.cat === 'monstres'; }).concat(chapters.filter(function (c) { return c.cat === 'objets'; }));

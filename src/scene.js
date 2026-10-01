@@ -52,7 +52,10 @@ var CampScene = (function () {
     forteresse: { shift: { h: 110, s: 0.2, l: 0.9 }, fog: '180,185,195', halo: '215,220,230', fire: '#ff9a4a', fires: 10, ruins: true },
     abysse: { shift: { h: 160, s: 1.0, l: 0.5 }, fog: '130,100,170', halo: '190,150,240', fire: '#c080ff', fires: 26, cave: true },
     dragons: { shift: { h: -65, s: 1.2, l: 1.05 }, fog: '230,200,150', halo: '255,225,160', fire: '#ff8a2a', fires: 16 },
-    orage: { shift: { h: 105, s: 0.8, l: 0.7 }, fog: '150,170,210', halo: '190,220,255', fire: '#6af0ff', fires: 22, ruins: true }
+    orage: { shift: { h: 105, s: 0.8, l: 0.7 }, fog: '150,170,210', halo: '190,220,255', fire: '#6af0ff', fires: 22, ruins: true },
+    geants: { shift: { h: 25, s: 1.25, l: 0.75 }, fog: '160,205,150', halo: '205,245,185', fire: '#c8f070', fires: 18, leaves: true },
+    forge: { shift: { h: -115, s: 1.4, l: 0.55 }, fog: '205,110,80', halo: '255,150,100', fire: '#ff5a1a', fires: 34 },
+    leviathans: { shift: { h: 140, s: 1.1, l: 0.5 }, fog: '100,150,190', halo: '150,210,240', fire: '#6af0e0', fires: 24, cave: true }
   };
 
   function rgbToHsl(r, g, b) {
