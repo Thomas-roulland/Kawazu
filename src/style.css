@@ -519,7 +519,7 @@ button:focus-visible { outline: 3px solid var(--gold-2); outline-offset: 3px; }
 
 /* ---------- Carte du monde ---------- */
 #page-map { background: #0f2430; }
-.worldmap { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+.worldmap { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; background: #0f2430 repeat; image-rendering: pixelated; }
 .worldmap.dragging { cursor: grabbing; }
 .worldmap.dragging .wm-stage, .worldmap.dragging .region, .worldmap.dragging .wm-callout { pointer-events: none; }
 #wm-cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }

@@ -1208,13 +1208,12 @@
     return state.mapView || (currentWorld() >= ISLAND_WORLDS ? 'continent' : 'ile');
   }
   // ---------- La caméra de la carte ----------
-  // cam.s : pixels d'écran par pixel de carte ; cam.x, cam.y : où tombe le coin haut-gauche de la carte à l'écran.
-  // Au plus loin (min), toute la carte tient à l'écran ; à l'ouverture (focus), on voit la terre en cours, centrée
-  // sur son étape ; au plus près (max), 4 pixels d'écran par pixel de carte au moins.
+  // cam.s : pixels d'écran par pixel de carte (fixe : la terre en cours remplit l'écran, la carte déborde et se promène) ;
+  // cam.x, cam.y : où tombe le coin haut-gauche de la carte à l'écran. À l'ouverture, on se cale sur l'étape en cours.
   var cam = { s: 0, x: 0, y: 0, map: null, reset: true };
   function camLimits(M) {
-    var vw = $('worldmap').clientWidth, vh = $('worldmap').clientHeight, cover = Math.max(vw / M.W, vh / M.H);
-    return { vw: vw, vh: vh, min: Math.min(vw / M.W, vh / M.H), max: Math.max(4, cover * 1.5), focus: Math.max(cover, Math.min(vw, vh) / 340) };
+    var vw = $('worldmap').clientWidth, vh = $('worldmap').clientHeight, s = Math.max(vw / M.W, vh / M.H, Math.min(vw, vh) / 340);
+    return { vw: vw, vh: vh, min: s, max: s, focus: s };
   }
   // la partie de l'écran que le panneau d'une étape ne cache pas (à droite sur grand écran, en bas sur petit)
   function camFree(L) {
@@ -1229,22 +1228,32 @@
     cam.y = h <= L.vh ? (L.vh - h) / 2 : Math.max(L.vh - h - my, Math.min(my, cam.y));
   }
   function camApply(M) {
-    var el = $('wm-cam');
+    var el = $('wm-cam'), wm = $('worldmap'), T = SEA_TILE * cam.s;
     el.style.width = Math.round(M.W * cam.s) + 'px'; el.style.height = Math.round(M.H * cam.s) + 'px';
     el.style.transform = 'translate(' + Math.round(cam.x) + 'px,' + Math.round(cam.y) + 'px)';
+    // la mer du dehors suit la carte, pixel pour pixel
+    wm.style.backgroundSize = T + 'px ' + T + 'px';
+    wm.style.backgroundPosition = Math.round(cam.x % T) + 'px ' + Math.round(cam.y % T) + 'px';
+  }
+  // Une tuile de haute mer, comme celle des cartes (map.js) : le bleu profond et ses vaguelettes, qui se répète sans fin
+  var SEA_TILE = 128, seaUrl = null;
+  function seaTile() {
+    if (seaUrl) return seaUrl;
+    var t = document.createElement('canvas'); t.width = t.height = SEA_TILE;
+    var x = t.getContext('2d');
+    x.fillStyle = '#0f2430'; x.fillRect(0, 0, SEA_TILE, SEA_TILE);
+    for (var n = 0; n < 11; n++) {
+      var wx = 3 + Math.floor(hash(n, 11, 17) * (SEA_TILE - 8)), wy = 3 + Math.floor(hash(n, 12, 17) * (SEA_TILE - 6));
+      x.fillStyle = '#2a5d66'; x.fillRect(wx, wy, 4, 1); x.fillRect(wx + 1, wy - 1, 2, 1);
+    }
+    for (var d = 0; d < 26; d++) { x.fillStyle = '#15323f'; x.fillRect(Math.floor(hash(d, 13, 17) * SEA_TILE), Math.floor(hash(d, 14, 17) * SEA_TILE), 1, 1); }
+    return (seaUrl = t.toDataURL());
   }
   function camCenter(M, L, p, s) {
     var free = camFree(L);
     cam.s = Math.max(L.min, Math.min(L.max, s));
     cam.x = free.w / 2 - p.x * cam.s; cam.y = free.h / 2 - p.y * cam.s;
     camClamp(M, L);
-  }
-  // zoomer d'un facteur autour d'un point de l'écran (sx, sy), qui reste sous le curseur
-  function camZoom(factor, sx, sy) {
-    var M = mapOf(mapView()), L = camLimits(M), mx = (sx - cam.x) / cam.s, my = (sy - cam.y) / cam.s;
-    cam.s = Math.max(L.min, Math.min(L.max, cam.s * factor));
-    cam.x = sx - mx * cam.s; cam.y = sy - my * cam.s;
-    camClamp(M, L); camApply(M);
   }
   // le point sur lequel se caler : l'étape ouverte, sinon la prochaine étape (ou la dernière réussie)
   function camTarget(M) {
@@ -1263,8 +1272,7 @@
     var m = M.render(unlocked), c = $('worldmap-canvas');
     if (c.width !== M.W || c.height !== M.H) { c.width = M.W; c.height = M.H; }
     c.getContext('2d').drawImage(m.canvas, 0, 0);
-    var sea = c.getContext('2d').getImageData(2, M.H - 3, 1, 1).data; // autour de la carte, la mer du bord
-    $('worldmap').style.background = 'rgb(' + sea[0] + ',' + sea[1] + ',' + sea[2] + ')';
+    $('worldmap').style.backgroundImage = 'url(' + seaTile() + ')'; // autour de la carte, la même mer, à l'infini
     // la caméra : calée sur l'étape en cours quand on ouvre la carte ou qu'on change de carte, sinon elle reste où on l'a mise
     var L = camLimits(M);
     if (L.vw) {
@@ -1307,9 +1315,7 @@
     }
     // les deux cartes, une fois le Continent ouvert ; le cycle en cours ; la boussole et le zoom
     ui += '<canvas class="wm-compass" width="28" height="28" aria-hidden="true"></canvas>' +
-      '<div class="wm-zoom"><button data-wm-zoom="in" title="Zoomer" aria-label="Zoomer">+</button><button data-wm-zoom="out" title="Dézoomer" aria-label="Dézoomer">−</button>' +
-      '<button data-wm-zoom="all" title="Toute la carte" aria-label="Toute la carte"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1h4v1H2v3H1zM7 1h4v4h-1V2H7zM1 7h1v3h3v1H1zM10 7h1v4H7v-1h3z" fill="currentColor"/></svg></button>' +
-      '<button data-wm-zoom="me" title="Revenir à ma grenouille" aria-label="Revenir à ma grenouille"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v2.1A4 4 0 0 1 9.9 5H12v2H9.9A4 4 0 0 1 7 9.9V12H5V9.9A4 4 0 0 1 2.1 7H0V5h2.1A4 4 0 0 1 5 2.1zM6 4a2 2 0 1 0 0 4a2 2 0 0 0 0-4z" fill="currentColor"/></svg></button></div>';
+      '<div class="wm-zoom"><button data-wm-zoom="me" title="Revenir à ma grenouille" aria-label="Revenir à ma grenouille"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v2.1A4 4 0 0 1 9.9 5H12v2H9.9A4 4 0 0 1 7 9.9V12H5V9.9A4 4 0 0 1 2.1 7H0V5h2.1A4 4 0 0 1 5 2.1zM6 4a2 2 0 1 0 0 4a2 2 0 0 0 0-4z" fill="currentColor"/></svg></button></div>';
     if (continentOpen(save)) {
       ui += '<div class="wm-switch">' + [['ile', 'L’Île'], ['continent', 'Le Continent']].map(function (o) { return '<button class="' + (view === o[0] ? 'is-on' : '') + '" data-map-view="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
     }
@@ -1330,26 +1336,18 @@
   }
 
   (function () {
-    var wm = $('worldmap'), pts = {}, drag = null, pinch = null, moved = false, dragEnd = 0;
+    var wm = $('worldmap'), pts = {}, drag = null, moved = false, dragEnd = 0;
     var count = function () { return Object.keys(pts).length; };
-    var local = function (x, y) { var r = wm.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; };
-    var pair = function () { var k = Object.keys(pts), a = pts[k[0]], b = pts[k[1]]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
     wm.addEventListener('pointerdown', function (e) {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if (e.target.closest('#wm-ui')) { moved = false; return; } // les boutons fixes (zoom, cartes, cycle)
       pts[e.pointerId] = { x: e.clientX, y: e.clientY };
-      if (count() === 1) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; moved = false; pinch = null; }
-      else if (count() === 2) { var p = pair(); pinch = { d: p.d, s: cam.s }; drag = null; moved = true; }
+      if (count() === 1) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; moved = false; }
     });
     window.addEventListener('pointermove', function (e) {
       if (!pts[e.pointerId]) return;
       pts[e.pointerId] = { x: e.clientX, y: e.clientY };
       var M = mapOf(mapView()), L = camLimits(M);
-      if (pinch && count() >= 2) {
-        var p = pair(), c = local(p.x, p.y);
-        camZoom(pinch.s * p.d / Math.max(1, pinch.d) / cam.s, c.x, c.y);
-        return;
-      }
       if (!drag) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return;
@@ -1360,7 +1358,6 @@
     var up = function (e) {
       if (!pts[e.pointerId]) return;
       delete pts[e.pointerId];
-      if (count() < 2) pinch = null;
       if (count() === 1) { var k = Object.keys(pts)[0]; drag = { x: pts[k].x, y: pts[k].y, cx: cam.x, cy: cam.y }; }
       if (!count()) { drag = null; wm.classList.remove('dragging'); if (moved) dragEnd = performance.now(); moved = false; }
     };
@@ -1368,11 +1365,6 @@
     window.addEventListener('pointercancel', up);
     // un glissé qui finit sur une étape ne l'ouvre pas
     wm.addEventListener('click', function (e) { if (performance.now() - dragEnd < 80) { e.stopPropagation(); e.preventDefault(); dragEnd = 0; } }, true);
-    wm.addEventListener('wheel', function (e) {
-      e.preventDefault();
-      var c = local(e.clientX, e.clientY);
-      camZoom(Math.pow(1.0018, -e.deltaY * (e.deltaMode === 1 ? 30 : 1)), c.x, c.y);
-    }, { passive: false });
   })();
 
   // La grenouille se tient sur la dernière étape réussie. Si elle a avancé depuis la dernière visite
@@ -2704,8 +2696,7 @@
     if (t.dataset.wmZoom) {
       var zM = mapOf(mapView()), zL = camLimits(zM), z = t.dataset.wmZoom;
       Sfx.play('click');
-      if (z === 'in' || z === 'out') camZoom(z === 'in' ? 1.5 : 1 / 1.5, zL.vw / 2, zL.vh / 2);
-      else { camCenter(zM, zL, z === 'me' ? camTarget(zM) : { x: zM.W / 2, y: zM.H / 2 }, z === 'me' ? zL.focus : zL.min); camApply(zM); }
+      camCenter(zM, zL, camTarget(zM), zL.focus); camApply(zM);
       return;
     }
     if (t.hasAttribute('data-next-cycle')) {

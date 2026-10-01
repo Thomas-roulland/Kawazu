@@ -113,9 +113,8 @@ Les **lucioles** sont la monnaie du jeu.
   à l’autre.
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
   la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante.
-  La carte s’ouvre **centrée sur l’étape en cours** ; on la **promène** en la glissant (souris ou doigt) et on **zoome**
-  à la molette, en pinçant ou avec les boutons (+, −, toute la carte, revenir à ma grenouille) ; au plus loin, toute la
-  carte tient à l’écran. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
+  La carte s’ouvre **centrée sur l’étape en cours** ; on la **promène** en la glissant (souris ou doigt), un bouton
+  ramène à sa grenouille, et autour, la haute mer se répète à l’infini, en pixels. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
   boss ouvre la région suivante. Un clic sur une étape ouvre son panneau, directement sur la carte : un **combat** (XP, lucioles, chance d’objet) ou une **expédition** en temps réel
   (30 s, 1 min 30 ou 4 min) qui rapporte sans combattre, mais bloque les combats pendant ce temps.
 - **Boutique** : l’intérieur de la cabane de l’Aïeule Gamako, en plein écran. Ses objets sont posés
@@ -220,7 +219,8 @@ Les **lucioles** sont la monnaie du jeu.
 - **Pas de raccourci en farmant trop bas** : l’XP fond quand on a plus de 5 niveaux d’avance sur le monstre (−12 % par
   niveau, 10 % au plus bas), et l’écran de victoire le dit.
 - **Farm** : dans une terre terminée, le bouton **Farm** du combat enchaîne les étapes tout seul (en auto), avec un
-  bilan (victoires, XP, lucioles, objets) ; une défaite ou « Arrêter » le coupe.
+  bilan (victoires, XP, lucioles, objets) ; une défaite ou « Arrêter » le coupe. Il continue même quand l’onglet
+  n’est plus au premier plan (un petit worker bat la mesure à la place des animations, que le navigateur endort).
 - **160 objets du Continent**, dix par terre (les six armes, écharpe, ceinture, anneau, kasa ou heaume à cornes), avec
   **leurs propres formes** (trident, morgenstern, lame courbe, kriss, étoile en X, écharpe à franges, ceinture à gemme,
   anneau serti…). Leur force part de celle des meilleurs objets de l’île (une arme à ~13 à la Plaine des Vents) et

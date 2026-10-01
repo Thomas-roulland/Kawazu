@@ -39,8 +39,41 @@ var BattleScene = (function () {
   function speed() { return save.battle.speed; }
   function wait(ms) {
     var t = token;
-    return new Promise(function (res) { setTimeout(function () { if (t === token) res(); }, ms / speed()); });
+    return new Promise(function (res) { later(function () { if (t === token) res(); }, ms / speed()); });
   }
+  // ---------- Onglet caché : le combat (et le farm) continuent ----------
+  // Le navigateur endort requestAnimationFrame et ralentit les minuteurs d'un onglet caché. Un petit worker bat alors
+  // la mesure (ses minuteurs à lui ne sont pas ralentis) : les attentes et les animations avancent au même rythme,
+  // simplement sans être dessinées, et le farm enchaîne ses combats comme si on regardait.
+  var bgTimers = [], ticker = null;
+  function later(fn, ms) {
+    if (!document.hidden) { setTimeout(fn, ms); return; }
+    bgTimers.push({ at: performance.now() + ms, fn: fn });
+    startTicker();
+  }
+  function tick() {
+    if (!document.hidden && !bgTimers.length) return;
+    var now = performance.now();
+    if (document.hidden && !$('battle').hidden) step(now, 0.3); // les animations avancent, sans dessin
+    var due = bgTimers.filter(function (t) { return t.at <= now; });
+    bgTimers = bgTimers.filter(function (t) { return t.at > now; });
+    due.forEach(function (t) { t.fn(); });
+  }
+  function startTicker() {
+    if (ticker) return;
+    try {
+      ticker = new Worker(URL.createObjectURL(new Blob(['setInterval(function () { postMessage(0); }, 100);'], { type: 'text/javascript' })));
+      ticker.onmessage = tick;
+    } catch (e) { ticker = setInterval(tick, 100); } // sans worker : les minuteurs ralentis, mais ça avance quand même
+  }
+  // en revenant sur l'onglet : ce qui attendait repasse aux minuteurs normaux, et l'image repart
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { if (!$('battle').hidden) startTicker(); return; }
+    var now = performance.now(), waiting = bgTimers; bgTimers = [];
+    waiting.forEach(function (t) { setTimeout(t.fn, Math.max(0, t.at - now)); });
+    last = now;
+    if (!$('battle').hidden) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+  });
   // interpolation d'une propriété numérique (rendu par la boucle d'animation) ; lin : sans accélération
   function tween(obj, key, to, ms, lin) {
     return new Promise(function (res) {
@@ -1264,7 +1297,7 @@ var BattleScene = (function () {
       html += '<p class="bt-farm-sum">Farm · ' + farmSum() + '</p><p class="bt-farm-next">Combat suivant…</p>' +
         '<div class="bt-result-actions"><button class="btn" data-result="farm-stop">Arrêter le farm</button><button class="btn btn-ghost" data-result="back">Retour</button></div>';
       var t = token;
-      setTimeout(function () { if (t === token && farm && !$('battle').hidden) farmNext(); }, 1600 / speed());
+      later(function () { if (t === token && farm && !$('battle').hidden) farmNext(); }, 1600 / speed());
     } else {
       var hasNext = win && fight.kind === 'stage' && fight.stage < STAGES;
       html += '<div class="bt-result-actions">' +
@@ -1284,8 +1317,9 @@ var BattleScene = (function () {
 
   // ---------- Boucle d'animation ----------
   var last = 0;
-  function frame(now) {
-    var dt = Math.min(0.05, (now - last) / 1000) * speed();
+  // fait avancer les animations jusqu'à now (au plus cap secondes d'un coup)
+  function step(now, cap) {
+    var dt = Math.min(cap, Math.max(0, now - last) / 1000) * speed();
     last = now;
     tweens = tweens.filter(function (tw) {
       tw.t += dt * 1000;
@@ -1300,6 +1334,9 @@ var BattleScene = (function () {
     fxs = fxs.filter(function (e) { e.t += dt; return e.t < e.dur; });
     [P, E].forEach(function (f) { if (f.hurt > 0) f.hurt -= dt; if (f.palm > 0) f.palm -= dt; });
     shake = Math.max(0, shake - dt * 20);
+  }
+  function frame(now) {
+    step(now, 0.05);
     draw(now);
     raf = requestAnimationFrame(frame);
   }
@@ -1476,7 +1513,7 @@ var BattleScene = (function () {
     raf = requestAnimationFrame(frame);
     // l'Agilité donne plus de chances de commencer (l'arbre d'entraînement laisse toujours la main)
     var t = token, a = Math.max(1, P.agi), b = Math.max(1, E.agi), first = E.agi < 0 || Math.random() < a / (a + b);
-    setTimeout(function () {
+    later(function () {
       if (t !== token) return;
       if (first) { log(heroName() + ' a l’initiative : à toi de commencer.', 'hero'); playerTurn(); }
       else { log(E.name + ' a l’initiative et frappe en premier.', 'danger'); busy = true; renderHud(); enemyTurn(); }
