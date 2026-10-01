@@ -167,14 +167,17 @@ function buildKawazuAnims(sp) {
   };
   var flash = function (g) { return g.map(function (r) { return r.map(function (c) { return c === '.' || c === 'k' ? c : 'w'; }); }); };
 
+  // les Légendaires : la cape et le bandeau flottent (4 images au repos : respiration × vent)
+  var W = sp.wind, stance = sp.hermitStance || sp.side;
+  var breathe = function (g, gw) { return W ? [g, gw, move(g, 0, 27, 0, 31, 0, 1), move(gw, 0, 27, 0, 31, 0, 1)] : [g, move(g, 0, 27, 0, 31, 0, 1)]; };
   return {
-    idle: { fps: 2, frames: [sp.main, move(sp.main, 0, 27, 0, 31, 0, 1)] },
+    idle: { fps: W ? 4 : 2, frames: breathe(sp.main, W && W.main) },
     down: { fps: 8, frames: [sp.main, move(sp.main, 29, 31, 0, 11, 0, -1), sp.main, move(sp.main, 29, 31, 20, 31, 0, -1)] },
     right: { fps: 8, frames: [sp.side, move(sp.side, 29, 31, 15, 22, 1, -1), sp.side, move(sp.side, 29, 31, 4, 13, 1, -1)] },
     up: { fps: 8, frames: [sp.back, move(sp.back, 29, 31, 0, 11, 0, -1), sp.back, move(sp.back, 29, 31, 20, 31, 0, -1)] },
-    idleUp: { fps: 2, frames: [sp.back, move(sp.back, 0, 27, 0, 31, 0, 1)] },
+    idleUp: { fps: W ? 4 : 2, frames: breathe(sp.back, W && W.back) },
     // mode Ermite : posture de garde, paume ouverte
-    idleRight: { fps: 2, frames: sp.hermitStance ? [sp.hermitStance, move(sp.hermitStance, 0, 27, 0, 31, 0, 1)] : [sp.side, move(sp.side, 0, 27, 0, 31, 0, 1)] },
+    idleRight: { fps: W ? 4 : 2, frames: breathe(stance, W && W.side) },
     // Attaque : recul, coup + onde de choc (sprite séparé, posé 28 px devant l'origine du héros)
     // mode Ermite : le souffle se concentre devant la poitrine, puis coup de paume, bras tendu
     attack: {

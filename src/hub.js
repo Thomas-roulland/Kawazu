@@ -264,7 +264,7 @@
   function drawCamp(now) {
     if (!sceneStatic) campBiome();
     var t = now / 1000, set = HERO_IMG.face;
-    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / 500) % set.length], null, save.meditation ? HERO_IMG.zen : null);
+    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], null, save.meditation ? HERO_IMG.zen : null);
     var tx = parallax.tx + Math.sin(t * 0.25) * 0.15, ty = parallax.ty + Math.cos(t * 0.2) * 0.1;
     parallax.x += (tx - parallax.x) * 0.06;
     parallax.y += (ty - parallax.y) * 0.06;
@@ -282,7 +282,7 @@
     var attacking = state.view === 'attaque', heroX = attacking ? 0 : 12, top = FEET - 31;
     pctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     pctx.beginPath(); pctx.ellipse(heroX + 16, FEET, 12, 2, 0, 0, Math.PI * 2); pctx.fill();
-    if (!attacking) { var set = HERO_IMG[state.view]; pctx.drawImage(set[Math.floor(now / 500) % set.length], heroX, top); return; }
+    if (!attacking) { var set = HERO_IMG[state.view]; pctx.drawImage(set[Math.floor(now / (1000 / set.length)) % set.length], heroX, top); return; }
     var step = Math.floor(now / 110) % ATK_SEQ.length, f = ATK_SEQ[step];
     pctx.drawImage(HERO_IMG.atk[f], heroX, top);
     if (isRanged(weaponOf(save.equip))) { if (step >= 2 && step < 8) pctx.drawImage(HERO_IMG.kunai, heroX + 22 + (step - 2) * 6, top + 14, HERO_IMG.kunai.width === 16 ? 8 : 12, HERO_IMG.kunai.width === 16 ? 8 : 12); }
@@ -421,7 +421,7 @@
   function claimExpedition() {
     var e = save.expedition;
     if (!e || expeditionLeft(save) > 0) return;
-    var loot = rollLoot(save, e.w + 1, e.item);
+    var loot = rollLoot(save, lootTier(save, e.w), e.item);
     if (loot) save.owned.push(loot);
     e.gold = clanGold(e.gold); e.xp = clanXp(e.xp); // avec les bonus du clan
     save.gold += e.gold;
@@ -1207,15 +1207,53 @@
     if (state.mapView === 'continent' && !continentOpen(save)) state.mapView = 'ile';
     return state.mapView || (currentWorld() >= ISLAND_WORLDS ? 'continent' : 'ile');
   }
-  // Étire le cadrage de la carte au format de l'écran (en restant dans la carte)
-  function fitView(v, aspect, M) {
-    var w = v.w, h = v.h;
-    if (w / h < aspect) w = h * aspect; else h = w / aspect;
-    if (w > M.W) { w = M.W; h = w / aspect; }
-    if (h > M.H) { h = M.H; w = h * aspect; }
-    w = Math.round(w); h = Math.round(h);
-    var cx = v.x + v.w / 2, cy = v.y + v.h / 2;
-    return { w: w, h: h, x: Math.round(Math.max(0, Math.min(M.W - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(M.H - h, cy - h / 2))) };
+  // ---------- La caméra de la carte ----------
+  // cam.s : pixels d'écran par pixel de carte ; cam.x, cam.y : où tombe le coin haut-gauche de la carte à l'écran.
+  // Au plus loin (min), toute la carte tient à l'écran ; à l'ouverture (focus), on voit la terre en cours, centrée
+  // sur son étape ; au plus près (max), 4 pixels d'écran par pixel de carte au moins.
+  var cam = { s: 0, x: 0, y: 0, map: null, reset: true };
+  function camLimits(M) {
+    var vw = $('worldmap').clientWidth, vh = $('worldmap').clientHeight, cover = Math.max(vw / M.W, vh / M.H);
+    return { vw: vw, vh: vh, min: Math.min(vw / M.W, vh / M.H), max: Math.max(4, cover * 1.5), focus: Math.max(cover, Math.min(vw, vh) / 340) };
+  }
+  // la partie de l'écran que le panneau d'une étape ne cache pas (à droite sur grand écran, en bas sur petit)
+  function camFree(L) {
+    if (!state.sheet) return { w: L.vw, h: L.vh };
+    return L.vw > 900 ? { w: L.vw - 400, h: L.vh } : { w: L.vw, h: L.vh * 0.4 };
+  }
+  // (on peut dépasser un peu les bords, pour centrer une étape au bord de la mer)
+  function camClamp(M, L) {
+    cam.s = Math.max(L.min, Math.min(L.max, cam.s));
+    var w = M.W * cam.s, h = M.H * cam.s, mx = L.vw * 0.3, my = L.vh * 0.3;
+    cam.x = w <= L.vw ? (L.vw - w) / 2 : Math.max(L.vw - w - mx, Math.min(mx, cam.x));
+    cam.y = h <= L.vh ? (L.vh - h) / 2 : Math.max(L.vh - h - my, Math.min(my, cam.y));
+  }
+  function camApply(M) {
+    var el = $('wm-cam');
+    el.style.width = Math.round(M.W * cam.s) + 'px'; el.style.height = Math.round(M.H * cam.s) + 'px';
+    el.style.transform = 'translate(' + Math.round(cam.x) + 'px,' + Math.round(cam.y) + 'px)';
+  }
+  function camCenter(M, L, p, s) {
+    var free = camFree(L);
+    cam.s = Math.max(L.min, Math.min(L.max, s));
+    cam.x = free.w / 2 - p.x * cam.s; cam.y = free.h / 2 - p.y * cam.s;
+    camClamp(M, L);
+  }
+  // zoomer d'un facteur autour d'un point de l'écran (sx, sy), qui reste sous le curseur
+  function camZoom(factor, sx, sy) {
+    var M = mapOf(mapView()), L = camLimits(M), mx = (sx - cam.x) / cam.s, my = (sy - cam.y) / cam.s;
+    cam.s = Math.max(L.min, Math.min(L.max, cam.s * factor));
+    cam.x = sx - mx * cam.s; cam.y = sy - my * cam.s;
+    camClamp(M, L); camApply(M);
+  }
+  // le point sur lequel se caler : l'étape ouverte, sinon la prochaine étape (ou la dernière réussie)
+  function camTarget(M) {
+    var T = M.TRAILS, n = T.length, s = state.sheet;
+    if (s && s.w >= M.FIRST && s.w < M.FIRST + n) return T[s.w - M.FIRST].stages[s.st];
+    var local = currentWorld() - M.FIRST;
+    if (local >= n) return T[n - 1].stages[STAGES];
+    local = Math.max(0, local);
+    return T[local].stages[Math.min(STAGES, save.progress[M.FIRST + local] + 1)];
   }
   var cycleArmed = 0;
   function renderWorldMap() {
@@ -1223,13 +1261,23 @@
     var view = mapView(), M = mapOf(view), off = M.FIRST, unlocked = [];
     for (var li = 0; li < M.REGIONS.length; li++) if (worldUnlocked(save, off + li)) unlocked.push(li);
     var m = M.render(unlocked), c = $('worldmap-canvas');
-    var v = fitView(m.view, $('page-map').clientWidth / Math.max(1, $('page-map').clientHeight), M);
-    c.width = v.w; c.height = v.h;
-    var ctx = c.getContext('2d');
-    ctx.drawImage(m.canvas, v.x, v.y, v.w, v.h, 0, 0, v.w, v.h);
-    M.drawCompass(ctx, 18, 18);
-    var at = function (x, y) { return 'left:' + ((x - v.x) / v.w * 100) + '%;top:' + ((y - v.y) / v.h * 100) + '%'; };
-    var cur = currentWorld(), html = '';
+    if (c.width !== M.W || c.height !== M.H) { c.width = M.W; c.height = M.H; }
+    c.getContext('2d').drawImage(m.canvas, 0, 0);
+    var sea = c.getContext('2d').getImageData(2, M.H - 3, 1, 1).data; // autour de la carte, la mer du bord
+    $('worldmap').style.background = 'rgb(' + sea[0] + ',' + sea[1] + ',' + sea[2] + ')';
+    // la caméra : calée sur l'étape en cours quand on ouvre la carte ou qu'on change de carte, sinon elle reste où on l'a mise
+    var L = camLimits(M);
+    if (L.vw) {
+      if (cam.reset || cam.map !== view || !cam.s) camCenter(M, L, camTarget(M), L.focus);
+      else if (state.sheet) { // l'étape choisie doit rester visible, à côté du panneau
+        var tp = camTarget(M), free = camFree(L), sx = cam.x + tp.x * cam.s, sy = cam.y + tp.y * cam.s;
+        if (sx < 40 || sx > free.w - 40 || sy < 60 || sy > free.h - 40) camCenter(M, L, tp, cam.s); else camClamp(M, L);
+      } else camClamp(M, L);
+      cam.map = view; cam.reset = false;
+      camApply(M);
+    }
+    var at = function (x, y) { return 'left:' + (x / M.W * 100) + '%;top:' + (y / M.H * 100) + '%'; };
+    var cur = currentWorld(), html = '', ui = '';
     unlocked.forEach(function (li2) {
       var i = off + li2, tr = M.TRAILS[li2], prog = save.progress[i], stages = worldStages(i), b = BIOMES[i];
       // les 10 étapes, posées sur le sentier
@@ -1257,22 +1305,75 @@
     if (m.peekAt) {
       html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS DE ' + BIOMES[off + m.peek - 1].name.toUpperCase() + '</small></div>';
     }
-    // les deux cartes, une fois le Continent ouvert ; le cycle en cours
+    // les deux cartes, une fois le Continent ouvert ; le cycle en cours ; la boussole et le zoom
+    ui += '<canvas class="wm-compass" width="28" height="28" aria-hidden="true"></canvas>' +
+      '<div class="wm-zoom"><button data-wm-zoom="in" title="Zoomer" aria-label="Zoomer">+</button><button data-wm-zoom="out" title="Dézoomer" aria-label="Dézoomer">−</button>' +
+      '<button data-wm-zoom="all" title="Toute la carte" aria-label="Toute la carte"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1h4v1H2v3H1zM7 1h4v4h-1V2H7zM1 7h1v3h3v1H1zM10 7h1v4H7v-1h3z" fill="currentColor"/></svg></button>' +
+      '<button data-wm-zoom="me" title="Revenir à ma grenouille" aria-label="Revenir à ma grenouille"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M5 0h2v2.1A4 4 0 0 1 9.9 5H12v2H9.9A4 4 0 0 1 7 9.9V12H5V9.9A4 4 0 0 1 2.1 7H0V5h2.1A4 4 0 0 1 5 2.1zM6 4a2 2 0 1 0 0 4a2 2 0 0 0 0-4z" fill="currentColor"/></svg></button></div>';
     if (continentOpen(save)) {
-      html += '<div class="wm-switch">' + [['ile', 'L’Île'], ['continent', 'Le Continent']].map(function (o) { return '<button class="' + (view === o[0] ? 'is-on' : '') + '" data-map-view="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+      ui += '<div class="wm-switch">' + [['ile', 'L’Île'], ['continent', 'Le Continent']].map(function (o) { return '<button class="' + (view === o[0] ? 'is-on' : '') + '" data-map-view="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
     }
-    if ((save.cycle || 1) > 1) html += '<div class="wm-cycle-tag">CYCLE ' + romanCycle(save.cycle) + '</div>';
+    if ((save.cycle || 1) > 1) ui += '<div class="wm-cycle-tag">CYCLE ' + romanCycle(save.cycle) + '</div>';
     // le monde vaincu : le cycle suivant
     if (worldDone(save)) {
       var nc = (save.cycle || 1) + 1;
-      html += '<div class="wm-cycle panel"><h2>LE MONDE EST VAINCU</h2><p>Le Dragon-Tempête est tombé. Le cycle ' + romanCycle(nc) + ' peut commencer : tout recommence au Marais-Brume, mais les monstres ont ' + (CYCLE.level * (nc - 1)) + ' niveaux de plus et frappent plus fort. En échange, tout ce que tu trouves devient « +' + (nc - 1) + ' » (+' + Math.round(CYCLE.loot * (nc - 1) * 100) + ' % de stats). Tu gardes ton niveau, tes objets et tes lucioles.</p>' +
+      ui += '<div class="wm-cycle panel"><h2>LE MONDE EST VAINCU</h2><p>Le Dragon-Tempête est tombé. Le cycle ' + romanCycle(nc) + ' peut commencer : tout recommence au Marais-Brume, mais les monstres se mettent à ton niveau, et ils ont ' + Math.round((Math.pow(CYCLE.power, nc - 1) - 1) * 100) + ' % de PV et de dégâts en plus. En échange, tout ce que tu trouves devient « +' + (nc - 1) + ' » (+' + Math.round(CYCLE.loot * (nc - 1) * 100) + ' % de stats). Tu gardes ton niveau, tes objets et tes lucioles.</p>' +
         '<button class="btn' + (cycleArmed ? ' is-armed' : '') + '" data-next-cycle>' + (cycleArmed ? 'Confirmer : entrer dans le cycle ' + romanCycle(nc) : 'Entrer dans le cycle ' + romanCycle(nc) + ' ▶') + '</button></div>';
     }
     html += '<img id="wm-frog" class="wm-frog" src="' + $('sb-portrait').toDataURL() + '" alt="Ta grenouille">';
     $('worldmap-regions').innerHTML = html;
+    $('wm-ui').innerHTML = ui;
+    var cc = $('wm-ui').querySelector('.wm-compass');
+    if (cc) M.drawCompass(cc.getContext('2d'), 14, 14);
     placeMapFrog(at, cur, M, view);
     renderStageSheet();
   }
+
+  (function () {
+    var wm = $('worldmap'), pts = {}, drag = null, pinch = null, moved = false, dragEnd = 0;
+    var count = function () { return Object.keys(pts).length; };
+    var local = function (x, y) { var r = wm.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; };
+    var pair = function () { var k = Object.keys(pts), a = pts[k[0]], b = pts[k[1]]; return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+    wm.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('#wm-ui')) { moved = false; return; } // les boutons fixes (zoom, cartes, cycle)
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (count() === 1) { drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; moved = false; pinch = null; }
+      else if (count() === 2) { var p = pair(); pinch = { d: p.d, s: cam.s }; drag = null; moved = true; }
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      var M = mapOf(mapView()), L = camLimits(M);
+      if (pinch && count() >= 2) {
+        var p = pair(), c = local(p.x, p.y);
+        camZoom(pinch.s * p.d / Math.max(1, pinch.d) / cam.s, c.x, c.y);
+        return;
+      }
+      if (!drag) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+      moved = true; wm.classList.add('dragging');
+      cam.x = drag.cx + dx; cam.y = drag.cy + dy;
+      camClamp(M, L); camApply(M);
+    });
+    var up = function (e) {
+      if (!pts[e.pointerId]) return;
+      delete pts[e.pointerId];
+      if (count() < 2) pinch = null;
+      if (count() === 1) { var k = Object.keys(pts)[0]; drag = { x: pts[k].x, y: pts[k].y, cx: cam.x, cy: cam.y }; }
+      if (!count()) { drag = null; wm.classList.remove('dragging'); if (moved) dragEnd = performance.now(); moved = false; }
+    };
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    // un glissé qui finit sur une étape ne l'ouvre pas
+    wm.addEventListener('click', function (e) { if (performance.now() - dragEnd < 80) { e.stopPropagation(); e.preventDefault(); dragEnd = 0; } }, true);
+    wm.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var c = local(e.clientX, e.clientY);
+      camZoom(Math.pow(1.0018, -e.deltaY * (e.deltaMode === 1 ? 30 : 1)), c.x, c.y);
+    }, { passive: false });
+  })();
 
   // La grenouille se tient sur la dernière étape réussie. Si elle a avancé depuis la dernière visite
   // de la carte, elle saute d'étape en étape le long du sentier jusqu'à sa nouvelle place.
@@ -1300,76 +1401,16 @@
     })(t0);
   }
 
-  // ---------- Le Grand Plongeon : la cinématique du passage vers le Continent ----------
+  // ---------- Le Grand Plongeon : la cinématique du passage vers le Continent (voir cinematic.js) ----------
   // Au sommet, le Héron est tombé ; la grenouille saute, plonge dans la mer, un tourbillon de lumière l'emporte…
   // et elle ressort sur la plage du Continent. On peut la passer. Elle ne se joue qu'une fois (save.seenContinent).
-  var diveRaf = 0;
   function playDive() {
-    var box = $('cinematic'), cv = $('cine-canvas'), cap = $('cine-caption'), W = 320, H = 180;
-    cv.width = W; cv.height = H;
-    var ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
-    box.hidden = false;
     Sfx.music('calm');
-    var frog = HERO_IMG.face[0], side = HERO_IMG.profil[0], land = null, t0 = performance.now(), captions = [
-      [0, 'Le Héron Ancestral est tombé. Du haut du sommet, on voit toute l’île… et la mer au-delà.'],
-      [2600, 'Alors la grenouille prend son élan, et plonge.'],
-      [4700, 'Tout au fond, un tourbillon d’eau et de lumière l’emporte…'],
-      [7000, 'LE CONTINENT · Seize terres, plus vastes et plus dangereuses. Ici, il faudra se battre pour chaque objet.']
-    ], shown = -1, splashed = false, flashed = false, DUR = 10500;
-    var R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
-    var sky = function (top, bot, y0) { var g = ctx.createLinearGradient(0, y0 || 0, 0, H); g.addColorStop(0, top); g.addColorStop(1, bot); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
-    var mountain = function (cx, peak, base, snow) {
-      for (var y = peak; y < base; y++) { var half = (y - peak) * 1.15; R(cx - half - 1, y, half * 2 + 2, 1, '#1a1c2c'); R(cx - half, y, half, 1, '#8a8578'); R(cx, y, half, 1, '#6b6556'); if (snow && y < peak + 16) R(cx - half, y, half * 2, 1, y < peak + 10 ? '#f4f4e8' : '#c8ccd6'); }
-    };
-    var drawFrog = function (img, x, y, s, rot) { ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (rot) ctx.rotate(rot); ctx.drawImage(img, -16 * s, -16 * s, 32 * s, 32 * s); ctx.restore(); };
-    var end = function () {
-      cancelAnimationFrame(diveRaf); box.hidden = true;
+    Cinematic.play(Cinematic.dive(HERO_IMG, ContinentMap), function () {
       save.seenContinent = true; persist();
       state.mapView = 'continent';
       if (state.page === 'map') renderWorldMap(); else showPage('map');
-    };
-    box.onclick = function (e) { if (e.target.closest('[data-cine-skip]')) end(); };
-    (function frame(now) {
-      var t = now - t0;
-      for (var ci = captions.length - 1; ci >= 0; ci--) if (t >= captions[ci][0]) { if (ci !== shown) { shown = ci; cap.innerHTML = captions[ci][1].replace(/^([A-ZÉÈ ]+) · /, '<b>$1</b>'); cap.classList.remove('in'); void cap.offsetWidth; cap.classList.add('in'); } break; }
-      if (t < 4700) { // le sommet, puis le saut et la chute : la caméra suit la grenouille
-        var jump = Math.max(0, (t - 2600) / 2100), fx = 160 + jump * 70, fy = 70 - Math.sin(Math.min(1, jump * 1.6) * Math.PI) * 26 + Math.max(0, jump - 0.3) * 260;
-        var cam = Math.max(0, Math.min(200, fy - 90));
-        sky('#1e2a5a', '#f0a070', -cam);
-        for (var st = 0; st < 30; st++) R(hash(st, 1, 5) * W, hash(st, 2, 5) * 60 - cam, 1, 1, 'rgba(255,255,255,0.6)');
-        R(0, 250 - cam, W, H, '#15323f'); // la mer, loin en bas
-        for (var wv = 0; wv < 40; wv++) R((hash(wv, 3, 5) * W + t / 30) % W, 250 - cam + hash(wv, 4, 5) * 120, 5, 1, '#2a5d66');
-        mountain(160, 78 - cam, 260 - cam, true); mountain(70, 130 - cam, 260 - cam, false); mountain(250, 120 - cam, 260 - cam, false);
-        R(152, 76 - cam, 16, 3, '#8a6f1f'); // le nid
-        [[40, 40], [230, 55], [120, 100]].forEach(function (c2, k) { var cx2 = (c2[0] + t / (40 + k * 12)) % 360 - 20; R(cx2, c2[1] - cam, 34, 6, 'rgba(255,255,255,0.75)'); R(cx2 + 6, c2[1] - 4 - cam, 20, 4, 'rgba(255,255,255,0.75)'); });
-        if (t < 2600) { drawFrog(frog, 160, 62 - cam, 0.9, 0); var fl = t / 700; R(172 + Math.sin(fl) * 10, 40 - cam + (t / 60) % 40, 2, 5, '#e8ecf0'); }
-        else drawFrog(side, fx, fy - cam, 0.9, jump * 7);
-      } else if (t < 7000) { // sous l'eau : les bulles, puis le tourbillon
-        if (!splashed) { splashed = true; Sfx.play('drip'); }
-        var u = (t - 4700) / 2300;
-        sky('#1a4a6a', '#050a1a', 0);
-        for (var b2 = 0; b2 < 26; b2++) { var bx = hash(b2, 5, 9) * W, by = H - ((t / 12 + hash(b2, 6, 9) * H) % (H + 20)); R(bx, by, 2, 2, 'rgba(200,240,255,0.55)'); }
-        for (var ray = 0; ray < 5; ray++) R(40 + ray * 60 + Math.sin(t / 900 + ray) * 10, 0, 6, H, 'rgba(160,220,255,0.06)');
-        var sink = 40 + u * 60, size = 0.9 * (1 - Math.max(0, u - 0.55) * 1.8);
-        if (u > 0.3) { // le tourbillon : des anneaux de lumière qui tournent
-          for (var ring = 0; ring < 7; ring++) {
-            var rr = (ring * 9 + (t / 25) % 9) * (0.6 + u), a = (1 - ring / 7) * Math.min(1, (u - 0.3) * 3);
-            ctx.strokeStyle = 'rgba(' + (ring % 2 ? '120,240,255,' : '240,220,120,') + a + ')'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.ellipse(160, sink + 10, rr * 1.6, rr * 0.7, t / 600 + ring, 0, Math.PI * 2); ctx.stroke();
-          }
-        }
-        if (size > 0.05) drawFrog(side, 160, sink, size, Math.PI / 2 + (u > 0.5 ? (u - 0.5) * 20 : 0));
-      } else { // un éclair blanc, puis la plage du Continent qui se découvre
-        if (!flashed) { flashed = true; Sfx.play('levelup'); land = ContinentMap.render([0]).canvas; }
-        var r2 = ContinentMap.REGIONS[0], zoom = 2.2 - Math.min(1, (t - 7000) / 3000) * 0.6, vw = W / zoom, vh = H / zoom;
-        ctx.drawImage(land, Math.max(0, r2.x - vw / 2 - 30), Math.max(0, Math.min(ContinentMap.H - vh, r2.y - vh / 2)), vw, vh, 0, 0, W, H);
-        var fade = Math.max(0, 1 - (t - 7000) / 700);
-        if (fade > 0) { ctx.fillStyle = 'rgba(255,255,255,' + fade + ')'; ctx.fillRect(0, 0, W, H); }
-        drawFrog(frog, 64 + Math.min(1, (t - 7000) / 1500) * 40, 128 - Math.abs(Math.sin((t - 7000) / 180)) * 6 * (t < 8500 ? 1 : 0), 0.8, 0);
-      }
-      if (t >= DUR) { end(); return; }
-      diveRaf = requestAnimationFrame(frame);
-    })(t0);
+    });
   }
 
   // ---------- Une étape : le panneau qui s'ouvre sur la carte ----------
@@ -1528,7 +1569,7 @@
     (function loop(now) {
       if (state.page !== 'skins') return;
       ctx.drawImage(skinsBg, 0, 0);
-      var frames = tryOnFrames(state.tryOn)[state.skinView], f = frames[Math.floor(now / 520) % frames.length], S = 2;
+      var frames = tryOnFrames(state.tryOn)[state.skinView], f = frames[Math.floor(now / (1040 / frames.length)) % frames.length], S = 2;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(160 - 22, SK_FLOOR + 4, 44, 4); // l'ombre sur le tapis
       ctx.drawImage(f, 160 - 16 * S, SK_FLOOR + 6 - 32 * S, 32 * S, 32 * S);
       for (var i = 0; i < 12; i++) { // la poussière dans la lumière
@@ -1825,13 +1866,14 @@
     // à partir d'ici, en pixels du canvas : un sprite de 32 px dessiné en 128 (= 2/3 de sa taille en combat)
     var f = Math.floor(now / 500) % 2, feet = CZ.rock * K;
     var shadow = function (cx, w) { x2.fillStyle = 'rgba(0, 0, 0, 0.3)'; x2.beginPath(); x2.ellipse(cx * K, feet - 3, w, 10, 0, 0, Math.PI * 2); x2.fill(); };
-    if (HERO_IMG) { shadow(CZ.meX, 46); x2.drawImage(HERO_IMG.profil[f], CZ.meX * K - 64, feet - 128, 128, 128); }
+    var at = function (list) { return list[Math.floor(now / (1000 / list.length)) % list.length]; };
+    if (HERO_IMG) { shadow(CZ.meX, 46); x2.drawImage(at(HERO_IMG.profil), CZ.meX * K - 64, feet - 128, 128, 128); }
     if (dojo.tab === 'arbre') { shadow(CZ.foeX, 64); x2.drawImage(TREE_IMGS[Math.floor(now / 700) % 2], CZ.foeX * K - 96, feet - 192, 192, 192); return; }
     var foe = currentFoe();
     if (foe) {
       var fg = dojoFighter(foe), sz = Math.round(128 * fg.size / 32) * 32 || 128;
       shadow(CZ.foeX, 46 * fg.size);
-      x2.drawImage(fg.imgs.idle[f], CZ.foeX * K - sz / 2, feet - sz, sz, sz);
+      x2.drawImage(at(fg.imgs.idle), CZ.foeX * K - sz / 2, feet - sz, sz, sz);
     }
   }
   // d'un point du décor (400×225, affiché « cover ») à la page
@@ -2462,7 +2504,7 @@
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
-    if (page === 'map') renderWorldMap();
+    if (page === 'map') { cam.reset = true; renderWorldMap(); }
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
     if (page === 'clans') openClans();
@@ -2659,6 +2701,13 @@
     if (t.dataset.filter) { state.filter = t.dataset.filter; renderInventory(); return; }
     if (t.dataset.view) { state.view = t.dataset.view; renderAll(); return; }
     if (t.dataset.mapView) { state.mapView = t.dataset.mapView; state.sheet = null; Sfx.play('click'); renderWorldMap(); return; }
+    if (t.dataset.wmZoom) {
+      var zM = mapOf(mapView()), zL = camLimits(zM), z = t.dataset.wmZoom;
+      Sfx.play('click');
+      if (z === 'in' || z === 'out') camZoom(z === 'in' ? 1.5 : 1 / 1.5, zL.vw / 2, zL.vh / 2);
+      else { camCenter(zM, zL, z === 'me' ? camTarget(zM) : { x: zM.W / 2, y: zM.H / 2 }, z === 'me' ? zL.focus : zL.min); camApply(zM); }
+      return;
+    }
     if (t.hasAttribute('data-next-cycle')) {
       if (!cycleArmed) { cycleArmed = setTimeout(function () { cycleArmed = 0; if (state.page === 'map') renderWorldMap(); }, 5000); renderWorldMap(); return; }
       clearTimeout(cycleArmed); cycleArmed = 0;

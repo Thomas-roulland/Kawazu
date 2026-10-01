@@ -20,13 +20,37 @@ var MONSTER_POWER = { hp: 2.2, dmg: 2.6 };
 // Le Continent est plus dur : ses monstres ont plus de PV et frappent plus fort, à niveau égal. On y avance en
 // farmant et en trouvant de meilleurs objets (réglé au simulateur, voir sim.js).
 // hp, dmg : au début du Continent ; hpK, dmgK : ce qui s'ajoute à chaque terre suivante (la grenouille y gagne plus vite en force)
-var CONTINENT_POWER = { hp: 2.8, dmg: 2.3, hpK: 0.03, dmgK: 0.025, normal: 1.25 }; // normal : les monstres des étapes ordinaires, un peu plus coriaces
+var CONTINENT_POWER = { hp: 2.15, dmg: 1.75, hpK: 0.035, dmgK: 0.03, normal: 1.7 }; // normal : les monstres des étapes ordinaires, un peu plus coriaces
+// L'île, terre par terre : la force de ses monstres ordinaires, de ses gardiens et de son boss (PV × s, dégâts
+// × (1 + (s − 1) / 2)), réglée au simulateur (calib.js) : il faut un peu farmer — quelques niveaux, ou un meilleur
+// objet — avant chaque boss, de plus en plus en montant vers le Héron ; le Marais-Brume reste doux pour débuter.
+// (les ordinaires, le gibier du farm, montent doucement : ce sont les gardiens et les boss qui demandent de farmer)
+var ISLAND_POWER = [
+  { normal: 1, gardien: 1.8, boss: 1.6 },
+  { normal: 1.15, gardien: 2.6, boss: 2.4 },
+  { normal: 1.3, gardien: 3, boss: 2.1 },
+  { normal: 1.45, gardien: 2.8, boss: 2.5 },
+  { normal: 1.6, gardien: 2.7, boss: 2.5 },
+  { normal: 1.75, gardien: 2.8, boss: 1.3 }
+];
+// l'entrée du Continent : sa force (CONTINENT_POWER) part de CONTINENT_RAMP à la Plaine des Vents et monte en pente
+// douce, entière à partir du boss de la Forêt d'Épines (le premier boss du Continent reprend là où le Héron s'arrêtait)
+var CONTINENT_RAMP = 0.8;
+var CYCLE_FLOOR = 8;
 function makeEnemy(w, level, variant, rank, title) {
-  var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1;
-  level += CYCLE.level * cyc; // le cycle (NG+) : des monstres plus forts
-  var boost = Math.pow(CYCLE.power, cyc), k = w - ISLAND_WORLDS, CP = CONTINENT_POWER;
-  var hpX = (k >= 0 ? CP.hp * (1 + CP.hpK * k) : 1) * boost, dmgX = (k >= 0 ? CP.dmg * (1 + CP.dmgK * k) : 1) * boost;
-  if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= CP.normal; dmgX *= Math.sqrt(CP.normal); }
+  var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1, st = level - stageLevel(w, 0);
+  // dans un cycle (NG+), les monstres se mettent à la hauteur de la grenouille (étape 1 : 6 niveaux de moins, boss : 3 de
+  // plus), sans descendre sous le niveau de leur étape (une grenouille qui vient de muter refait son chemin)
+  if (cyc) level = Math.min(MAX_LEVEL + 20, Math.max(level, playerLevel - 7 + st));
+  // la force des terres : k = 0 à la Plaine des Vents, 15 au Trône de l'Orage (l'île en dessous) ; dans un cycle, toutes
+  // les terres partent au moins de la force du milieu du Continent (CYCLE_FLOOR : on y arrive avec l'équipement de la fin),
+  // et chaque cycle multiplie en plus PV et dégâts par CYCLE.power
+  var k = cyc ? Math.max(w - ISLAND_WORLDS, CYCLE_FLOOR) : w - ISLAND_WORLDS, boost = Math.pow(CYCLE.power, cyc), CP = CONTINENT_POWER;
+  var ramp = k < 0 ? 1 : Math.min(1, CONTINENT_RAMP + (1 - CONTINENT_RAMP) * (k * STAGES + st) / (2 * STAGES));
+  var up = function (x) { return 1 + (x - 1) * ramp; };
+  var ip = k < 0 ? (ISLAND_POWER[w] || {})[rank || 'normal'] || 1 : 1;
+  var hpX = (k >= 0 ? up(CP.hp * (1 + CP.hpK * k)) : ip) * boost, dmgX = (k >= 0 ? up(CP.dmg * (1 + CP.dmgK * k)) : 1 + (ip - 1) / 2) * boost;
+  if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
@@ -66,6 +90,11 @@ function worldStages(w) {
   }
   return list;
 }
+
+// L'XP fond quand la grenouille est bien plus forte que le monstre : au-delà de XP_GAP niveaux d'avance, −12 % par
+// niveau, et jamais moins de 10 %. On ne monte pas au niveau 100 en farmant le Sommet du Héron.
+var XP_GAP = 5;
+function xpGapMult(heroLevel, foeLevel) { var gap = heroLevel - foeLevel - XP_GAP; return gap <= 0 ? 1 : Math.max(0.1, 1 - 0.12 * gap); }
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
 // Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le Dragon-Tempête l'est
@@ -232,7 +261,10 @@ function dailyShop(save) {
 }
 
 // Le rang de l'étal : sur l'île, un rang d'avance (jusqu'au 6) ; sur le Continent, celui de la terre atteinte
+// Le rang du butin d'une terre : le sien, et dans un cycle le plus haut (avec son « + »)
+function lootTier(save, w) { return (save.cycle || 1) > 1 ? BIOMES.length : w + 1; }
 function shopTier(save) {
+  if ((save.cycle || 1) > 1) return BIOMES.length;
   var maxTier = 1;
   for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w < ISLAND_WORLDS ? Math.min(6, w + 2) : w + 1;
   return maxTier;

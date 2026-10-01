@@ -57,7 +57,9 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 ## Le menu
 
 Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique, Skins), **les aventures**
-(Carte du monde, Tour des Sages, Cascade des duels, Clans) et **la collection** (Album, Classement). En bas : sauvegarde, son (touche M).
+(Carte du monde, Tour des Sages, Cascade des duels, Clans) et **la collection** (Album, Classement). En bas : les touches
+du clavier, la sauvegarde, le son (touche M). Les barres de défilement sont cachées sur petit écran et tactile, fines et
+aux couleurs du jeu ailleurs ; les chiffres sont en Silkscreen (le 5 et le 8 ne se confondent plus).
 Les **lucioles** sont la monnaie du jeu.
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
@@ -110,8 +112,10 @@ Les **lucioles** sont la monnaie du jeu.
   puis, une fois le Héron vaincu, **le Continent** (voir plus bas), plus grand et plus dense ; une bascule passe de l’une
   à l’autre.
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
-  la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante, et la vue se recadre
-  sur ce qui est découvert. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
+  la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante.
+  La carte s’ouvre **centrée sur l’étape en cours** ; on la **promène** en la glissant (souris ou doigt) et on **zoome**
+  à la molette, en pinçant ou avec les boutons (+, −, toute la carte, revenir à ma grenouille) ; au plus loin, toute la
+  carte tient à l’écran. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
   boss ouvre la région suivante. Un clic sur une étape ouvre son panneau, directement sur la carte : un **combat** (XP, lucioles, chance d’objet) ou une **expédition** en temps réel
   (30 s, 1 min 30 ou 4 min) qui rapporte sans combattre, mais bloque les combats pendant ce temps.
 - **Boutique** : l’intérieur de la cabane de l’Aïeule Gamako, en plein écran. Ses objets sont posés
@@ -196,28 +200,42 @@ Les **lucioles** sont la monnaie du jeu.
 
 ## Le Continent, les cycles et la mutation
 
-- **Le Grand Plongeon** : une fois le Héron Ancestral vaincu, une cinématique (qu’on peut passer) montre la grenouille
-  au sommet, qui plonge dans la mer ; un tourbillon de lumière l’emporte, et elle ressort sur la plage du **Continent**.
+- **Le Grand Plongeon** : une fois le Héron Ancestral vaincu, une cinématique de 17 secondes (qu’on peut passer :
+  bouton, Échap, Espace) : la grenouille au sommet à l’aube, au-dessus d’une mer de nuages, face au soleil qui se lève
+  sur une terre inconnue ; elle bondit, tombe à travers les nuages, plonge (gerbe d’eau, cercles), coule entre les
+  rayons, les poissons et les algues vers un tourbillon de lumière qui l’emporte, jaillit sur une plage, puis on
+  s’élève au-dessus du **Continent** entier, et son nom s’écrit lettre après lettre (`src/cinematic.js`).
 - **Le Continent** : **16 terres** de plus, loin des marais — Plaine des Vents, Champ de Bataille, Forêt d’Épines,
   Désert des Os, Canyon Rouge, Toundra Gelée, Volcan de Braise, Cimetière des Rois, Bois Féerique, Îles Célestes,
   Jungle Carnivore, Mines Noires, Forteresse de Fer, Marches de l’Abysse, Terres des Dragons et Trône de l’Orage — avec
   leurs décors (haies, palissades, grès, glace, lave, tombes, nuages, vide…), leur ambiance au camp et **14 nouvelles
   espèces** (rats, corbeaux, scarabées, serpents, scorpions, squelettes, fantômes, golems, salamandres, fées, plantes
   carnivores, loups, araignées, chevaliers) et un **dragon** pour les deux derniers boss. Niveaux 49 à 178.
-- **Plus dur** : les monstres y ont bien plus de PV et frappent plus fort (un peu plus à chaque terre), et ceux des
-  étapes ordinaires sont plus coriaces. On y avance en **farmant** : les étapes normales se gagnent avec le butin de la
-  terre, les gardiens et les boss demandent du butin rare ou épique (ou quelques niveaux d’avance). Réglé au simulateur.
+- **Une difficulté qui monte en pente douce** (réglée au simulateur, grenouille au niveau de l’étape, objets communs
+  de sa terre) : sur l’île, les ordinaires restent du gibier, mais gardiens et boss demandent **un peu de farm** —
+  boss gagnés ~100 % au Marais-Brume, puis 92, 80, 71, 60 et ~50 % pour le Héron (77 à 100 % avec 3 niveaux de plus).
+  Le Continent prend la suite sans mur : sa force part de 80 % à la Plaine des Vents (un répit après le Héron) et monte
+  jusqu’au boss de la Forêt d’Épines, puis un peu plus à chaque terre ; ses gardiens et ses boss demandent du butin
+  rare ou épique, ou quelques niveaux.
+- **Pas de raccourci en farmant trop bas** : l’XP fond quand on a plus de 5 niveaux d’avance sur le monstre (−12 % par
+  niveau, 10 % au plus bas), et l’écran de victoire le dit.
+- **Farm** : dans une terre terminée, le bouton **Farm** du combat enchaîne les étapes tout seul (en auto), avec un
+  bilan (victoires, XP, lucioles, objets) ; une défaite ou « Arrêter » le coupe.
 - **160 objets du Continent**, dix par terre (les six armes, écharpe, ceinture, anneau, kasa ou heaume à cornes), avec
   **leurs propres formes** (trident, morgenstern, lame courbe, kriss, étoile en X, écharpe à franges, ceinture à gemme,
-  anneau serti…) et bien plus forts que ceux de l’île : leur force suit le niveau de leur terre. Sur le Continent, le
-  butin tombe surtout au rang de la terre en cours ; l’étal propose ce rang-là.
-- **Les Légendaires** : une rareté dorée, **ultra rare** (≈ 0,3 % par victoire sur le Continent, 0,8 % contre un boss
+  anneau serti…). Leur force part de celle des meilleurs objets de l’île (une arme à ~13 à la Plaine des Vents) et
+  monte en douceur jusqu’à ~130 au Trône de l’Orage — fini le saut de 12 à 100. Les exemplaires tirés avec l’ancienne
+  courbe sont recalculés au chargement. Sur le Continent, le butin tombe surtout au rang de la terre en cours ; l’étal
+  propose ce rang-là.
+- **Les Légendaires** : une rareté **orange**, **ultra rare** (≈ 0,3 % par victoire sur le Continent, 0,8 % contre un boss
   ou un monstre rare, 2 % contre un épique) : quatre **bandeaux** noués sur la tête et quatre **capes** qui flottent
-  dans le dos, qui se voient sur la grenouille. Leurs stats suivent la terre où ils tombent.
+  dans le dos, qui se voient sur la grenouille et **flottent au vent** (les pans du bandeau et la cape ondulent, une
+  image sur deux, au camp, en combat, partout). Leurs stats suivent la terre où ils tombent.
 - **Les cycles (NG+)** : une fois le Dragon-Tempête vaincu, on peut entrer dans le **cycle suivant** : tout recommence
-  au Marais-Brume, mais les monstres ont 15 niveaux de plus par cycle et 20 % de PV et de dégâts en plus (cumulés), et
-  tout ce qu’on trouve ou achète devient « +1 », « +2 »… (+20 % de stats par +). On garde son niveau, ses objets et ses
-  lucioles. Sans fin ; le classement Aventure compte les cycles.
+  au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), toutes les terres
+  partent de la force du milieu du Continent, et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
+  échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
+  ses objets et ses lucioles. Sans fin ; le classement Aventure compte les cycles.
 - **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
@@ -257,7 +275,10 @@ commence plus souvent, pas toujours).
   coup de boule, langue fouet…
 - Les ennemis ont leurs tactiques : charges préparées, vol de vie, englue (les sorts en relance prennent un tour de plus),
   rage des boss sous la moitié de leur vie. Les grenouilles adverses (duels, tour) jouent leurs sorts avec les mêmes règles.
-- **Auto** (touche A) ; vitesse **×1 / ×2 / ×4** ; touches 1-5 pour l’attaque de base et les sorts.
+- **Auto** ; vitesse **×1 / ×2 / ×4** ; **Farm** dans une terre terminée. **Touches du clavier** réglables (bouton
+  clavier, en bas du menu ou en combat) : disposition **QWERTY** (Q W E R T, A pour l’auto) ou **AZERTY** (A Z E R T,
+  Q pour l’auto), devinée d’après le clavier, et chaque touche se change à la main ; les chiffres 1 à 5 marchent aussi,
+  sur tous les claviers. Sur écran tactile, ni lettres ni bouton clavier.
 - **Météo** selon l’étape : Pleine lune, Brume épaisse, Averse (relances plus rapides), Nuit sans lune, Canicule
   (sorts en relance au départ).
 - Montée de niveau : +3 points de caractéristique, +1 point de voie.
@@ -293,5 +314,6 @@ puissance des voies.
 - `src/map.js` : les cartes du monde (l’Île et le Continent, fabriquées par makeWorldMap) et leur brume
 - `src/shop.js` : décor animé de la boutique et Gamako
 - `src/scene.js` : décor animé du camp et logo
-- `src/battle.js` : le duel au tour par tour (`BattleScene.start`)
+- `src/battle.js` : le duel au tour par tour (`BattleScene.start`), le farm ; `src/keys.js` : les touches du combat
+- `src/cinematic.js` : les cinématiques en pixel art (le lecteur, et le Grand Plongeon)
 - `src/hub.js` : écran titre, création, menu et pages

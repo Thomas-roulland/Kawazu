@@ -315,6 +315,7 @@ button:focus-visible { outline: 3px solid var(--gold-2); outline-offset: 3px; }
 .bt-loot { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .bt-loot img { width: 40px; height: 40px; }
 .bt-unlock { color: #1f5a2a; }
+.bt-result .bt-gap { font-size: 14px; color: #8a4a1a; }
 .bt-result .bt-farm-sum { font-size: 15px; color: #5a3a14; }
 .bt-result .bt-farm-next { font-family: var(--pixel); font-size: 9px; color: #7a5a24; animation: keys-wait 0.8s steps(2) infinite; }
 .bt-controls .bt-farm.is-on { color: #1a1c2c; background: linear-gradient(#f3d27a, #c99a3a); border-color: #f3d27a; }
@@ -518,7 +519,18 @@ button:focus-visible { outline: 3px solid var(--gold-2); outline-offset: 3px; }
 
 /* ---------- Carte du monde ---------- */
 #page-map { background: #0f2430; }
-.worldmap { position: absolute; inset: 0; }
+.worldmap { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+.worldmap.dragging { cursor: grabbing; }
+.worldmap.dragging .wm-stage, .worldmap.dragging .region, .worldmap.dragging .wm-callout { pointer-events: none; }
+#wm-cam { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+#worldmap-regions { position: absolute; inset: 0; }
+#wm-ui { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+#wm-ui > * { pointer-events: auto; }
+.wm-compass { position: absolute; left: 14px; top: 14px; width: 56px; height: 56px; image-rendering: pixelated; pointer-events: none !important; }
+.wm-zoom { position: absolute; left: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.wm-zoom button { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; font-family: var(--pixel); font-size: 16px; line-height: 1; color: #3a2718; background: linear-gradient(#efe0b4, #e0cc94); border: 2px solid #3a2a18; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); cursor: pointer; }
+.wm-zoom button:hover { background: linear-gradient(#fff0c8, #efd8a0); }
+.wm-zoom svg { width: 16px; height: 16px; }
 .region {
   position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 10px;
   background: linear-gradient(#efe0b4, #e0cc94); border: 2px solid #3a2a18; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45); color: var(--ink);
@@ -1304,10 +1316,10 @@ button.wm-stage:hover { transform: scale(1.2); }
 .cl-don .btn { padding: 8px 10px; font-size: 8px; }
 .bt-clan { font-size: 13px; color: #8fce52; }
 
-/* les Légendaires : une bordure d'or qui scintille */
-.item.rar-legendaire { box-shadow: inset 0 0 0 1px #f0c040, 0 0 14px rgba(240, 192, 64, 0.6); animation: legend-glow 2.2s ease-in-out infinite; }
-.item.rar-legendaire img { filter: drop-shadow(0 0 4px rgba(255, 220, 120, 0.9)); }
-@keyframes legend-glow { 50% { box-shadow: inset 0 0 0 1px #fff0a0, 0 0 22px rgba(255, 220, 120, 0.85); } }
+/* les Légendaires : une bordure orange qui rougeoie */
+.item.rar-legendaire { box-shadow: inset 0 0 0 1px #ff8c1a, 0 0 14px rgba(255, 140, 26, 0.6); animation: legend-glow 2.2s ease-in-out infinite; }
+.item.rar-legendaire img { filter: drop-shadow(0 0 4px rgba(255, 170, 80, 0.9)); }
+@keyframes legend-glow { 50% { box-shadow: inset 0 0 0 1px #ffc070, 0 0 22px rgba(255, 150, 50, 0.85); } }
 
 /* ---------- Les deux cartes, le cycle ---------- */
 .wm-switch { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 4; display: flex; gap: 0; box-shadow: 0 0 0 2px #3a2a18, 0 4px 0 rgba(0, 0, 0, 0.4); }

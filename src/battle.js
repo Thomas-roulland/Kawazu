@@ -1217,11 +1217,11 @@ var BattleScene = (function () {
     if (fight.settle) return settle(true);
     // récompenses
     var r = fight.rewards;
-    var tier = fight.biomeIndex + 1;
+    var tier = lootTier(save, fight.biomeIndex);
     var loot = rollLoot(save, tier, r.itemChance, fight.luck);
     if (loot) save.owned.push(loot);
     if (fight.albumId) albumKill(save, fight.albumId);
-    var xp = clanXp(r.xp), gold = clanGold(r.gold); // avec les bonus du clan
+    var gapX = xpGapMult(save.level, E.level), xp = clanXp(r.xp * gapX), gold = clanGold(r.gold); // avec les bonus du clan, moins d'XP si on est bien trop fort
     var levels = gainXp(save, xp);
     save.gold += gold;
     var unlocked = null;
@@ -1232,7 +1232,7 @@ var BattleScene = (function () {
     writeSave(save);
     if (farm) { farm.n++; farm.xp += xp; farm.gold += gold; if (loot) farm.loot++; }
     if (levels) sfx('levelup'); else if (loot) sfx('pickup');
-    showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked });
+    showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked, gap: gapX < 1 ? gapX : 0 });
   }
 
   async function defeat() {
@@ -1253,6 +1253,7 @@ var BattleScene = (function () {
     var html = '<h2>' + (win ? 'Victoire !' : 'Défaite…') + '</h2>';
     if (win) {
       html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (clanBonus.xp || clanBonus.lucioles ? ' <small class="bt-clan">(clan : +' + Math.round(clanBonus.xp * 100) + ' % XP, +' + Math.round(clanBonus.lucioles * 100) + ' % lucioles)</small>' : '') + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
+      if (info.gap) html += '<p class="bt-gap">XP réduite à ' + Math.round(info.gap * 100) + ' % : tu as ' + (save.level - E.level) + ' niveaux de plus que ce monstre. Va te mesurer plus loin !</p>';
       if (info.loot) { var lr = RARITIES[rarityOf(info.loot)]; html += '<p class="bt-loot" style="--rar:' + lr.color + '"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b> <em>' + lr.name + '</em></p>'; }
       if (info.unlocked) html += info.unlocked === BIOMES[ISLAND_WORLDS] ? '<p class="bt-unlock">Le Héron Ancestral est tombé ! Au-delà de la mer, <b>le Continent</b> t’attend : ouvre la carte.</p>' : '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
     } else {
@@ -1309,7 +1310,7 @@ var BattleScene = (function () {
     if (f.hurt > 0) return im.hurt[0];
     if (f.pose === 'kick' && im.kick) return im.kick[0];
     if (f.frame) return im.atk[f.frame] || im.atk[1];
-    return im.idle[Math.floor(performance.now() / 500) % 2];
+    return im.idle[Math.floor(performance.now() / (1000 / im.idle.length)) % im.idle.length];
   }
   // une grenouille dessinée à la place cx (son centre), tournée de f.rot autour de son centre
   function drawSprite(f, img, cx) {

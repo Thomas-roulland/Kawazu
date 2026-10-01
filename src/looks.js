@@ -48,7 +48,20 @@ var HATS = {
       '.......HIkIIIIIIIIIIJPPJk.......',
       '....HHI.........................',
       '...HI...........................'
-    ]]
+    ]],
+    // l'autre image : les pans soulevés par le vent
+    wind: {
+      front: [9, [
+        '..kHHHHHHHHHHkJJJJkHHHHHHHHHHk..',
+        '..kIIIIIIIIIIkJPPJkIIIIIIIIIIkHH',
+        '...............................I'
+      ]],
+      side: [9, [
+        '..HHH....kHHHHHHHHHHJJJJk.......',
+        '.....HHHIkIIIIIIIIIIJPPJk.......',
+        '.HHI............................'
+      ]]
+    }
   },
   // le heaume à cornes des casques du Continent
   cornes: {
@@ -106,21 +119,26 @@ function paintMutation(g, n) {
   }
 }
 // La cape des Légendaires (couleurs de l'écharpe, r et R) : dans le dos, elle couvre tout ; de profil, elle flotte
-// derrière la grenouille ; de face, on n'en voit que les bords
-function paintCape(g, view) {
+// derrière la grenouille ; de face, on n'en voit que les bords. phase 1 : l'autre image, quand le vent la soulève
+// (le bas s'évase et ondule, les plis glissent, de profil elle file plus loin et remonte)
+function paintCape(g, view, phase) {
   var W = g[0].length, at = function (y, x) { return g[y] && x >= 0 && x < W ? g[y][x] : ''; };
   var put = function (y, x, ch) { if (g[y] && x >= 0 && x < W) g[y][x] = ch; };
+  var p = phase ? 1 : 0;
   if (view === 'back') {
-    for (var y = 19; y <= 28; y++) for (var x = 2; x <= 29; x++) put(y, x, x === 2 || x === 29 ? 'k' : ((x + (y > 24 ? 1 : 0)) % 5 === 0 ? 'R' : 'r'));
-    for (var hx = 2; hx <= 29; hx++) put(29, hx, hx % 3 ? 'k' : at(29, hx));
+    for (var y = 19; y <= 28; y++) {
+      var x1 = 2 - (p && y >= 25 ? 1 : 0), x2 = 29 + (p && y >= 25 ? 1 : 0);
+      for (var x = x1; x <= x2; x++) put(y, x, x === x1 || x === x2 ? 'k' : ((x + (y > 24 ? 1 : 0) + 2 * p) % 5 === 0 ? 'R' : 'r'));
+    }
+    for (var hx = 2 - p; hx <= 29 + p; hx++) put(29, hx, (hx + p) % 3 ? 'k' : at(29, hx));
   } else if (view === 'front') {
-    for (var fy = 18; fy <= 28; fy++) [[0, 1], [31, 30]].forEach(function (p) { if (at(fy, p[1]) === '.') put(fy, p[1], 'R'); if (at(fy, p[0]) === '.') put(fy, p[0], 'k'); });
+    for (var fy = 18 + p; fy <= 28 + p; fy++) [[0, 1], [31, 30]].forEach(function (q) { if (at(fy, q[1]) === '.') put(fy, q[1], 'R'); if (at(fy, q[0]) === '.') put(fy, q[0], 'k'); });
   } else {
-    for (var sy = 16; sy <= 28; sy++) {
+    for (var sy = 16; sy <= 28 - p; sy++) {
       var x0 = 0; while (x0 < W && at(sy, x0) === '.') x0++;
       if (x0 >= W) continue;
-      var from = Math.max(1, x0 - 2 - Math.floor((sy - 16) / 2));
-      for (var sx = from; sx < x0; sx++) put(sy, sx, sx === from ? 'k' : ((sx + sy) % 4 === 0 ? 'R' : 'r'));
+      var from = Math.max(0, x0 - 2 - Math.floor((sy - 16) / 2) - p * (1 + Math.floor((sy - 16) / 3)) + (p && sy >= 26 ? 3 : 0));
+      for (var sx = from; sx < x0; sx++) put(sy, sx, sx === from ? 'k' : ((sx + sy + p) % 4 === 0 ? 'R' : 'r'));
     }
   }
 }
@@ -489,30 +507,39 @@ function dressKawazu(sp, look) {
     // shuriken : une étoile entre les doigts
     stampPixels(atk, [[20, 28, 't'], [20, 29, 'S'], [20, 30, 't'], [20, 31, '.'], [19, 29, 't'], [18, 29, 'k'], [21, 29, 't'], [22, 29, 'k'], [20, 27, 'k']]);
   }
-  var sides = [side, atk].concat(hermit || []);
-  if (look.cape) { paintCape(back, 'back'); paintCape(main, 'front'); paintCape(ko, 'front'); sides.forEach(function (g) { paintCape(g, 'side'); }); }
-  if (look.hat && HATS[look.hat]) {
-    var h = HATS[look.hat];
-    [main, back, ko].forEach(function (g) { stampRows(g, h.front[0], h.front[1]); });
-    sides.forEach(function (g) { stampRows(g, h.side[0], h.side[1]); });
-  }
-  var all = [main, back, ko].concat(sides);
-  if (look.belt) {
-    // breloque pendue sous la boucle (dent, perle, plume : couleur Y)
-    if (look.charm) {
-      [main, ko].forEach(function (g) { stampPixels(g, [[25, 15, 'Y'], [25, 16, 'Y'], [26, 15, 'Y'], [27, 15, 'k']]); });
-      sides.forEach(function (g) { stampPixels(g, [[24, 25, 'Y'], [25, 25, 'Y']]); });
+  // les Légendaires flottent au vent : on garde la grenouille d'avant la cape et le bandeau pour une seconde image
+  var windy = look.cape || look.hat === 'bandeau';
+  var bare = windy ? { main: c(main), back: c(back), side: c(hermit ? hermit[0] : side) } : null;
+  // la cape, le chapeau et la ceinture (phase 1 : l'image au vent) ; fronts : face, dos, à terre (sans la cape pour le dos)
+  function finish(fronts, sides, phase) {
+    var F = fronts.main, B = fronts.back, K = fronts.ko;
+    if (look.cape) { paintCape(B, 'back', phase); paintCape(F, 'front', phase); if (K) paintCape(K, 'front', phase); sides.forEach(function (g) { paintCape(g, 'side', phase); }); }
+    if (look.hat && HATS[look.hat]) {
+      var h = phase && HATS[look.hat].wind ? HATS[look.hat].wind : HATS[look.hat];
+      [F, B, K].forEach(function (g) { if (g) stampRows(g, h.front[0], h.front[1]); });
+      sides.forEach(function (g) { stampRows(g, h.side[0], h.side[1]); });
     }
-  } else {
-    // pas de ceinture : la peau (ou le ventre) reprend sa place
-    all.forEach(function (g) {
-      for (var y = 1; y < 32; y++) for (var x = 0; x < 32; x++) {
-        if (g[y][x] !== 'b' && g[y][x] !== 'y') continue;
-        var up = g[y - 1][x];
-        g[y][x] = up === 'k' || up === '.' || up === 'b' || up === 'y' ? 'm' : up;
+    var all = [F, B].concat(K ? [K] : [], sides);
+    if (look.belt) {
+      // breloque pendue sous la boucle (dent, perle, plume : couleur Y)
+      if (look.charm) {
+        [F, K].forEach(function (g) { if (g) stampPixels(g, [[25, 15, 'Y'], [25, 16, 'Y'], [26, 15, 'Y'], [27, 15, 'k']]); });
+        sides.forEach(function (g) { stampPixels(g, [[24, 25, 'Y'], [25, 25, 'Y']]); });
       }
-    });
+    } else {
+      // pas de ceinture : la peau (ou le ventre) reprend sa place
+      all.forEach(function (g) {
+        for (var y = 1; y < 32; y++) for (var x = 0; x < 32; x++) {
+          if (g[y][x] !== 'b' && g[y][x] !== 'y') continue;
+          var up = g[y - 1][x];
+          g[y][x] = up === 'k' || up === '.' || up === 'b' || up === 'y' ? 'm' : up;
+        }
+      });
+    }
   }
+  var sides = [side, atk].concat(hermit || []);
+  finish({ main: main, back: back, ko: ko }, sides, 0);
+  if (bare) { finish({ main: bare.main, back: bare.back }, [bare.side], 1); out.wind = bare; }
   out.main = main; out.side = side; out.back = back; out.atk = atk; out.ko = ko;
   if (hermit) { out.hermitStance = hermit[0]; out.hermitAtk = hermit; }
   out.kick = kickPose(hermit ? hermit[0] : side);

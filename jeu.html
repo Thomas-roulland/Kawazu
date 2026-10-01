@@ -180,7 +180,10 @@
 
     <!-- Carte du monde -->
     <section id="page-map" class="page" aria-label="Carte du monde" hidden>
-      <div id="worldmap" class="worldmap"><canvas id="worldmap-canvas" aria-hidden="true"></canvas><div id="worldmap-regions"></div></div>
+      <div id="worldmap" class="worldmap">
+        <div id="wm-cam"><canvas id="worldmap-canvas" aria-hidden="true"></canvas><div id="worldmap-regions"></div></div>
+        <div id="wm-ui"></div>
+      </div>
       <aside id="stage-sheet" class="panel stage-sheet" hidden></aside>
     </section>
 
@@ -347,6 +350,7 @@
 <script src="src/album.js"></script>
 <script src="src/scene.js"></script>
 <script src="src/map.js"></script>
+<script src="src/cinematic.js"></script>
 <script src="src/shop.js"></script>
 <script src="src/cascade.js"></script>
 <script src="src/feats.js"></script>

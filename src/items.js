@@ -36,9 +36,10 @@ function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp
 function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold)); }
 
 // ---------- Le cycle (NG+) : une fois le Dragon-Tempête vaincu, le monde recommence, plus fort ----------
-// Au cycle c, chaque monstre gagne CYCLE.level niveaux par cycle passé et ses PV et dégâts sont multipliés par
-// CYCLE.power ; les objets trouvés ou achetés sont « +c-1 » : leurs stats × (1 + CYCLE.loot par +). Sans fin.
-var CYCLE = { level: 15, power: 1.2, loot: 0.2 };
+// Au cycle c, les monstres se calent sur le niveau de la grenouille (jamais sous celui de leur étape), leurs PV et dégâts
+// sont multipliés par CYCLE.power par cycle, et le butin est du plus haut rang, « +c-1 » : ses stats × (1 + CYCLE.loot
+// par +). Sans fin (réglé au simulateur).
+var CYCLE = { power: 1.25, loot: 0.2 };
 var playerCycle = 1;
 function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; return n <= 10 ? r[n] : String(n); }
 
@@ -107,6 +108,7 @@ function gainXp(save, amount) {
     gained++;
   }
   if (save.level >= MAX_LEVEL) save.xp = 0; // niveau maximum atteint
+  if (gained) playerLevel = save.level;
   return gained;
 }
 
@@ -781,8 +783,14 @@ Object.assign(ITEM_TIER, {
 });
 
 // ---------- Les objets du Continent : dix par terre (une arme de chaque type, et de quoi s'habiller) ----------
-// Tirés de la matière de leur terre (ses couleurs, son nom), et bien plus forts que ceux de l'île : sur le Continent,
-// c'est le butin qui fait avancer. Rang d'un objet = rang de sa terre (7 pour la Plaine des Vents… 22 pour l'Orage).
+// Tirés de la matière de leur terre (ses couleurs, son nom). Leur force part de celle des meilleurs objets de l'île et
+// monte en douceur de terre en terre (voir continentMain) : sur le Continent, c'est le butin qui fait avancer.
+// Rang d'un objet = rang de sa terre (7 pour la Plaine des Vents… 22 pour l'Orage).
+// continentMain(w) : l'attribut principal d'une arme commune de la terre w (≈ 13 à la Plaine des Vents, ≈ 130 à l'Orage) ;
+// les accessoires en valent le tiers. GEAR_VERSION : quand la courbe change, les exemplaires déjà trouvés sont recalculés.
+var GEAR_VERSION = 2;
+function continentMain(w) { var k = w - ISLAND_WORLDS, L = 8 * w + 5; return L * (0.24 + 0.035 * k); }
+function continentAcc(w) { return 0.33 * continentMain(w); }
 var CONTINENT_GEAR = {
   plaine: { de: 'des Vents', c: ['#e0c050', '#a8882a', '#fff0a0', '#6e4a2a', '#4a3018'], wave: ['#fff0a0', '#a8882a'], focus: 'agilite', hat: 'kasa' },
   bataille: { de: 'de guerre', c: ['#b0b4bc', '#6a6e78', '#e8ecf4', '#6a1a1a', '#3a0a0a'], wave: ['#e8ecf4', '#c9412f'], focus: 'force', hat: 'ecorce' },
@@ -809,8 +817,7 @@ var CONTINENT_GEAR = {
     if (!g) return;
     var t = w + 1, k = t - 6, col = g.c, from = 'Butin : ' + b.name + '.', add = {};
     var sec = function (not) { return g.focus !== not ? g.focus : 'vitalite'; };
-    // proportionnels au niveau de la terre (L) : l'arme donne à peu près le tiers de l'attribut principal d'une grenouille de ce niveau
-    var L = 8 * w + 5, main = R(1.1 * L), second = R(0.3 * L), acc = R(0.36 * L), accMain = Math.ceil(acc * 0.6);
+    var cm = continentMain(w), main = R(cm), second = R(0.27 * cm), acc = R(continentAcc(w)), accMain = Math.ceil(acc * 0.6);
     var pair = function (a, va, bb, vb) { var o = {}; o[a] = va; o[bb] = (o[bb] || 0) + vb; return o; };
     var accStats = function (slot) { var s2 = SECOND[slot] === g.focus ? 'force' : SECOND[slot]; return pair(g.focus, accMain, s2, acc - accMain); };
     add['c_' + b.id + '_baton'] = mkStaff('Bâton ' + g.de, pair('force', main, sec('force'), second), col, g.wave, 'Chaque coup libère une large onde de choc. ' + from, 2);
@@ -845,19 +852,19 @@ var RARITIES = {
 var RARITY_IDS = ['commun', 'rare', 'epique'];
 // Légendaire : une rareté à part, dorée, réservée à quelques modèles (bandeaux et capes) qu'on ne trouve que sur le
 // Continent, très rarement (LEGEND_CHANCE). Leurs stats suivent le rang de la terre où ils tombent.
-RARITIES.legendaire = { name: 'Légendaire', color: '#f0c040', mult: 1, extra: 0, price: 6 };
+RARITIES.legendaire = { name: 'Légendaire', color: '#ff8c1a', mult: 1, extra: 0, price: 6 };
 var ITEM_RARITIES = RARITY_IDS.concat(['legendaire']); // pour ranger les objets
 var LEGEND_CHANCE = { 0: 0.003, 1: 0.008, 2: 0.02 }; // par victoire sur le Continent : monstre commun, boss ou rare, épique
 function mkLegend(slot, name, stats, accent, desc) {
   var gold = ['#f0c040', '#b08a1a', '#fff6c0'], dark = accent[1];
   // weights : le poids de chaque caractéristique ; stats : celles d'un exemplaire tombé dans la première terre du Continent
-  var st = {}; Object.keys(stats).forEach(function (k) { st[k] = Math.round(stats[k] * 19); });
+  var st = {}; Object.keys(stats).forEach(function (k) { st[k] = Math.max(1, Math.round(stats[k] * continentAcc(ISLAND_WORLDS))); });
   var it = { slot: slot, name: name, stats: st, weights: stats, drop: 0, legend: true, desc: desc, colors: { 1: gold[0], 2: gold[1], 3: gold[2], 4: accent[0], b: dark } };
   if (slot === 'tete') { it.icon = 'bandeau'; it.look = { hat: 'bandeau' }; it.colors = { 1: gold[0], 2: gold[1], 3: accent[0], 4: gold[2] }; }
   else { it.icon = 'cape'; it.scarf = [gold[0], accent[0]]; it.look = { cape: true }; }
   return it;
 }
-// stats : le poids de chaque caractéristique (× le niveau de la terre où il tombe)
+// stats : le poids de chaque caractéristique (× la force d'un accessoire de la terre où il tombe)
 var LEGENDS = {
   leg_bandeau_soleil: mkLegend('tete', 'Bandeau du Soleil Levant', { force: 1.3, vitalite: 0.6, agilite: 0.4 }, ['#c9412f', '#6a1a1a'], 'Un bandeau d’or noué serré. On dit qu’il a vu mille aubes de combat.'),
   leg_bandeau_tonnerre: mkLegend('tete', 'Bandeau du Tonnerre', { agilite: 1.3, esprit: 0.6, force: 0.4 }, ['#6af0ff', '#2a6ab0'], 'Sa plaque crépite encore. Qui le porte frappe avant qu’on l’ait vu bouger.'),
@@ -872,7 +879,7 @@ Object.keys(LEGENDS).forEach(function (id) { ITEMS[id] = LEGENDS[id]; });
 // Un Légendaire tombe : un exemplaire dont les stats suivent le rang de la terre (et le cycle)
 function rollLegend(save, tier) {
   var ids = Object.keys(LEGENDS).filter(function (id) { return itemAvailable(save, id); }), base = ids[Math.floor(Math.random() * ids.length)];
-  var L = 8 * (tier - 1) + 5, unit = 0.36 * L * (1 + CYCLE.loot * Math.max(0, (save.cycle || 1) - 1)), stats = {};
+  var unit = continentAcc(Math.max(ISLAND_WORLDS, tier - 1)) * (1 + CYCLE.loot * Math.max(0, (save.cycle || 1) - 1)), stats = {};
   Object.keys(LEGENDS[base].weights).forEach(function (k) { stats[k] = Math.max(1, Math.round(LEGENDS[base].weights[k] * unit * (0.95 + Math.random() * 0.1))); });
   var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
   save.items[id] = { base: base, rar: 'legendaire', stats: stats };
@@ -983,7 +990,8 @@ function newSave() {
     skins: [], // les skins achetés
     clanBonus: { xp: 0, lucioles: 0 }, // les bonus de son clan
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
-    battle: { auto: false, speed: 1 }
+    battle: { auto: false, speed: 1 },
+    gear: GEAR_VERSION // la version de la courbe des objets du Continent (voir rescaleGear)
   };
 }
 
@@ -1026,6 +1034,11 @@ function parseSave(data) {
   // les exemplaires d'abord, pour que l'inventaire, l'étal et l'équipement les reconnaissent
   // avant la version 6, les armes de jet donnaient de la Force : leurs exemplaires passent à l'Agilité
   if (data.items && typeof data.items === 'object' && data.v < 6) Object.keys(data.items).forEach(function (id) { var it = data.items[id], b = it && ITEMS[it.base]; if (b && b.kind === 'kunai' && it.stats) it.stats = swapThrown(it.stats); });
+  if (data.items && typeof data.items === 'object' && (data.gear || 1) < GEAR_VERSION) {
+    var rescaled = 0;
+    Object.keys(data.items).forEach(function (id) { if (rescaleGear(data.items[id])) rescaled++; });
+    if (rescaled && save.hero && !save.notice) save.notice = 'Les objets du Continent ont été rééquilibrés : leur force monte maintenant en douceur depuis celle des objets de l’île. Tes ' + rescaled + ' objet' + (rescaled > 1 ? 's' : '') + ' du Continent ont été recalculés (et les monstres ajustés).';
+  }
   if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) { save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; if (ITEMS[id].plus) save.items[id].plus = ITEMS[id].plus; } });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
@@ -1069,6 +1082,23 @@ function parseSave(data) {
   if (Array.isArray(al.objets)) save.album.objets = al.objets.filter(function (id) { return ITEMS[id]; });
   if (Array.isArray(al.paliers)) save.album.paliers = al.paliers.filter(function (id) { return typeof id === 'string'; });
   return save;
+}
+
+// Un exemplaire du Continent tiré avec l'ancienne courbe : ses stats ramenées sur la nouvelle (même rareté, même tirage)
+function rescaleGear(inst) {
+  var b = inst && ITEMS[inst.base];
+  if (!b || !inst.stats || typeof inst.stats !== 'object') return false;
+  var ratio;
+  if (b.continent != null) ratio = continentMain(b.continent) / (1.1 * (8 * b.continent + 5));
+  else if (b.legend) {
+    // la terre où il est tombé : d'après ses stats (poids × 0,36 × L, au cycle près)
+    var wsum = 0, ssum = 0;
+    Object.keys(b.weights).forEach(function (k) { wsum += b.weights[k]; ssum += Math.max(0, inst.stats[k] || 0); });
+    var L = ssum / wsum / 0.36 / (1 + CYCLE.loot * (+inst.plus || 0)), w = Math.max(ISLAND_WORLDS, Math.min(BIOMES.length - 1, Math.round((L - 5) / 8)));
+    ratio = continentAcc(w) / (0.36 * (8 * w + 5));
+  } else return false;
+  Object.keys(inst.stats).forEach(function (k) { var v = inst.stats[k]; if (typeof v === 'number' && v > 0) inst.stats[k] = Math.max(1, Math.round(v * ratio)); });
+  return true;
 }
 
 // En ligne, chaque grenouille a sa propre copie locale (la partie hors ligne n'est jamais écrasée)
