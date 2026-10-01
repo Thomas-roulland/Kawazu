@@ -6,6 +6,7 @@
 <title>Kawazu — Ninja du marais</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&amp;text=0123456789&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/style.css">
 </head>
 <body>
@@ -68,6 +69,7 @@
     <div class="sb-foot">
       <span>Objets <b id="sb-items">4 / 19</b></span>
       <span class="sb-foot-btns">
+        <button id="open-keys" class="mute" title="Touches du clavier" aria-label="Touches du clavier"></button>
         <button id="open-save" class="mute" title="Sauvegarde" aria-label="Sauvegarde"></button>
         <button id="mute" class="mute" aria-pressed="false" title="Couper ou remettre le son (M)"></button>
       </span>
@@ -281,6 +283,18 @@
   </div>
 </div>
 
+<!-- Touches du clavier -->
+<div id="keys-modal" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-labelledby="keys-title">
+    <h2 id="keys-title">TOUCHES</h2>
+    <p>En combat, chaque case du deck a sa touche. Choisis la disposition de ton clavier, ou clique sur une touche pour la changer.</p>
+    <div id="keys-presets" class="keys-presets"></div>
+    <div id="keys-list" class="keys-list"></div>
+    <p id="keys-msg" class="keys-msg" role="status"></p>
+    <button id="keys-close" class="btn btn-ghost modal-close">Fermer</button>
+  </div>
+</div>
+
 <!-- Combat au tour par tour -->
 <div id="battle" hidden>
   <header class="bt-head">
@@ -307,10 +321,12 @@
     <div id="bt-skills" class="bt-skills"></div>
     <div class="bt-side">
       <div class="bt-controls">
-        <button id="bt-auto" class="bt-toggle" aria-pressed="false">Auto</button>
+        <button id="bt-auto" class="bt-toggle" aria-pressed="false">Auto <kbd id="bt-auto-key"></kbd></button>
+        <button id="bt-farm" class="bt-toggle bt-farm" aria-pressed="false" title="Farm : les combats s’enchaînent tout seuls, étape après étape (dans une terre déjà terminée)" hidden>Farm</button>
         <button class="bt-toggle" data-speed="1">×1</button>
         <button class="bt-toggle" data-speed="2">×2</button>
         <button class="bt-toggle" data-speed="4">×4</button>
+        <button id="bt-keys" class="bt-toggle bt-keys" title="Touches du clavier" aria-label="Touches du clavier"></button>
       </div>
       <div id="bt-log" class="bt-log" aria-live="polite"></div>
     </div>
@@ -334,6 +350,7 @@
 <script src="src/shop.js"></script>
 <script src="src/cascade.js"></script>
 <script src="src/feats.js"></script>
+<script src="src/keys.js"></script>
 <script src="src/battle.js"></script>
 <script src="src/hub.js"></script>
 </body>

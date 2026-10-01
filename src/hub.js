@@ -2808,11 +2808,57 @@
       (m ? '<path d="M13 7l5 6M18 7l-5 6"/>' : '<path d="M13 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10"/>') + '</svg>';
   }
   $('open-save').innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 3h11l3 3v11H3z M6 4v4h7V4z M6 11v5h8v-5z" fill-rule="evenodd"/></svg>';
+  var KEYS_SVG = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 5h18v11H1z M3 7v2h2V7z M6 7v2h2V7z M9 7v2h2V7z M12 7v2h2V7z M15 7v2h2V7z M3 10v2h2v-2z M6 10v2h8v-2z M15 10v2h2v-2z M5 13v1h10v-1z"/></svg>';
+  $('open-keys').innerHTML = KEYS_SVG;
+  $('bt-keys').innerHTML = KEYS_SVG;
   window.addEventListener('keydown', function (e) {
     if (!visible || !$('title').hidden) return;
-    if (e.code === 'KeyM' && e.target.tagName !== 'INPUT') { Sfx.toggle(); renderMute(); }
-    if (e.code === 'Escape') $('save-modal').hidden = true;
+    if ((e.key === 'm' || e.key === 'M') && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) { Sfx.toggle(); renderMute(); }
+    if (e.code === 'Escape') { $('save-modal').hidden = true; closeKeys(); }
   });
+
+  // ---------- Touches du clavier : disposition QWERTY / AZERTY, ou une touche par action à la main ----------
+  var keyWait = null; // l'action qui attend sa nouvelle touche
+  var KEYS_HELP = 'Les chiffres 1 à 5 marchent toujours aussi. M coupe le son.';
+  function renderKeys() {
+    $('keys-presets').innerHTML = Object.keys(KEY_PRESETS).map(function (id) {
+      var on = Keys.layout() === id;
+      return '<button data-keys-preset="' + id + '"' + (on ? ' class="is-on"' : '') + ' aria-pressed="' + on + '">' + KEY_PRESETS[id].name + '</button>';
+    }).join('') + (Keys.layout() === 'perso' ? '<button class="is-on" disabled>Perso</button>' : '');
+    $('keys-list').innerHTML = KEY_ACTIONS.map(function (a) {
+      var w = keyWait === a.id;
+      return '<div class="keys-row"><span>' + a.name + '</span><button data-keys-bind="' + a.id + '"' + (w ? ' class="waiting"' : '') + '>' + (w ? 'Appuie sur une touche…' : Keys.label(a.id)) + '</button></div>';
+    }).join('');
+    window.dispatchEvent(new Event('kawazu-keys'));
+  }
+  function openKeys() { keyWait = null; $('keys-msg').textContent = KEYS_HELP; renderKeys(); $('keys-modal').hidden = false; }
+  function closeKeys() { keyWait = null; $('keys-modal').hidden = true; }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button');
+    if (t && (t.id === 'open-keys' || t.id === 'bt-keys')) { Sfx.play('click'); openKeys(); }
+  });
+  $('keys-modal').addEventListener('click', function (e) {
+    var t = e.target.closest('button');
+    if (e.target === $('keys-modal') || (t && t.id === 'keys-close')) { closeKeys(); return; }
+    if (!t) return;
+    if (t.dataset.keysPreset) { Keys.usePreset(t.dataset.keysPreset); keyWait = null; $('keys-msg').textContent = KEYS_HELP; Sfx.play('click'); renderKeys(); return; }
+    if (t.dataset.keysBind) { keyWait = keyWait === t.dataset.keysBind ? null : t.dataset.keysBind; Sfx.play('click'); renderKeys(); }
+  });
+  // la nouvelle touche, attrapée avant tout le reste (Échap annule)
+  window.addEventListener('keydown', function (e) {
+    if (!keyWait || $('keys-modal').hidden) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.key === 'Escape') { keyWait = null; renderKeys(); return; }
+    var k = Keys.norm(e), was = keyWait;
+    if (!k || ['shift', 'control', 'alt', 'meta', 'altgraph', 'capslock'].indexOf(k) >= 0) return; // une vraie touche, pas un modificateur
+    if (KEYS_RESERVED.indexOf(k) >= 0) { $('keys-msg').textContent = '« ' + Keys.keyLabel(k) + ' » sert déjà au jeu : choisis-en une autre.'; return; }
+    var other = KEY_ACTIONS.filter(function (a) { return a.id !== was && Keys.key(a.id) === k; })[0];
+    Keys.set(was, k);
+    keyWait = null;
+    $('keys-msg').textContent = other ? '« ' + Keys.keyLabel(k) + ' » était prise par « ' + other.name + ' » : les deux ont échangé leurs touches.' : 'C’est noté.';
+    Sfx.play('click');
+    renderKeys();
+  }, true);
 
   // ---------- Démarrage : la grenouille du compte (en ligne) ou la partie locale ----------
   function bootOnline() {

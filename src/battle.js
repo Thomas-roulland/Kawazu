@@ -157,11 +157,20 @@ var BattleScene = (function () {
     $('bt-enemy-status').textContent = statusText(E);
     renderSkills();
     $('bt-auto').classList.toggle('is-on', save.battle.auto);
+    $('bt-auto-key').textContent = Keys.label('auto');
+    $('bt-farm').hidden = !farmable();
+    $('bt-farm').classList.toggle('is-on', !!farm);
+    $('bt-farm').setAttribute('aria-pressed', farm ? 'true' : 'false');
     $('bt-auto').setAttribute('aria-pressed', save.battle.auto ? 'true' : 'false');
     Array.prototype.forEach.call(document.querySelectorAll('[data-speed]'), function (b) {
       b.classList.toggle('is-on', +b.dataset.speed === save.battle.speed);
     });
   }
+
+  // Le farm : seulement sur les étapes d'une terre déjà terminée. farm = { n, xp, gold, loot } pendant qu'il tourne.
+  var farm = null;
+  function farmable() { return fight && fight.kind === 'stage' && save.progress[fight.biomeIndex] >= STAGES; }
+  function farmNext() { start(save, stageFight(save, fight.biomeIndex, fight.stage < STAGES ? fight.stage + 1 : 1), onEnd); }
 
   function ready(f, s) { return !(f.cds[s.id] > 0); }
   function renderSkills() {
@@ -170,7 +179,7 @@ var BattleScene = (function () {
       var meta = left ? 'prêt dans ' + left + ' tour' + (left > 1 ? 's' : '') : (s.base ? 'attaque de base' : 'relance ' + cd + ' tour' + (cd > 1 ? 's' : ''));
       return '<button class="bt-skill' + (left ? ' on-cd' : '') + '" data-skill="' + s.id + '"' + (!left && !busy && !over ? '' : ' disabled') +
         ' style="--voie:' + voieDef(s.voie).color + '" title="' + s.desc + '">' +
-        '<span class="bt-key">' + (i + 1) + '</span><span class="bt-sname">' + s.name + '</span>' +
+        '<span class="bt-key">' + Keys.label('s' + (i + 1)) + '</span><span class="bt-sname">' + s.name + '</span>' +
         '<span class="bt-smeta">' + meta + '</span>' + (left ? '<b class="bt-cd">' + left + '</b>' : '') + '</button>';
     }).join('');
   }
@@ -1221,6 +1230,7 @@ var BattleScene = (function () {
       if (fight.stage === STAGES && BIOMES[fight.biomeIndex + 1]) unlocked = BIOMES[fight.biomeIndex + 1];
     }
     writeSave(save);
+    if (farm) { farm.n++; farm.xp += xp; farm.gold += gold; if (loot) farm.loot++; }
     if (levels) sfx('levelup'); else if (loot) sfx('pickup');
     showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked });
   }
@@ -1248,14 +1258,27 @@ var BattleScene = (function () {
     } else {
       html += '<p>' + heroName() + ' retourne au camp soigner ses blessures. Répartis tes points ou change d’équipement, puis réessaie !</p>';
     }
-    var hasNext = win && fight.kind === 'stage' && fight.stage < STAGES;
-    html += '<div class="bt-result-actions">' +
-      (hasNext ? '<button class="btn" data-result="next">Étape suivante ▶</button>' : '') +
-      '<button class="btn' + (hasNext ? ' btn-ghost' : '') + '" data-result="back">Retour</button></div>';
+    if (farm && !win) { html += '<p class="bt-farm-sum">Farm arrêté par la défaite · ' + farmSum() + '</p>'; farm = null; renderHud(); }
+    if (farm) {
+      html += '<p class="bt-farm-sum">Farm · ' + farmSum() + '</p><p class="bt-farm-next">Combat suivant…</p>' +
+        '<div class="bt-result-actions"><button class="btn" data-result="farm-stop">Arrêter le farm</button><button class="btn btn-ghost" data-result="back">Retour</button></div>';
+      var t = token;
+      setTimeout(function () { if (t === token && farm && !$('battle').hidden) farmNext(); }, 1600 / speed());
+    } else {
+      var hasNext = win && fight.kind === 'stage' && fight.stage < STAGES;
+      html += '<div class="bt-result-actions">' +
+        (hasNext ? '<button class="btn" data-result="next">Étape suivante ▶</button>' : '') +
+        '<button class="btn' + (hasNext ? ' btn-ghost' : '') + '" data-result="back">Retour</button></div>';
+    }
     box.innerHTML = html;
     box.hidden = false;
     box.dataset.win = win ? '1' : '0';
     box.querySelector('button').focus();
+    lastResult = { win: win, info: info };
+  }
+  var lastResult = null;
+  function farmSum() {
+    return farm.n + ' victoire' + (farm.n > 1 ? 's' : '') + ' · +' + farm.xp + ' XP · +' + farm.gold + ' lucioles' + (farm.loot ? ' · ' + farm.loot + ' objet' + (farm.loot > 1 ? 's' : '') : '');
   }
 
   // ---------- Boucle d'animation ----------
@@ -1461,6 +1484,7 @@ var BattleScene = (function () {
 
   function close(result) {
     token++;
+    farm = null;
     cancelAnimationFrame(raf);
     $('battle').hidden = true;
     if (onEnd) onEnd(result, fight);
@@ -1477,23 +1501,41 @@ var BattleScene = (function () {
       if (save.battle.auto && !busy && !over) act(aiPick(P, E));
       return;
     }
+    if (t.id === 'bt-farm') {
+      Sfx.play('click');
+      if (farm) { farm = null; renderHud(); return; }
+      if (!farmable()) return;
+      farm = { n: 0, xp: 0, gold: 0, loot: 0 };
+      save.battle.auto = true; writeSave(save); renderHud(); // le farm se bat tout seul
+      if (over && lastResult && lastResult.win) farmNext(); // lancé depuis l'écran de victoire : on repart
+      else if (!busy && !over) act(aiPick(P, E));
+      return;
+    }
     if (t.dataset.speed) { save.battle.speed = +t.dataset.speed; writeSave(save); renderHud(); Sfx.play('click'); return; }
     if (t.id === 'bt-flee') { if (!over) { Sfx.play('click'); close('flee'); } return; }
     if (t.dataset.result) {
       var win = $('bt-result').dataset.win === '1';
       if (t.dataset.result === 'again') { start(save, fight.again(), onEnd); return; }
+      if (t.dataset.result === 'farm-stop') { farm = null; token++; renderHud(); showResult(true, lastResult.info); return; }
       if (t.dataset.result === 'next') {
         var nf = fight.next ? fight.next() : stageFight(save, fight.biomeIndex, fight.stage + 1);
         start(save, nf, onEnd);
       } else close(win ? 'win' : 'lose');
     }
   });
+  // Le clavier : les touches réglées dans « Touches » (QWERTY, AZERTY ou à la main), et les chiffres
   window.addEventListener('keydown', function (e) {
-    if ($('battle').hidden || over) return;
-    var n = parseInt(e.key, 10);
-    if (n >= 1 && n <= 9 && P.skills[n - 1]) act(P.skills[n - 1]);
-    if (e.code === 'KeyA') { $('bt-auto').click(); }
+    if ($('battle').hidden || over || e.repeat || !$('keys-modal').hidden) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    var a = Keys.actionOf(e);
+    if (!a) return;
+    e.preventDefault();
+    if (a === 'auto') { $('bt-auto').click(); return; }
+    var s = P.skills[+a.slice(1) - 1];
+    if (s) act(s);
   });
+  // se rafraîchit quand on change les touches pendant un combat
+  window.addEventListener('kawazu-keys', function () { if (!$('battle').hidden) renderHud(); });
 
   return { start: start };
 })();
