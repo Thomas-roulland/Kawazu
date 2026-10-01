@@ -71,13 +71,18 @@ function makeWorldMap(cfg) {
     blobs.push({ x: (REGIONS[bi].x + REGIONS[bi - 1].x) / 2, y: (REGIONS[bi].y + REGIONS[bi - 1].y) / 2, r: cfg.bridge || 60 });
   }
   (cfg.blobs || []).forEach(function (b) { blobs.push(b); });
+  // la distance au bord de la carte : près du cadre, la mer redevient profonde (les terres qui le touchaient y gagnent
+  // une vraie côte), pour se fondre dans la haute mer qui entoure la carte à l'écran
+  var EDGE = 34;
+  function edgeDist(x, y) { return Math.min(x, y, W - 1 - x, H - 1 - y); }
   function landField(x, y) {
     var best = 1e9;
     for (var i = 0; i < blobs.length; i++) {
       var b = blobs[i], dd = Math.hypot(x - b.x, y - b.y) - b.r;
       if (dd < best) best = dd;
     }
-    return best + (vnoise(x, y, 22, 5) - 0.5) * 22 + (vnoise(x, y, 7, 6) - 0.5) * 6;
+    var v = best + (vnoise(x, y, 22, 5) - 0.5) * 22 + (vnoise(x, y, 7, 6) - 0.5) * 6, e = edgeDist(x, y) + (vnoise(x, y, 26, 91) - 0.5) * 20; // (une côte qui serpente)
+    return e < EDGE ? Math.max(v, (EDGE - e) * 2.2) : v;
   }
   function nearest(x, y) {
     var bi2 = 0, bd = 1e9;
@@ -286,6 +291,9 @@ function makeWorldMap(cfg) {
         if (open(o)) locked.forEach(function (l) { cl = Math.min(cl, reach(l) - pastBorder(x, y, o, l)); });
         else { var dist = 1e9; unlocked.forEach(function (u) { dist = Math.min(dist, pastBorder(x, y, u, o)); }); cl = reach(o) - dist; }
         clear[i] = cl + (vnoise(x, y, 26, 77) - 0.5) * 44 + (vnoise(x, y, 9, 78) - 0.5) * 16;
+        // les nuages s'effilochent avant le bord de la carte (une lisière irrégulière, puis la mer)
+        var ed = edgeDist(x, y), lift = (22 - ed) * 5 + (vnoise(x, y, 34, 79) - 0.5) * 80 + (vnoise(x, y, 9, 80) - 0.5) * 20;
+        if (lift > 0) clear[i] = Math.max(clear[i], lift);
       }
     }
     var CLOUD = [hex('#a2a8b8'), hex('#c4c8d3'), hex('#e0e3e9'), hex('#f3f4f6')], RIM = hex('#ffffff');

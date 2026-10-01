@@ -119,7 +119,9 @@ Les **lucioles** sont la monnaie du jeu.
   Un **sentier** traverse chaque région avec ses 10 étapes (réussies, prochaine, gardiens, boss) ;
   la grenouille avance dessus à chaque victoire. Les terres fermées sont sous la **brume** : on ne voit qu’un bout de la suivante.
   La carte s’ouvre **centrée sur l’étape en cours** ; on la **promène** en la glissant (souris ou doigt), un bouton
-  ramène à sa grenouille, et autour, la haute mer se répète à l’infini, en pixels. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
+  ramène à sa grenouille, et autour, la haute mer se répète à l’infini, en pixels : près du cadre, chaque carte
+  redevient haute mer (les terres qui le touchaient y gagnent une côte qui serpente, les nuages de la brume s’effilochent
+  avant le bord), pour s’y fondre sans coupure. Chaque région a 10 étapes (gardiens aux étapes 4 et 7, boss à la 10e) ; battre le
   boss ouvre la région suivante. Un clic sur une étape ouvre son panneau, directement sur la carte : un **combat** (XP, lucioles, chance d’objet) ou une **expédition** en temps réel
   (30 s, 1 min 30 ou 4 min) qui rapporte sans combattre, mais bloque les combats pendant ce temps.
 - **Boutique** : l’intérieur de la cabane de l’Aïeule Gamako, en plein écran. Ses objets sont posés
