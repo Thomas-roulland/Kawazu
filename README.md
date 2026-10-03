@@ -270,7 +270,7 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   fond. Leurs **douze créatures n’existent nulle part ailleurs** (gargouille, mimique, spectre, liche, golem runique,
   minotaure, chimère, basilic, feu-follet, crâne flottant, hydre, œil flottant), et leurs **objets Uniques** non plus :
   dix modèles par donjon, à ses couleurs et à ses noms (« Couperet des Gargouilles »), une rareté vert rayonnant plus
-  forte qu’un Épique (×2,3 au lieu de ×2,1 ; ×2,6 jusqu’au 4 octobre 2026, les anciens ont été recalculés une fois) (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
+  forte qu’un Épique (×2,3, contre ×2,1 pour un Épique ; ×2,6 jusqu’au 4 octobre 2026, les anciens ont été recalculés une fois) (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
   arrivant à leur niveau avec des objets Rares, les salles du milieu se perdent souvent et le boss ne tombe qu’une fois
   sur trois ou quatre) et bien payés : une salle rapporte près d’un cinquième de niveau, le gardien un tiers, le boss
   presque un niveau. **Un seul passage** : un monstre vaincu ne revient pas, un donjon fini est **nettoyé** ; battu,
