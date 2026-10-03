@@ -132,9 +132,11 @@ Les **lucioles** sont la monnaie du jeu.
   **5 fois par jour** au plus, et chaque relance coûte le double de la précédente (le prix de départ suit le niveau).
 - **Skins** : une cabane en plein écran (planches, fenêtre ronde sous la lune, lanternes, portants de kimonos) ; la
   grenouille est **au milieu**, sur son tapis, et **essaie** le skin choisi (de face, de profil ou de dos, avec son
-  équipement). **Trois skins par jour** sont en vente, tirés parmi les 10 et les mêmes pour tout le monde (renouvelés
-  à minuit) : Gloupoison, Écumette, Pousse-Mare, Cogneur, Ombre-Lame, Grignote, Rouquin, Rempart, Maître Mousse et
-  Parrain Vasard, très chers : de 45 000 à 60 000 lucioles. Chacun a ses signes : le masque, les joues gonflées et les doigts luisants
+  équipement). **Trois skins par jour** sont en vente, tirés parmi les 30 et les mêmes pour tout le monde (renouvelés
+  à minuit) : Gloupoison, Écumette, Pousse-Mare, Cogneur, Ombre-Lame, Grignote, Rouquin, Rempart, Maître Mousse,
+  Parrain Vasard, et vingt de plus (Braise, Givrette, Nénuphette, Tourbe, Orchidée, Cuivre, Nuit étoilée, Citronnelle,
+  Corsaire, Rōnin des Joncs, Lavande, Cendrillard, Arlequin, Dune, Moussaillon, Écorce, Perle des mers, Dard noir,
+  Feu follet, Tonnerre), de 35 000 à 60 000 lucioles. Chacun a ses signes : le masque, les joues gonflées et les doigts luisants
   de Gloupoison, la collerette d’écume d’Écumette, la vrille de Pousse-Mare, les gants rouges et la ceinture de
   Cogneur, le masque de nuit et le foulard violet d’Ombre-Lame, les gilets de Grignote et de Rouquin, les cornes, l’obi
   et le bouclier de Rempart, la touffe et la cape de Maître Mousse, la pipe et la cicatrice du Parrain… Les skins achetés et les
@@ -173,7 +175,12 @@ Les **lucioles** sont la monnaie du jeu.
     2e et 3e, puis 150 et 100 lucioles. Le classement des duels est dans la page Classement (onglet Duels).
   - **Entraînement** : l’**arbre d’entraînement**, 10 tours pour tester équipement, points et sorts, immobile ou
     qui riposte, puis le bilan (dégâts, par tour, meilleur coup, critiques, dégâts reçus). Sans récompense ni limite.
-- **Clans** (avec un compte) : les guildes du marais. On **fonde** un clan (300 lucioles, un nom et un **blason** :
+- **Clans** (avec un compte) : les guildes du marais. Le chef donne des **rôles** : deux **bras droits** (ils excluent
+  les membres, déclarent la guerre, dépensent le trésor et changent le blason) et trois **vétérans** (un titre
+  d’honneur) ; il peut aussi **passer la main** (il devient bras droit), et si le chef part, un bras droit prend la
+  suite. **Chaque assaut** contre l’Alpha rapporte des lucioles, de l’XP (plus on fait mal, plus il en rapporte) et
+  une chance d’objet. Une fois le Savoir (XP) et la Bourse (lucioles) au plus haut, trois **bonus avancés** s’ouvrent :
+  le Flair (+2 % de chances d’objet par niveau), la Force (+1 % de dégâts) et la Carapace (+1 % de PV) du clan. On **fonde** un clan (300 lucioles, un nom et un **blason** :
   5 icônes — grenouille, nénuphar, shuriken, katanas, lune —, 8 fonds et 6 couleurs de motif ; le chef peut le changer)
   ou on en **rejoint** un, jusqu’à **10 grenouilles** ; un chef qui part laisse sa place, un clan vide disparaît.
   Le **chef** peut **exclure** une grenouille (deux clics) : elle l’apprend en revenant et ne peut pas revenir avant 3 jours.
@@ -225,6 +232,16 @@ Les **lucioles** sont la monnaie du jeu.
   leurs décors (haies, palissades, grès, glace, lave, tombes, nuages, vide…), leur ambiance au camp et **14 nouvelles
   espèces** (rats, corbeaux, scarabées, serpents, scorpions, squelettes, fantômes, golems, salamandres, fées, plantes
   carnivores, loups, araignées, chevaliers) et un **dragon** pour les deux derniers boss. Niveaux 49 à 178.
+- **Un rythme rapide** : l’XP d’un combat est une part d’un niveau du monstre (un ordinaire à ton niveau ≈ un quart
+  de niveau, gardien ×1,8, boss ×3) : finir une terre fait gagner ~3,5 niveaux, une vingtaine de combats de plus font
+  le reste (au lieu de heures de farm). Les objets du Continent montent fort de terre en terre, et le Rare (×1,5) et
+  l’Épique (×2,1) pèsent : une trouvaille se sent (un boss passé à 34 % en commun l’est à ~80 % en rare).
+- **Les Donjons**, comme dans Shakes & Fidget : trente donjons, un tous les dix niveaux de la grenouille (10 à 300), dix
+  salles chacun, des monstres d’un niveau de plus à chaque salle (un gardien à la 5e) et un boss à lui au fond, dans le
+  décor d’une terre de son niveau, plongé dans le noir. La première victoire dans une salle rapporte beaucoup d’XP et
+  de lucioles, 30 % de chance d’objet et **12 % d’objet Unique** (25 % au boss) ; un donjon vidé, son boss se redéfie
+  une fois par jour. **Unique** : une rareté **vert rayonnant**, plus forte qu’un Épique, et chaque exemplaire porte le
+  nom de son donjon (« Katana de la Crypte »).
 - **Une difficulté qui monte en pente douce** (réglée au simulateur, grenouille au niveau de l’étape, objets communs
   de sa terre) : sur l’île, les ordinaires restent du gibier, mais gardiens et boss demandent **un peu de farm** —
   boss gagnés ~100 % au Marais-Brume, puis 92, 80, 71, 60 et ~50 % pour le Héron (77 à 100 % avec 3 niveaux de plus).
@@ -326,6 +343,7 @@ puissance des voies.
 - `jeu.html`, `src/style.css` : le jeu, ses pages et son style (bois, dorures, parchemin)
 - `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
+- `src/donjons.js` : les Donjons (leurs salles, leurs boss, les objets Uniques, les portes en pixel art)
 - `src/tower.js` : la Tour des Cent Sages (les sages, leurs récompenses, la pagode et ses cascades, l’arène) ; `src/album.js` : le bestiaire, les objets, les chapitres du livre et les paliers
 - `src/cascade.js` : le décor de la Cascade des duels (page et arène, eau animée) ; les duels eux-mêmes sont dans `src/hub.js` et `src/battle.js` (et côté serveur, les routes `/api/dojo`) ; les Clans sont dans `src/hub.js` (et `/api/clans` côté serveur), leurs Alphas dans `src/worlds.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio

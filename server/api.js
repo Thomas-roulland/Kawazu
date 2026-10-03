@@ -23,7 +23,8 @@
 //   POST /api/clans/:id/blason { blason }               le chef change le blason (icône, fond, motif)
 //   POST /api/clans/:id/don { montant }                 un don au trésor du clan (pris sur les lucioles de la grenouille)
 //   POST /api/clans/:id/ameliorer { bonus }             le chef améliore un bonus du clan (xp ou lucioles) avec le trésor
-//   POST /api/clans/:id/exclure { membre }              le chef exclut une grenouille (qui ne peut pas revenir avant 3 jours)
+//   POST /api/clans/:id/exclure { membre }              le chef (ou un bras droit) exclut une grenouille (3 jours sans revenir)
+//   POST /api/clans/:id/role { membre, role }           le chef donne un rôle : bras droit, vétéran, membre, ou lui passe la main (chef)
 //   POST /api/clans/:id/raid { degats }                 une attaque contre l'Alpha de son clan
 //   POST /api/clans/:id/guerre { cible }                le chef déclare la guerre à un autre clan (5 grenouilles au moins)
 //   POST /api/clans/:id/defi { adversaire }             un combat de la guerre : la fiche de la grenouille d'en face
@@ -47,7 +48,7 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
+const ALL_SKINS = SKINS.concat(['braise', 'givrette', 'nenuphette', 'tourbe', 'orchidee2', 'cuivre', 'nuitetoilee', 'citronnelle', 'corsaire', 'ronin', 'lavande', 'cendrillard', 'arlequin', 'dune', 'moussaillon', 'ecorce2', 'perle', 'dardnoir', 'feufollet', 'tonnerre', 'ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
 // les skins renommés : une sauvegarde pas encore relue par le jeu les porte encore sous leur ancien nom
 const RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
   gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
@@ -361,6 +362,16 @@ const CLAN_MAX = 10, RAIDS_PAR_JOUR = 2, RAID_TOURS = 10, EXCLU_JOURS = 3;
 const BLASON = { icone: 5, fond: 8, motif: 6 }; // le nombre d'icônes, de fonds et de couleurs de motif (voir le jeu)
 const BONUS_MAX = 10, BONUS_PAS = 0.02, DON_MAX = 100000;
 const bonusCost = (n) => 1000 * (n + 1) * (n + 2); // 2 000, 6 000, 12 000… 110 000 pour le dixième niveau
+// Les bonus avancés, ouverts une fois l'XP et les lucioles au plus haut : le butin (chance d'objet), la force (dégâts)
+// et la carapace (PV) de tout le clan ; un peu plus chers
+const BONUS_AVANCES = { butin: 0.02, force: 0.01, vie: 0.01 };
+const bonusCost2 = (n) => 1500 * (n + 1) * (n + 2);
+// Les rôles : le chef nomme des bras droits (ils excluent, déclarent la guerre, dépensent le trésor, changent le blason)
+// et des vétérans (un titre d'honneur) ; il peut aussi passer la main
+const ROLES = { bras: { nom: 'Bras droit', max: 2 }, veteran: { nom: 'Vétéran', max: 3 } };
+const roleOf = (m, f) => (m.chef === f ? 'chef' : ((m.roles || {})[f] || 'membre'));
+const canManage = (m, f) => m.chef === f || (m.roles || {})[f] === 'bras';
+const bonusLvl = (m, k) => (m.bonus && m.bonus[k]) || 0;
 const alphaLoot = (rang) => 500 + 300 * rang, GUERRE_BUTIN = { victoire: 2000, nulle: 500, defaite: 0 };
 const GUERRE_MIN = 5, GUERRE_DUREE = +process.env.KAWAZU_GUERRE_MS || 24 * 3600e3, GUERRE_ATTAQUES = 3, GUERRE_REPOS = 3 * 86400e3; // (une guerre plus courte pour les tests)
 const alphaHp = (rang) => Math.round(20000 * Math.pow(1.6, rang)); // la même règle que le jeu (src/worlds.js)
@@ -390,8 +401,13 @@ async function leaveClan(frogId) {
   if (!m) return null;
   m.membres = m.membres.filter((x) => x !== frogId);
   delete m.raid.parts[frogId];
+  if (m.roles) delete m.roles[frogId];
   if (!m.membres.length) { await Promise.all([store.del('clan:' + m.id), store.hdel(CLANS, m.id)]); return null; }
-  if (m.chef === frogId) { m.chef = m.membres[0]; const f = (await store.hgetall(RANK))[m.chef]; m.chefNom = f ? f.nom : ''; }
+  if (m.chef === frogId) { // un bras droit prend la suite, sinon la première grenouille
+    m.chef = m.membres.filter((f) => (m.roles || {})[f] === 'bras')[0] || m.membres[0];
+    if (m.roles) delete m.roles[m.chef];
+    const f = (await store.hgetall(RANK))[m.chef]; m.chefNom = f ? f.nom : '';
+  }
   await saveClan(m);
   return m;
 }
@@ -441,17 +457,23 @@ async function clanRoute(req, res, account, id, action, method) {
     const out = {
       clan: null, liste: liste.slice(0, 30), max: CLAN_MAX, tours: RAID_TOURS, cadeaux: gifts || [], exclu: exclu || null,
       raids: RAIDS_PAR_JOUR - day.raids, raidsMax: RAIDS_PAR_JOUR, guerreMin: GUERRE_MIN, guerre: null, cibles: [],
-      bonus: { xp: 0, lucioles: 0 }, butin: { max: BONUS_MAX, pas: BONUS_PAS, alpha: m ? alphaLoot(m.raid.rang) : alphaLoot(0), guerre: GUERRE_BUTIN.victoire }
+      bonus: { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 }, roles: ROLES,
+      butin: { max: BONUS_MAX, pas: BONUS_PAS, avances: BONUS_AVANCES, alpha: m ? alphaLoot(m.raid.rang) : alphaLoot(0), guerre: GUERRE_BUTIN.victoire }
     };
     if (exclu) await store.del('clan-exclu:' + id); // on ne le dit qu'une fois
     if (m) {
       out.clan = Object.assign({}, m, {
         bannis: undefined, repos: undefined,
-        membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0, don: m.dons[f] || 0 }, fiches[f] || { id: f, nom: '?' })),
+        membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0, don: m.dons[f] || 0, role: roleOf(m, f) }, fiches[f] || { id: f, nom: '?' })),
+        bonus: { xp: bonusLvl(m, 'xp'), lucioles: bonusLvl(m, 'lucioles'), butin: bonusLvl(m, 'butin'), force: bonusLvl(m, 'force'), vie: bonusLvl(m, 'vie') },
+        monRole: roleOf(m, id),
         place: liste.findIndex((x) => x.id === m.id) + 1
       });
-      out.bonus = { xp: m.bonus.xp * BONUS_PAS, lucioles: m.bonus.lucioles * BONUS_PAS }; // ce que le jeu applique
-      out.butin.couts = { xp: m.bonus.xp < BONUS_MAX ? bonusCost(m.bonus.xp) : 0, lucioles: m.bonus.lucioles < BONUS_MAX ? bonusCost(m.bonus.lucioles) : 0 };
+      out.bonus = { xp: bonusLvl(m, 'xp') * BONUS_PAS, lucioles: bonusLvl(m, 'lucioles') * BONUS_PAS }; // ce que le jeu applique
+      Object.keys(BONUS_AVANCES).forEach((k) => { out.bonus[k] = bonusLvl(m, k) * BONUS_AVANCES[k]; });
+      out.butin.couts = { xp: bonusLvl(m, 'xp') < BONUS_MAX ? bonusCost(bonusLvl(m, 'xp')) : 0, lucioles: bonusLvl(m, 'lucioles') < BONUS_MAX ? bonusCost(bonusLvl(m, 'lucioles')) : 0 };
+      Object.keys(BONUS_AVANCES).forEach((k) => { out.butin.couts[k] = bonusLvl(m, k) < BONUS_MAX ? bonusCost2(bonusLvl(m, k)) : 0; });
+      out.butin.ouverts = bonusLvl(m, 'xp') >= BONUS_MAX && bonusLvl(m, 'lucioles') >= BONUS_MAX;
       if (m.guerre) { const w = await store.get('guerre:' + m.guerre); if (w) out.guerre = warView(w, m, id, fiches); }
       else out.cibles = liste.filter((c) => c.id !== m.id && c.membres >= GUERRE_MIN && !(c.guerreFin > Date.now()) && !((m.repos[c.id] || 0) + GUERRE_REPOS > Date.now()))
         .map((c) => ({ id: c.id, nom: c.nom, blason: c.blason, membres: c.membres, renommee: c.renommee }));
@@ -497,22 +519,43 @@ async function clanRoute(req, res, account, id, action, method) {
   if (!m) return send(res, 400, { erreur: 'Ta grenouille n’est dans aucun clan.' });
   if (action === 'blason' && method === 'POST') {
     const b = await readBody(req, 4096);
-    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut changer son blason.' });
+    if (!canManage(m, id)) return send(res, 403, { erreur: 'Seuls le chef et ses bras droits peuvent changer le blason.' });
     m.blason = parseBlason(b.blason);
     await saveClan(m);
     return send(res, 200, { ok: true, blason: m.blason });
   }
   if (action === 'exclure' && method === 'POST') {
     const b = await readBody(req, 4096), target = String(b.membre || '');
-    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut exclure une grenouille.' });
+    if (!canManage(m, id)) return send(res, 403, { erreur: 'Seuls le chef et ses bras droits peuvent exclure une grenouille.' });
     if (target === id) return send(res, 400, { erreur: 'Pour partir, quitte le clan.' });
     if (m.membres.indexOf(target) < 0) return send(res, 404, { erreur: 'Cette grenouille n’est pas dans ton clan.' });
+    if (m.chef !== id && (target === m.chef || (m.roles || {})[target] === 'bras')) return send(res, 403, { erreur: 'Un bras droit ne peut pas exclure le chef ni un autre bras droit.' });
     const left = await leaveClan(target), them = (fiches[target] || {}).nom || '?';
     left.bannis = left.bannis || {};
     Object.keys(left.bannis).forEach((f) => { if (left.bannis[f] < Date.now()) delete left.bannis[f]; }); // les exclusions passées
     left.bannis[target] = Date.now() + EXCLU_JOURS * 86400e3;
     clanLog(left, { type: 'exclusion', nom: me.nom, cible: them });
     await Promise.all([saveClan(left), store.set('clan-exclu:' + target, left.nom)]);
+    return send(res, 200, { ok: true });
+  }
+  if (action === 'role' && method === 'POST') { // le chef donne un rôle, ou passe la main
+    const b = await readBody(req, 4096), target = String(b.membre || ''), role = ['bras', 'veteran', 'membre', 'chef'].indexOf(b.role) >= 0 ? b.role : null;
+    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan donne les rôles.' });
+    if (!role) return send(res, 400, { erreur: 'Ce rôle n’existe pas.' });
+    if (target === id) return send(res, 400, { erreur: 'Tu es déjà le chef.' });
+    if (m.membres.indexOf(target) < 0) return send(res, 404, { erreur: 'Cette grenouille n’est pas dans ton clan.' });
+    m.roles = m.roles || {};
+    const them = (fiches[target] || {}).nom || '?';
+    if (role === 'chef') { // passer la main : l'ancien chef devient bras droit
+      m.chef = target; m.chefNom = them; delete m.roles[target]; m.roles[id] = 'bras';
+    } else if (role === 'membre') delete m.roles[target];
+    else {
+      const n = m.membres.filter((f) => f !== target && m.roles[f] === role).length;
+      if (n >= ROLES[role].max) return send(res, 400, { erreur: 'Le clan a déjà ' + ROLES[role].max + ' ' + ROLES[role].nom.toLowerCase() + 's.' });
+      m.roles[target] = role;
+    }
+    clanLog(m, { type: 'role', nom: me.nom, cible: them, role: role });
+    await saveClan(m);
     return send(res, 200, { ok: true });
   }
   if (action === 'don' && method === 'POST') { // un don au trésor : pris sur les lucioles de la grenouille
@@ -525,14 +568,16 @@ async function clanRoute(req, res, account, id, action, method) {
     await Promise.all([store.set('grenouille:' + id, frog), saveClan(m)]);
     return send(res, 200, { ok: true, tresor: m.tresor, or: frog.save.gold });
   }
-  if (action === 'ameliorer' && method === 'POST') { // le chef améliore un bonus avec le trésor
-    const b = await readBody(req, 4096), k = b.bonus === 'xp' || b.bonus === 'lucioles' ? b.bonus : null;
-    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut dépenser le trésor.' });
+  if (action === 'ameliorer' && method === 'POST') { // le chef (ou un bras droit) améliore un bonus avec le trésor
+    const b = await readBody(req, 4096), k = ['xp', 'lucioles'].concat(Object.keys(BONUS_AVANCES)).indexOf(b.bonus) >= 0 ? b.bonus : null;
+    if (!canManage(m, id)) return send(res, 403, { erreur: 'Seuls le chef et ses bras droits peuvent dépenser le trésor.' });
     if (!k) return send(res, 400, { erreur: 'Ce bonus n’existe pas.' });
-    if (m.bonus[k] >= BONUS_MAX) return send(res, 400, { erreur: 'Ce bonus est déjà au plus haut.' });
-    const cost = bonusCost(m.bonus[k]);
+    const avance = !!BONUS_AVANCES[k];
+    if (avance && !(bonusLvl(m, 'xp') >= BONUS_MAX && bonusLvl(m, 'lucioles') >= BONUS_MAX)) return send(res, 400, { erreur: 'Ce bonus s’ouvre une fois l’XP et les lucioles au plus haut.' });
+    if (bonusLvl(m, k) >= BONUS_MAX) return send(res, 400, { erreur: 'Ce bonus est déjà au plus haut.' });
+    const cost = avance ? bonusCost2(bonusLvl(m, k)) : bonusCost(bonusLvl(m, k));
     if (m.tresor < cost) return send(res, 400, { erreur: 'Il manque ' + (cost - m.tresor).toLocaleString('fr-FR') + ' lucioles au trésor.' });
-    m.tresor -= cost; m.bonus[k]++;
+    m.tresor -= cost; m.bonus[k] = bonusLvl(m, k) + 1;
     clanLog(m, { type: 'bonus', nom: me.nom, bonus: k, niveau: m.bonus[k] });
     await saveClan(m);
     return send(res, 200, { ok: true, tresor: m.tresor, bonus: m.bonus });
@@ -561,11 +606,13 @@ async function clanRoute(req, res, account, id, action, method) {
       r.rang++; r.vaincus++; r.pv = alphaHp(r.rang); r.pvMax = alphaHp(r.rang); r.parts = {};
     }
     await Promise.all([saveClan(m), store.set('clan-jour:' + id, day)]);
-    return send(res, 200, { degats: deg, pv: r.pv, pvMax: r.pvMax, rang: r.rang, vaincu: vaincu, restants: RAIDS_PAR_JOUR - day.raids });
+    // la récompense de l'assaut lui-même (le jeu l'applique) : des lucioles et une part de niveau, selon les dégâts
+    const recompense = { lucioles: Math.round(150 + 50 * r.rang + Math.min(800 + 200 * r.rang, deg / 150)), xpNiveau: Math.round((0.05 + Math.min(0.1, deg / Math.max(1, r.pvMax) * 2)) * 1000) / 1000 };
+    return send(res, 200, { degats: deg, pv: r.pv, pvMax: r.pvMax, rang: r.rang, vaincu: vaincu, restants: RAIDS_PAR_JOUR - day.raids, recompense: recompense });
   }
   if (action === 'guerre' && method === 'POST') { // le chef déclare la guerre à un autre clan
     const b = await readBody(req, 4096);
-    if (m.chef !== id) return send(res, 403, { erreur: 'Seul le chef du clan peut déclarer une guerre.' });
+    if (!canManage(m, id)) return send(res, 403, { erreur: 'Seuls le chef et ses bras droits peuvent déclarer une guerre.' });
     if (m.guerre) { const cur = await settleWar(await store.get('guerre:' + m.guerre)); if (cur && !cur.finie) return send(res, 400, { erreur: 'Ton clan est déjà en guerre.' }); m.guerre = null; }
     if (m.membres.length < GUERRE_MIN) return send(res, 400, { erreur: 'Il faut au moins ' + GUERRE_MIN + ' grenouilles dans le clan pour partir en guerre.' });
     const o = await loadClan(String(b.cible || '').slice(0, 64));
@@ -672,7 +719,7 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(dj[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return dojoRoute(req, res, account, dj[1], dj[2], method);
   }
-  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|blason|don|ameliorer|raid|guerre|defi|combat))?$/.exec(p);
+  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|role|blason|don|ameliorer|raid|guerre|defi|combat))?$/.exec(p);
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return clanRoute(req, res, account, cl[1], cl[2], method);

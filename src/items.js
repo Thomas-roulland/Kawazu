@@ -30,7 +30,7 @@ var playerHermit = false; // mode Ermite : mains nues, peau orange, yeux de crap
 var playerLevel = 1;
 // Les bonus du clan (le butin : +2 % par niveau) sur l'XP et les lucioles gagnées ; gardés dans la sauvegarde,
 // mis à jour chaque fois que le jeu lit le clan
-var clanBonus = { xp: 0, lucioles: 0 };
+var clanBonus = { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 };
 // (et ceux de la mutation : voir mutationBonus)
 function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp)); }
 function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold)); }
@@ -89,7 +89,7 @@ function setPlayer(save) {
   playerVoie = chosenVoie(save);
   playerTreeStats = treeBonuses(save).stats;
   heroSkin = skinOf(save.hero && save.hero.skin);
-  clanBonus = save.clanBonus || { xp: 0, lucioles: 0 };
+  clanBonus = Object.assign({ xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 }, save.clanBonus || {});
   playerCycle = save.cycle || 1;
   playerMutation = save.mutation || { n: 0, traits: {} }; playerMutBonus = mutationBonus(playerMutation);
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
@@ -472,6 +472,69 @@ var PREMIUM_SKINS = {
     pal: { U: '#d8a030', V: '#7a1a1a', W: '#e0b43a', T: '#3a2412', O: '#ff8a2a', G: '#c0c0cc', K: '#2a1a0a' }, fx: ['cernes', 'levres', 'veste', 'signe-dos', 'pipe', 'cicatrice'],
     desc: 'Le patron de la vase : peau d’olive, gilet bordeaux, pipe au bec et une vieille cicatrice. Il ne se déplace pas pour rien.' }
 };
+// Vingt de plus : la boutique en tire trois par jour parmi tous
+Object.assign(PREMIUM_SKINS, {
+  braise: { name: "Braise", price: 50000, g: '#7a1a0a', m: '#d8481a', l: '#ff8a3a', c: '#ffd0a0',
+    pal: { 'e': '#ffe060', 'D': '#3a0a04', 'W': '#ff6a1a' }, fx: ['yeux', 'bandes', 'colere'],
+    desc: "Rouge comme un tison, zébrée de cendre, les yeux d’or. Elle sort du volcan et elle a chaud." },
+  givrette: { name: "Givrette", price: 45000, g: '#3a6a9a', m: '#8ac8f0', l: '#d8f0ff', c: '#ffffff', scarf: ['#ffffff','#b0d8f0'],
+    pal: { 'U': '#5a8ab8', 'S': '#ffffff' }, fx: ['reflet', 'raie', 'taches-ventre'],
+    desc: "Bleu glacier, le ventre semé de flocons. Ses pas laissent du givre sur les nénuphars." },
+  nenuphette: { name: "Nénuphette", price: 40000, g: '#a83a6a', m: '#f07aa8', l: '#ffb8d0', c: '#fff0f4',
+    pal: { 'O': '#ff5a8a', 'D': '#3a8a3a' }, fx: ['poches', 'boucle', 'mains-claires'],
+    desc: "Rose comme une fleur de nénuphar, avec une vrille verte sur la tête. Tout le monde l’aime, elle le sait." },
+  tourbe: { name: "Tourbe", price: 35000, g: '#3a2a14', m: '#6a4a26', l: '#8a6a3a', c: '#c8a878',
+    pal: { 'U': '#2a1a0a' }, fx: ['cernes', 'taches-ventre', 'menton'],
+    desc: "Brune comme la tourbe des marais, le ventre moucheté. Elle sent un peu la vase, et elle en est fière." },
+  orchidee2: { name: "Orchidée", price: 50000, g: '#5a1a6a', m: '#a04ac0', l: '#d08ae8', c: '#f4e0ff',
+    pal: { 'U': '#f4f4ff', 'S': '#ffffff' }, fx: ['spirale', 'reflet'],
+    desc: "Violette, une spirale blanche peinte sur le ventre. Elle danse au lieu de marcher." },
+  cuivre: { name: "Cuivre", price: 55000, g: '#5a2a10', m: '#b0602a', l: '#e09a5a', c: '#f0c8a0',
+    pal: { 'D': '#3a1a08', 'W': '#ffd08a', 'G': '#3a1a08' }, fx: ['bandes', 'gants'],
+    desc: "Couleur de vieux cuivre, cerclée de bandes sombres, des gants de forgeron. Elle sonne quand on la frappe." },
+  nuitetoilee: { name: "Nuit étoilée", price: 60000, g: '#0a0e2a', m: '#1e2a5a', l: '#3a4a8a', c: '#6a7ab0', scarf: ['#3a4a8a','#1e2a5a'],
+    pal: { 'e': '#e8f0ff', 'U': '#fff6c0' }, fx: ['yeux', 'taches-ventre', 'cernes'],
+    desc: "Bleu de minuit, le ventre semé d’étoiles. Elle ne sort qu’à la nuit tombée." },
+  citronnelle: { name: "Citronnelle", price: 40000, g: '#6a8a0a', m: '#b8e03a', l: '#e0ff8a', c: '#fffff0',
+    pal: { 'S': '#ffffff' }, fx: ['triangles', 'pupille-blanche'],
+    desc: "Vert acide et piquant, des triangles sur le dos. Elle réveille tout le marais." },
+  corsaire: { name: "Corsaire", price: 55000, g: '#0e4a4a', m: '#2a8a80', l: '#5ac0b0', c: '#d0f0e8',
+    pal: { 'V': '#a8201a', 'W': '#e0b43a', 'U': '#0a2a2a' }, fx: ['veste', 'signe-dos', 'cicatrice'],
+    desc: "Vert d’eau de mer, gilet rouge de capitaine et une cicatrice de sabre. Il a pillé tous les étangs du coin." },
+  ronin: { name: "Rōnin des Joncs", price: 60000, g: '#1a2a3a', m: '#3a5a7a', l: '#6a8aa8', c: '#c8d0d8',
+    pal: { 'V': '#2a2a34', 'W': '#c9412f', 'T': '#e8e0c8' }, fx: ['veste', 'obi', 'cornes', 'sourcils'],
+    desc: "Bleu ardoise, kimono sombre et obi rouge. Il n’a plus de maître, seulement son chemin." },
+  lavande: { name: "Lavande", price: 40000, g: '#5a4a8a', m: '#9a8ad0', l: '#c8b8f0', c: '#f4f0ff',
+    pal: { 'U': '#6a4aa8' }, fx: ['cernes', 'levres', 'courbes-ventre'],
+    desc: "Mauve et douce comme un champ de lavande. Elle sent bon, ce qui est rare pour une grenouille." },
+  cendrillard: { name: "Cendrillard", price: 45000, g: '#2a2a2a', m: '#5a5a5a', l: '#8a8a8a', c: '#c8c8c8',
+    pal: { 'e': '#ff7a1a' }, fx: ['yeux', 'crete'],
+    desc: "Gris cendre, une crête sur le crâne et des yeux de braise. Il couve quelque chose." },
+  arlequin: { name: "Arlequin", price: 50000, g: '#3a2a5a', m: '#e0b43a', l: '#ffe080', c: '#ffffff',
+    pal: { 'U': '#1a1a2a', 'S': '#c9412f' }, fx: ['triangles', 'masque'],
+    desc: "Losanges, masque noir et sourire en coin. Personne ne sait jamais s’il plaisante." },
+  dune: { name: "Dune", price: 35000, g: '#8a6a3a', m: '#d8b878', l: '#f0dca8', c: '#fff6e0',
+    pal: { 'U': '#a87a3a' }, fx: ['raie', 'taches-ventre'],
+    desc: "Couleur sable, tachetée comme un caillou du désert. Elle disparaît dès qu’elle s’assoit." },
+  moussaillon: { name: "Moussaillon", price: 40000, g: '#1a3a6a', m: '#3a6ab0', l: '#7aa8e0', c: '#ffffff', scarf: ['#c9412f','#8a1a1a'],
+    pal: { 'D': '#f4f4ff', 'W': '#ffffff' }, fx: ['bandes', 'menton'],
+    desc: "Rayé bleu et blanc comme une vareuse de marin. Il a le mal de mer, mais ne le dit à personne." },
+  ecorce2: { name: "Écorce", price: 45000, g: '#2a1a0a', m: '#5a3e20', l: '#7a5a34', c: '#b8946a',
+    pal: { 'T': '#5aa03a' }, fx: ['crete', 'sourcils', 'taches-ventre'],
+    desc: "Brune et rugueuse comme l’écorce d’un saule, une feuille plantée sur le crâne. Les oiseaux s’y trompent." },
+  perle: { name: "Perle des mers", price: 55000, g: '#a88a9a', m: '#f0dce4', l: '#ffffff', c: '#fff8fc', scarf: ['#ffe0f0','#e0b0c8'],
+    pal: { 'S': '#ffffff', 'U': '#e0b0c8' }, fx: ['reflet', 'bulles', 'cernes'],
+    desc: "Nacrée comme une perle, des bulles autour du cou. Elle brille sous la lune." },
+  dardnoir: { name: "Dard noir", price: 55000, g: '#0a0a0e', m: '#1e1e26', l: '#3a3a46', c: '#2a2a34',
+    pal: { 'e': '#ffe020', 'U': '#ffd020', 'D': '#ffd020', 'W': '#ffe060' }, fx: ['yeux', 'taches-ventre', 'bandes'],
+    desc: "Noire, tachée de jaune vif : la couleur qui veut dire « ne me mange pas ». Ça marche." },
+  feufollet: { name: "Feu follet", price: 50000, g: '#2a8a8a', m: '#7af0e0', l: '#c8fff8', c: '#ffffff',
+    pal: { 'S': '#ffffff', 'U': '#2ad0c0' }, fx: ['pupille-blanche', 'spirale', 'reflet'],
+    desc: "Pâle et lumineuse, comme ces lueurs qui flottent sur les marais la nuit. On la suit sans savoir pourquoi." },
+  tonnerre: { name: "Tonnerre", price: 60000, g: '#3a3a0a', m: '#e0d020', l: '#fff080', c: '#fffff0',
+    pal: { 'D': '#1a1a1a', 'W': '#ffffff', 'S': '#1a1a1a' }, fx: ['bandes', 'triangles', 'colere', 'crete'],
+    desc: "Jaune éclair zébré de noir, la crête en pointe. Quand il est en colère, l’air sent l’orage." }
+});
 // Les skins renommés (la sauvegarde garde ceux qu'on a achetés, sous leur nouveau nom)
 var RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
   gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
@@ -531,9 +594,9 @@ function combatStats(stats, voie, level) {
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
 function combatProfile(save) {
-  var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation), ms = masteryBonus(save);
+  var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation), ms = masteryBonus(save), cb = save.clanBonus || {};
   return {
-    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp)), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg),
+    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0)),
     crit: Math.min(0.75, cs.crit + pas.crit + mb.crit + ms.crit), critMult: 1.6 + pas.critDmg, dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge),
     agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell + ms.spell, cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb, mastery: ms,
     armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce)
@@ -983,7 +1046,7 @@ function sellPrice(id) { return Math.max(3, Math.floor(itemPrice(id) / 4)); }
 // Butin : un nouvel exemplaire d'un modèle de rang autorisé, de rareté tirée au sort (luck : voir rollRarity)
 function rollLoot(save, maxTier, chance, luck) {
   if (maxTier > 6 && Math.random() < (LEGEND_CHANCE[luck || 0] || 0) * (1 + playerMutBonus.loot)) return rollLegend(save, maxTier); // ultra rare
-  if (Math.random() > chance * (1 + playerMutBonus.loot)) return null;
+  if (Math.random() > chance * (1 + playerMutBonus.loot + (clanBonus.butin || 0))) return null;
   return rollItem(save, pickBase(maxTier, save), rollRarity(luck));
 }
 
@@ -1014,7 +1077,7 @@ function newSave() {
     meditation: null, // { since } : la grenouille médite au camp depuis ce moment
     shopDay: '', rerolls: 0, // le jour du dernier arrivage de l'étal, et les relances payées ce jour-là
     skins: [], // les skins achetés
-    clanBonus: { xp: 0, lucioles: 0 }, // les bonus de son clan
+    clanBonus: { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 }, // les bonus de son clan
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 },
     gear: GEAR_VERSION // la version de la courbe des objets du Continent (voir rescaleGear)
@@ -1115,7 +1178,7 @@ function parseSave(data) {
   });
   if (data.mastery && typeof data.mastery === 'object') MASTERIES.forEach(function (x) { save.mastery[x.id] = Math.min(9999, int(data.mastery[x.id], 0) || 0); });
   if (Array.isArray(data.awakened)) save.awakened = data.awakened.filter(function (id, i) { return skillById(id) && data.awakened.indexOf(id) === i; }).slice(0, awakeningsAllowed(save));
-  if (data.clanBonus) save.clanBonus = { xp: Math.min(0.2, Math.max(0, +data.clanBonus.xp || 0)), lucioles: Math.min(0.2, Math.max(0, +data.clanBonus.lucioles || 0)) };
+  if (data.clanBonus) { var cb = data.clanBonus, cl = function (v, mx) { return Math.min(mx, Math.max(0, +v || 0)); }; save.clanBonus = { xp: cl(cb.xp, 0.2), lucioles: cl(cb.lucioles, 0.2), butin: cl(cb.butin, 0.2), force: cl(cb.force, 0.1), vie: cl(cb.vie, 0.1) }; }
   if (data.meditation && typeof data.meditation.since === 'number') save.meditation = { since: Math.min(Date.now(), data.meditation.since) };
   var al = data.album && typeof data.album === 'object' ? data.album : {};
   save.album = { monstres: {}, objets: [], paliers: [] };

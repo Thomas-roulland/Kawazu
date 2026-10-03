@@ -2115,9 +2115,9 @@
   }
   // les bonus du clan, gardés dans la sauvegarde (le jeu les applique à ses gains, même hors ligne)
   function setClanBonus(b) {
-    b = { xp: (b && b.xp) || 0, lucioles: (b && b.lucioles) || 0 };
+    b = { xp: (b && b.xp) || 0, lucioles: (b && b.lucioles) || 0, butin: (b && b.butin) || 0, force: (b && b.force) || 0, vie: (b && b.vie) || 0 };
     var cur = save.clanBonus || {};
-    if (cur.xp === b.xp && cur.lucioles === b.lucioles) return;
+    if (['xp', 'lucioles', 'butin', 'force', 'vie'].every(function (k) { return (cur[k] || 0) === b[k]; })) return;
     save.clanBonus = b; clanBonus = b; persist();
   }
   function refreshClan() { // à l'arrivée en jeu : les bonus du clan à jour, et ses cadeaux
@@ -2125,24 +2125,38 @@
     clanApi('GET', '').then(function (d) { clans.data = d; setClanBonus(d.bonus); applyGifts(d.cadeaux); }, function () {});
   }
   // le butin : le trésor, les deux bonus (le chef les améliore) et les dons
-  var BONUS_INFO = { xp: { name: 'Savoir du clan', what: 'd’XP', ico: '★' }, lucioles: { name: 'Bourse du clan', what: 'de lucioles', ico: '◆' } };
+  var BONUS_INFO = {
+    xp: { name: 'Savoir du clan', what: 'd’XP', ico: '★' }, lucioles: { name: 'Bourse du clan', what: 'de lucioles', ico: '◆' },
+    butin: { name: 'Flair du clan', what: 'de chances d’objet', ico: '✚' }, force: { name: 'Force du clan', what: 'de dégâts', ico: '⚔' }, vie: { name: 'Carapace du clan', what: 'de PV', ico: '♥' }
+  };
+  var ROLE_NAME = { chef: 'CHEF', bras: 'BRAS DROIT', veteran: 'VÉTÉRAN' };
   function renderLoot(d, m, chief) {
     var b = d.butin, me = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { don: 0 };
     var top = m.membres.filter(function (e) { return e.don > 0; }).sort(function (x, y) { return y.don - x.don; })[0];
     var row = function (k) {
-      var lvl = m.bonus[k], cost = b.couts[k], pips = '';
+      var lvl = m.bonus[k] || 0, cost = b.couts[k], pips = '', pas = (b.avances && b.avances[k]) || b.pas;
       for (var i = 0; i < b.max; i++) pips += '<i' + (i < lvl ? ' class="on"' : '') + '></i>';
       return '<div class="cl-bonus"><span class="cl-bonus-ico ' + k + '">' + BONUS_INFO[k].ico + '</span><div><b>' + BONUS_INFO[k].name + '</b>' +
-        '<small>+' + Math.round(lvl * b.pas * 100) + ' % ' + BONUS_INFO[k].what + ' pour tout le clan · niveau ' + lvl + ' / ' + b.max + '</small><span class="cl-pips">' + pips + '</span></div>' +
-        (lvl >= b.max ? '<span class="cl-bonus-max">MAX</span>' : (chief ? '<button class="btn" data-clan-bonus="' + k + '"' + (m.tresor < cost ? ' disabled' : '') + '>+' + Math.round(b.pas * 100) + ' % · ' + fmtN(cost) + '</button>' : '<span class="cl-bonus-cost">' + fmtN(cost) + '</span>')) + '</div>';
+        '<small>+' + Math.round(lvl * pas * 100) + ' % ' + BONUS_INFO[k].what + ' pour tout le clan · niveau ' + lvl + ' / ' + b.max + '</small><span class="cl-pips">' + pips + '</span></div>' +
+        (lvl >= b.max ? '<span class="cl-bonus-max">MAX</span>' : (chief ? '<button class="btn" data-clan-bonus="' + k + '"' + (m.tresor < cost ? ' disabled' : '') + '>+' + Math.round(pas * 100) + ' % · ' + fmtN(cost) + '</button>' : '<span class="cl-bonus-cost">' + fmtN(cost) + '</span>')) + '</div>';
     };
+    var adv = b.avances ? Object.keys(b.avances) : [];
     return '<section class="panel cl-loot"><h2>LE BUTIN DU CLAN</h2>' +
       '<p class="cl-treasure"><b>' + fmtN(m.tresor) + '</b> lucioles dans le trésor</p>' + row('xp') + row('lucioles') +
+      (adv.length ? (b.ouverts ? '<h3 class="cl-adv-h">BONUS AVANCÉS</h3>' + adv.map(row).join('') : '<p class="cl-help cl-adv-tease">Une fois le Savoir et la Bourse au plus haut, trois bonus avancés s’ouvrent : le <b>Flair</b> (+2 % d’objets par niveau), la <b>Force</b> (+1 % de dégâts) et la <b>Carapace</b> (+1 % de PV) du clan.</p>') : '') +
       '<p class="cl-help">Le trésor se remplit de vos dons et du butin : l’Alpha en cours y versera ' + fmtN(b.alpha) + ' lucioles, une guerre gagnée ' + fmtN(b.guerre) + '. ' +
-      (chief ? 'Tu es le chef : c’est toi qui améliores les bonus.' : 'Le chef s’en sert pour améliorer les bonus.') + '</p>' +
+      (chief ? 'Tu peux améliorer les bonus (le chef et ses bras droits le peuvent).' : 'Le chef et ses bras droits s’en servent pour améliorer les bonus.') + '</p>' +
       '<div class="cl-don"><span class="cl-label">Donner</span>' + [100, 1000, 10000].map(function (n) { return '<button class="btn btn-ghost" data-clan-don="' + n + '"' + (save.gold < n ? ' disabled' : '') + '>' + fmtN(n) + '</button>'; }).join('') + '</div>' +
       '<p class="cl-help">Tes dons : ' + fmtN(me.don) + ' lucioles' + (top ? ' · le plus généreux : <b>' + escapeHtml(top.nom) + '</b> (' + fmtN(top.don) + ')' : '') + '</p></section>';
   }
+  $('clans-body').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-clan-role]');
+    if (!sel) return;
+    var who = sel.dataset.clanRole, role = sel.value, d = clans.data, them = d && d.clan ? d.clan.membres.filter(function (x) { return x.id === who; })[0] : null;
+    if (role === 'chef' && !window.confirm('Passer la main à ' + (them ? them.nom : 'cette grenouille') + ' ? Tu deviendras son bras droit.')) { renderClans(); return; }
+    Sfx.play('click');
+    clanAction(clanApi('POST', '/role', { membre: who, role: role }));
+  });
   function renderClans() {
     var box = $('clans-body');
     if (!Cloud.id) {
@@ -2183,7 +2197,8 @@
     if (j.type === 'guerre') return j.declaree ? n + ' a déclaré la guerre au clan <b>' + escapeHtml(j.contre) + '</b> !' : 'Le clan <b>' + escapeHtml(j.contre) + '</b> nous a déclaré la guerre !';
     if (j.type === 'guerre-fin') return 'Guerre contre <b>' + escapeHtml(j.contre) + '</b> : ' + RESULT[j.resultat] + ' (' + j.nous + ' à ' + j.eux + ')' + (j.butin ? ' · +' + fmtN(j.butin) + ' au trésor' : '') + '.';
     if (j.type === 'don') return n + ' a donné <b>' + fmtN(j.montant) + '</b> lucioles au trésor.';
-    if (j.type === 'bonus') return n + ' a amélioré le ' + BONUS_INFO[j.bonus].name + ' : +' + Math.round(j.niveau * 2) + ' % ' + BONUS_INFO[j.bonus].what + '.';
+    if (j.type === 'bonus') return BONUS_INFO[j.bonus] ? n + ' a amélioré le ' + BONUS_INFO[j.bonus].name + ' (niveau ' + j.niveau + ').' : '';
+    if (j.type === 'role') return j.role === 'chef' ? n + ' a passé la main : <b>' + escapeHtml(j.cible || '?') + '</b> est le nouveau chef !' : (j.role === 'membre' ? n + ' a rendu <b>' + escapeHtml(j.cible || '?') + '</b> simple membre.' : n + ' a nommé <b>' + escapeHtml(j.cible || '?') + '</b> ' + (j.role === 'bras' ? 'bras droit' : 'vétéran') + '.');
     return '';
   }
   function warEvent(j) {
@@ -2219,11 +2234,11 @@
   }
   function renderMyClan(d) {
     var m = d.clan, a = alphaOf(m.raid.rang, save.level), pct = Math.max(0, m.raid.pv / m.raid.pvMax * 100);
-    var chief = m.chef === Cloud.id, mine = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { part: 0 };
+    var boss = m.chef === Cloud.id, chief = boss || m.monRole === 'bras', mine = m.membres.filter(function (e) { return e.id === Cloud.id; })[0] || { part: 0 }; // chief : chef ou bras droit
     var members = m.membres.slice().sort(function (x, y) { return y.part - x.part || y.contribution - x.contribution; });
     return '<header class="panel cl-head">' + emblem(m, true) + '<div><h1>' + escapeHtml(m.nom).toUpperCase() + '</h1>' +
       '<p>Chef : <b>' + escapeHtml(m.chefNom || '?') + '</b> · ' + m.membres.length + ' / ' + d.max + ' grenouilles · <b>' + m.renommee + '</b> renommée' + (m.place ? ' · ' + nth(m.place) + ' des clans' : '') + '</p></div>' +
-      (chief ? '<button class="btn btn-ghost" data-blason-edit>Blason</button>' : '') +
+      (chief ? '<button class="btn btn-ghost" data-blason-edit>Blason</button>' : '') + (m.monRole && m.monRole !== 'membre' && m.monRole !== 'chef' ? '<span class="cl-myrole">' + ROLE_NAME[m.monRole] + '</span>' : '') +
       '<button class="btn btn-ghost' + (clans.leaving ? ' is-armed' : '') + '" data-clan-leave>' + (clans.leaving ? 'Confirmer : quitter' : 'Quitter le clan') + '</button></header>' +
       (clans.editing ? '<section class="panel cl-bl-edit"><h2>LE BLASON DU CLAN</h2><div id="blason-editor" class="cl-blason">' + blasonEditor() + '</div><div class="row"><button class="btn" data-blason-save>Enregistrer</button><button class="btn btn-ghost" data-blason-cancel>Annuler</button></div></section>' : '') +
       (d.guerre ? renderWar(d, m) : '') +
@@ -2232,14 +2247,16 @@
       '<div class="cl-alpha-art"><img class="px" src="' + alphaImg(m.raid.rang) + '" alt=""></div>' +
       '<b class="cl-alpha-name">' + a.name + '</b><small class="muted">' + m.raid.vaincus + ' Alpha' + (m.raid.vaincus > 1 ? 's' : '') + ' abattu' + (m.raid.vaincus > 1 ? 's' : '') + ' par le clan</small>' +
       '<div class="cl-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(m.raid.pv) + ' / ' + fmtN(m.raid.pvMax) + ' PV</em></div>' +
-      '<p class="cl-help">Ses PV sont partagés par tout le clan. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP pour chaque grenouille qui l’a attaqué.</p>' +
+      '<p class="cl-help">Ses PV sont partagés par tout le clan. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours ; <b>chaque assaut rapporte</b> des lucioles, de l’XP (plus tu fais mal, plus il en rapporte) et une chance d’objet. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP en plus pour chaque grenouille qui l’a attaqué.</p>' +
       (mine.part ? '<p class="cl-part is-in">Ta part est assurée : ' + fmtN(mine.part) + ' dégâts sur cet Alpha.</p>' : '<p class="cl-part">Attaque cet Alpha au moins une fois pour avoir ta part quand il tombera.</p>') +
       '<button class="btn" data-clan-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button></section>' +
       '<section class="panel cl-members"><h2>LE CLAN · ' + m.membres.length + ' / ' + d.max + '</h2><ul' + (chief ? ' class="can-kick"' : '') + '>' + members.map(function (e) {
-        var kick = chief && e.id !== m.chef ? '<button class="cl-kick' + (clans.kicking === e.id ? ' is-armed' : '') + '" data-clan-kick="' + e.id + '" aria-label="Exclure ' + escapeHtml(e.nom) + '">' + (clans.kicking === e.id ? 'Exclure ?' : '✕') + '</button>' : (chief ? '<span></span>' : '');
-        return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (e.id === m.chef ? '<i>CHEF</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
+        var role = e.role || (e.id === m.chef ? 'chef' : 'membre'), canKick = chief && e.id !== Cloud.id && role !== 'chef' && (boss || role !== 'bras');
+        var kick = canKick ? '<button class="cl-kick' + (clans.kicking === e.id ? ' is-armed' : '') + '" data-clan-kick="' + e.id + '" aria-label="Exclure ' + escapeHtml(e.nom) + '">' + (clans.kicking === e.id ? 'Exclure ?' : '✕') + '</button>' : (chief ? '<span></span>' : '');
+        var pick = boss && e.id !== Cloud.id ? '<select class="cl-role-pick" data-clan-role="' + e.id + '" aria-label="Rôle de ' + escapeHtml(e.nom) + '">' + [['membre', 'Membre'], ['veteran', 'Vétéran'], ['bras', 'Bras droit'], ['chef', 'Passer la main…']].map(function (o) { return '<option value="' + o[0] + '"' + (role === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' : '';
+        return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (ROLE_NAME[role] ? '<i class="cl-role ' + role + '">' + ROLE_NAME[role] + '</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small>' + pick + '</span>' +
           dojoVoie(e) + '<span class="cl-meta' + (e.part ? '' : ' is-zero') + '">' + (e.part ? fmtN(e.part) : '—') + '<small>' + (e.part ? 'sur cet Alpha' : 'pas de part') + '</small></span>' + kick + '</li>';
-      }).join('') + '</ul>' + (chief ? '<p class="cl-help">Tu es le chef : ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : '') + '</section>' +
+      }).join('') + '</ul>' + (boss ? '<p class="cl-help">Tu es le chef : donne des rôles (2 bras droits, qui peuvent exclure, déclarer la guerre et dépenser le trésor ; 3 vétérans, pour l’honneur) ou passe la main. ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : (chief ? '<p class="cl-help">Tu es bras droit : tu peux exclure un membre, déclarer la guerre, changer le blason et dépenser le trésor.</p>' : '')) + '</section>' +
       '<div class="cl-side">' + renderLoot(d, m, chief) + (d.guerre ? '' : renderWarPick(d, m, chief)) +
       '<section class="panel cl-rank"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, m.id, 8) + '</section>' +
       '<section class="panel cl-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
@@ -2256,7 +2273,14 @@
         fight.settled = true;
         return clanApi('POST', '/raid', { degats: fight.stats.total }).then(function (res) {
           d.raids = res.restants; d.clan.raid.pv = res.pv; d.clan.raid.pvMax = res.pvMax; d.clan.raid.rang = res.rang;
+          // la récompense de l'assaut : des lucioles, une part de niveau, et une chance d'objet
+          var rc = res.recompense || { lucioles: 0, xpNiveau: 0 }, gold = clanGold(rc.lucioles), xp = clanXp(Math.round(xpForLevel(save.level) * rc.xpNiveau)), levels = xp ? gainXp(save, xp) : 0;
+          var loot = rollLoot(save, lootTier(save, currentWorld()), 0.35, 1);
+          save.gold += gold; if (loot) save.owned.push(loot);
+          persist(); Sfx.play(levels ? 'levelup' : (loot ? 'pickup' : 'point'));
           return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts à l’Alpha</p>' +
+            '<p>Pour ton assaut : +' + fmtN(gold) + ' lucioles · +' + fmtN(xp) + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+            (loot ? '<p class="bt-loot" style="' + rarStyle(loot) + '"><img src="' + itemIconUrl(loot) + '" alt=""> Butin de l’assaut : <b>' + ITEMS[loot].name + '</b> <em>' + RARITIES[rarityOf(loot)].name + '</em></p>' : '') +
             (res.vaincu !== null ? '<p class="bt-unlock">L’Alpha n° ' + (res.vaincu + 1) + ' est tombé ! Chaque grenouille du clan qui l’a attaqué reçoit sa part, et un Alpha plus fort arrive.</p>'
               : '<p>Il lui reste ' + fmtN(res.pv) + ' PV sur ' + fmtN(res.pvMax) + '.</p>') +
             '<p class="muted">Assauts restants aujourd’hui : ' + res.restants + '.</p>';
