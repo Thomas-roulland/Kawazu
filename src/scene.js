@@ -620,23 +620,20 @@ var CampScene = (function () {
 
   // La méditation : un grand nénuphar qui tangue doucement, des ronds dans l'eau, la grenouille assise les yeux
   // fermés, un souffle lumineux qui monte et des pétales de lotus qui s'envolent
-  function drawZen(ctx, t, img, land) {
-    var bob = Math.round(Math.sin(t * 1.3) * (land ? 2 : 1)), px = land ? HERO.x + 16 : PAD.x, py = (land ? HERO.y + 26 : PAD.y) + bob;
-    if (land) { // posée en l'air, au-dessus de son ombre
-      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px, HERO.y + 31, 9 - bob, 2, 0, 0, Math.PI * 2); ctx.fill();
-    }
-    for (var k = 0; k < 3 && !land; k++) { // ronds dans l'eau
+  function drawZen(ctx, t, img) {
+    var bob = Math.round(Math.sin(t * 1.3) * 1), px = PAD.x, py = PAD.y + bob;
+    for (var k = 0; k < 3; k++) { // ronds dans l'eau
       var ph = (t * 0.25 + k / 3) % 1, rx = 22 + ph * 26, ry = 5 + ph * 6;
       ctx.strokeStyle = 'rgba(200,230,210,' + (0.35 * (1 - ph)).toFixed(2) + ')';
       ctx.beginPath(); ctx.ellipse(px, PAD.y + 2, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
     }
-    if (!land) for (var y = -7; y <= 7; y++) for (var x = -24; x <= 24; x++) { // la feuille, avec son encoche
+    for (var y = -7; y <= 7; y++) for (var x = -24; x <= 24; x++) { // la feuille, avec son encoche
       var d = (x * x) / 576 + (y * y) / 49;
       if (d > 1 || (x > -3 && x < 3 && y > 0)) continue;
       ctx.fillStyle = d > 0.82 ? '#1f4a2a' : (y < -3 ? '#6fae4a' : (Math.abs(x + y * 2) % 9 === 0 ? '#3f7a3a' : '#4e9a45'));
       ctx.fillRect(px + x, py + y, 1, 1);
     }
-    if (!land) { ctx.fillStyle = '#ff9ac0'; ctx.fillRect(px + 17, py - 4, 3, 2); ctx.fillStyle = '#ffd0e0'; ctx.fillRect(px + 18, py - 5, 1, 1); } // une petite fleur
+    ctx.fillStyle = '#ff9ac0'; ctx.fillRect(px + 17, py - 4, 3, 2); ctx.fillStyle = '#ffd0e0'; ctx.fillRect(px + 18, py - 5, 1, 1); // une petite fleur
     var breath = 0.5 + 0.5 * Math.sin(t * 0.9); // le souffle qui monte et descend
     ctx.strokeStyle = 'rgba(243,210,122,' + (0.15 + breath * 0.2).toFixed(2) + ')';
     ctx.beginPath(); ctx.ellipse(px, py - 16, 15 + breath * 3, 17 + breath * 3, 0, 0, Math.PI * 2); ctx.stroke();
@@ -648,35 +645,5 @@ var CampScene = (function () {
     }
   }
 
-  function drawMap(L, stat, t, hero, zen) {
-    var th = stat.theme || THEMES.marais, ctx = L.back;
-    ctx.drawImage(stat.back, 0, 0);
-    fogBand(ctx, t, 40, 8, 0.07, 0, th.fog);
-    fogBand(ctx, t, 150, 10, 0.06, 1, th.fog);
-    ctx = L.mid;
-    ctx.clearRect(0, 0, W, H);
-    var hx = HERO.x + 16, hy = HERO.y + 18, r = 52 + Math.sin(t * 0.8) * 3, glow = ctx.createRadialGradient(hx, hy, 4, hx, hy, r);
-    glow.addColorStop(0, 'rgba(' + th.halo + ',0.34)'); glow.addColorStop(0.45, 'rgba(' + th.halo + ',0.12)'); glow.addColorStop(1, 'rgba(' + th.halo + ',0)');
-    ctx.fillStyle = glow; ctx.fillRect(hx - r, hy - r, r * 2, r * 2);
-    if (zen) drawZen(ctx, t, zen, true);
-    else {
-      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(HERO.x + 16, HERO.y + 31, 11, 2, 0, 0, Math.PI * 2); ctx.fill();
-      if (hero) ctx.drawImage(hero, HERO.x, HERO.y);
-    }
-    ctx = L.front;
-    ctx.clearRect(0, 0, W, H);
-    if (th.snow) for (var sn = 0; sn < 60; sn++) { var fy = (sn * 37 + t * (10 + (sn % 5) * 4)) % H, fx2 = (sn * 53 + Math.sin(t + sn) * 6 + t * 4) % W; ctx.fillStyle = sn % 3 ? '#eef2f6' : '#ffffff'; ctx.fillRect(Math.round(fx2), Math.round(fy), sn % 4 ? 1 : 2, 1); }
-    if (th.leaves) for (var lf = 0; lf < 14; lf++) { var ly2 = (lf * 41 + t * (8 + (lf % 4) * 3)) % (H + 10) - 5, lx2 = (lf * 67 + Math.sin(t * 1.3 + lf) * 10 + t * 3) % W; ctx.fillStyle = ['#c9702a', '#e0a040', '#8a4a1a'][lf % 3]; ctx.fillRect(Math.round(lx2), Math.round(ly2), Math.sin(t * 3 + lf) > 0 ? 2 : 1, 1); }
-    if (th.fire) FIREFLIES.slice(0, th.fires).forEach(function (fl) {
-      var x = Math.round(fl.x + Math.sin(t * fl.sp + fl.ph) * 14), yy = Math.round(fl.y + Math.cos(t * fl.sp * 1.3 + fl.ph) * 8), g2 = Math.sin(t * 2.2 + fl.ph);
-      if (g2 < -0.2) return;
-      ctx.fillStyle = th.fire + '38'; ctx.fillRect(x - 1, yy - 1, 3, 3);
-      ctx.fillStyle = g2 > 0.6 ? '#ffffff' : th.fire; ctx.fillRect(x, yy, 1, 1);
-    });
-    var v = ctx.createRadialGradient(W / 2, H / 2, 70, W / 2, H / 2, 210); // un léger voile sur les bords
-    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
-  }
-
-  return { W: W, H: H, HERO: HERO, PAD: PAD, THEMES: THEMES, buildStatic: buildStatic, draw: draw, drawMap: drawMap, makeLogo: makeLogo };
+  return { W: W, H: H, HERO: HERO, PAD: PAD, buildStatic: buildStatic, draw: draw, makeLogo: makeLogo };
 })();

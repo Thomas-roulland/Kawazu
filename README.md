@@ -63,10 +63,10 @@ aux couleurs du jeu ailleurs ; les chiffres sont en Silkscreen (le 5 et le 8 ne 
 Les **lucioles** sont la monnaie du jeu, les **éclats de jade** le métal de la forge ; les deux s’affichent sous la
 grenouille, avec l’événement en cours (le week-end double XP).
 
-- **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre, **sur le paysage de la
-  carte du monde là où elle se tient** (la même terre, le même sentier, agrandis), avec l’ambiance de sa terre (halo,
-  brume, lucioles, neige ou feuilles) et son compagnon un peu à l’écart ; un panneau « Aventure » pour reprendre le
-  monde en cours. **Méditation** : la grenouille s’assoit en tailleur, les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
+- **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre (son compagnon un peu à
+  l’écart) ; le décor animé, la cabane et son ponton, prend l’ambiance du biome où l’on en est (lagune, saules
+  d’automne, grotte, ruines englouties, sommet enneigé…), et un panneau « Aventure » pour reprendre le monde en cours.
+  **Méditation** : la grenouille s’assoit sur un nénuphar, les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
   de l’XP d’un combat de son niveau ; 10 h au plus). On récolte en la faisant se lever ou en revenant (elle continue
   alors de méditer) ; un combat ou une mission la fait se lever.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
@@ -217,7 +217,8 @@ grenouille, avec l’événement en cours (le week-end double XP).
   Écharpes, Ceintures, Anneaux, Trésors. Chaque créature (dans ses trois raretés) et chaque objet y est une
   **carte à collectionner** au cadre de sa rareté ; une carte pas encore trouvée montre son dos et un indice.
 - **Classement** : une liste simple et sobre, aux couleurs du jeu : les **50 premières** grenouilles puis « Afficher la suite »
-  (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour, **Saison** ou Duels (avec les cadeaux du lundi), filtre par
+  (et « Aller à ma place »). Tri par Aventure, Niveau (**les mutations d’abord** : une grenouille mutée passe devant toutes les autres, quel que soit
+  son niveau ; chacune porte son aura et son titre, « ✦1 l’Éveillée »…), Succès, Tour, **Saison** ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
 ## Le Continent, l’Île des Colosses, les cycles et la mutation
@@ -299,15 +300,18 @@ grenouille, avec l’événement en cours (le week-end double XP).
   Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel.
 - **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ver du Cœur du Monde, au fond du
   Royaume sous la Terre), on peut entrer dans le **cycle suivant** : tout recommence
-  au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), toutes les terres
-  partent de la force du milieu du Continent, et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
+  au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), et **toutes les terres ont la force
+  de la dernière** à niveau égal (on y revient avec l’équipement de la fin : ils tiennent tête dès le Marais-Brume ;
+  réglé au simulateur, une grenouille de fin de monde y gagne environ la moitié de ses combats de boss), et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
   échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
   ses objets et ses lucioles. Sans fin ; le classement Aventure compte les cycles.
 - **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
-  nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent, et des
-  **marques lumineuses** apparaissent sur sa peau, de plus en plus nombreuses (leur couleur change avec le nombre).
+  nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent ; sa peau ne
+  change pas, mais une **aura** l’entoure, plus dense à chaque mutation (sa couleur change avec le nombre), et elle gagne
+  un **titre** (l’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle). Ses donjons restent : ceux où
+  elle est entrée ou qu’elle a nettoyés restent ouverts, même au niveau 1.
 - Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
   Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.
 

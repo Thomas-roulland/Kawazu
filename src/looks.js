@@ -106,7 +106,18 @@ var HATS = {
   }
 };
 
-// Les marques lumineuses de la mutation (M) : des taches sur la peau, plus nombreuses à chaque mutation
+// L'aura de la mutation (M) : un liseré de lumière autour de la grenouille (sa peau ne change pas), plus dense à
+// chaque mutation, de la couleur de la mutation
+function paintAura(g, n) {
+  var H = g.length, dens = Math.min(1, 0.35 + 0.2 * (n - 1)), add = [];
+  for (var y = 0; y < H - 2; y++) for (var x = 0; x < g[y].length; x++) {
+    if (g[y][x] !== '.') continue;
+    var near = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(function (d) { var r = g[y + d[0]], ch = r && r[x + d[1]]; return ch && ch !== '.' && ch !== 'M'; });
+    if (near && hash(y, x, 57) < dens) add.push([y, x]);
+  }
+  add.forEach(function (p) { g[p[0]][p[1]] = 'M'; });
+}
+// (avant : des taches sur la peau ; gardé pour mémoire, plus utilisé)
 function paintMutation(g, n) {
   var spots = [];
   for (var y = 9; y < g.length - 3; y++) for (var x = 0; x < g[y].length; x++) if (g[y][x] === 'm' || g[y][x] === 'g') spots.push([y, x]);
@@ -423,7 +434,6 @@ function dressKawazu(sp, look) {
   var c = function (g) { return g.map(function (r) { return r.slice(); }); };
   var out = Object.assign({}, sp);
   var main = c(sp.main), side = c(sp.side), back = c(sp.back), atk = c(sp.atk), ko = c(sp.ko);
-  if (look.mutation) [main, back, ko, side, atk].forEach(function (g) { paintMutation(g, look.mutation); });
   if (look.skin) { paintSkin(main, look.skin, 'front'); paintSkin(ko, look.skin, 'ko'); paintSkin(back, look.skin, 'back'); paintSkin(side, look.skin, 'side'); paintSkin(atk, look.skin, 'atk'); }
   var set = function (g, y, x, ch) { if (g[y] && x >= 0 && x < g[y].length) g[y][x] = ch; };
   var hermit = null;
@@ -540,6 +550,7 @@ function dressKawazu(sp, look) {
   var sides = [side, atk].concat(hermit || []);
   finish({ main: main, back: back, ko: ko }, sides, 0);
   if (bare) { finish({ main: bare.main, back: bare.back }, [bare.side], 1); out.wind = bare; }
+  if (look.mutation) [main, back, side, atk].concat(hermit || []).forEach(function (g) { paintAura(g, look.mutation); });
   out.main = main; out.side = side; out.back = back; out.atk = atk; out.ko = ko;
   if (hermit) { out.hermitStance = hermit[0]; out.hermitAtk = hermit; }
   out.kick = kickPose(hermit ? hermit[0] : side);

@@ -49,7 +49,7 @@ var QUESTS = [
   { id: 'forgeron', g: 1, name: 'À la forge', text: 'Renforcer un objet à la forge', n: 1, ev: 'forge', need: function (s) { return s.owned.some(forgeable); } },
   { id: 'recyclage', g: 1, name: 'Rien ne se perd', text: 'Recycler {n} objets à la forge', n: 4, ev: 'recycle' },
   { id: 'messager', g: 2, name: 'La messagère', text: 'Terminer {n} missions', n: 2, ev: 'mission' },
-  { id: 'calme', g: 2, name: 'Le calme intérieur', text: 'Méditer au moins une heure, puis récolter', n: 1, ev: 'meditation' },
+  { id: 'calme', g: 2, name: 'Le calme du nénuphar', text: 'Méditer au moins une heure, puis récolter', n: 1, ev: 'meditation' },
   { id: 'duelliste', g: 2, name: 'La duelliste', text: 'Livrer {n} duels à la Cascade', n: 2, ev: 'duel', online: true },
   { id: 'titan', g: 2, name: 'Contre le Titan', text: 'Attaquer le Titan de la semaine', n: 1, ev: 'titan', online: true },
   { id: 'alpha', g: 2, name: 'Pour le clan', text: 'Attaquer l’Alpha de ton clan', n: 1, ev: 'raid', clan: true }

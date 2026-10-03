@@ -36,7 +36,9 @@ var ISLAND_POWER = [
 // l'entrée du Continent : sa force (CONTINENT_POWER) part de CONTINENT_RAMP à la Plaine des Vents et monte en pente
 // douce, entière à partir du boss de la Forêt d'Épines (le premier boss du Continent reprend là où le Héron s'arrêtait)
 var CONTINENT_RAMP = 0.8;
-var CYCLE_FLOOR = 8;
+// dans un cycle (NG+), toutes les terres ont la force de la toute dernière à niveau égal : on y revient avec l'équipement
+// de la fin du monde, et les monstres doivent tenir tête dès la première terre (réglé au simulateur)
+var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS;
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {
@@ -45,7 +47,7 @@ function makeEnemy(w, level, variant, rank, title) {
   // plus), sans descendre sous le niveau de leur étape (une grenouille qui vient de muter refait son chemin)
   if (cyc) level = Math.min(MAX_LEVEL + 20, Math.max(level, playerLevel - 7 + st));
   // la force des terres : k = 0 à la Plaine des Vents, 15 au Trône de l'Orage (l'île en dessous) ; dans un cycle, toutes
-  // les terres partent au moins de la force du milieu du Continent (CYCLE_FLOOR : on y arrive avec l'équipement de la fin),
+  // les terres ont la force de la dernière (CYCLE_FLOOR : on y revient avec l'équipement de la fin),
   // et chaque cycle multiplie en plus PV et dégâts par CYCLE.power
   var k = cyc ? Math.max(w - ISLAND_WORLDS, CYCLE_FLOOR) : w - ISLAND_WORLDS, boost = Math.pow(CYCLE.power, cyc), CP = CONTINENT_POWER;
   var ramp = k < 0 ? 1 : Math.min(1, CONTINENT_RAMP + (1 - CONTINENT_RAMP) * (k * STAGES + st) / (2 * STAGES));
@@ -54,7 +56,7 @@ function makeEnemy(w, level, variant, rank, title) {
   var hpX = (k >= 0 ? up(CP.hp * (1 + CP.hpK * k)) : ip) * boost, dmgX = (k >= 0 ? up(CP.dmg * (1 + CP.dmgK * k)) : 1 + (ip - 1) / 2) * boost;
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
-  if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1; hpX *= GP.hp * bb; dmgX *= GP.dmg * Math.sqrt(bb); }
+  if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1, gk = cyc ? 0.5 : 1; hpX *= Math.pow(GP.hp * bb, gk); dmgX *= Math.pow(GP.dmg * Math.sqrt(bb), gk); } // (dans un cycle, déjà au plus fort : le surplus des géants est adouci)
   if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
@@ -220,7 +222,7 @@ function titanOf(idx, rang, heroLevel) {
   };
 }
 
-// ---------- Méditation au camp : la grenouille médite là où elle est, même quand on n'est pas là ----------
+// ---------- Méditation au camp : la grenouille médite sur un nénuphar, même quand on n'est pas là ----------
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.
 var MEDITATION_MAX_H = 10;

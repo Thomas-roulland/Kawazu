@@ -50,7 +50,8 @@ function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 
 // ---------- La mutation : à partir du niveau MUTATION_LEVEL, la grenouille peut muter ----------
 // Elle repart au niveau 1 (caractéristiques et dalles rendues à zéro ; elle garde sa voie, ses objets, ses lucioles
 // et sa progression), mais pour toujours : +MUTATION_BASE à chaque caractéristique, +10 % d'XP, et un trait choisi
-// parmi trois (ils se cumulent). Des marques lumineuses apparaissent sur sa peau, de plus en plus nombreuses.
+// parmi trois (ils se cumulent). Une aura l'entoure (sa peau ne change pas), plus dense à chaque mutation, et elle
+// gagne un titre (MUTATION_TITLES), affiché au classement.
 var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1;
 var MUTATIONS = {
   ecorce: { name: 'Peau d’écorce', desc: '+8 % de PV', hp: 0.08 },
@@ -62,7 +63,9 @@ var MUTATIONS = {
   flair: { name: 'Flair', desc: '+15 % de lucioles', gold: 0.15 },
   trefle: { name: 'Trèfle de mare', desc: '+20 % de chances de trouver un objet', loot: 0.2 }
 };
-var MUTATION_GLOW = ['#5afff0', '#fff05a', '#ff5ae0', '#b8ff4a', '#ffffff']; // la couleur des marques, selon le nombre de mutations
+var MUTATION_GLOW = ['#5afff0', '#fff05a', '#ff5ae0', '#b8ff4a', '#ffffff']; // la couleur de l'aura, selon le nombre de mutations
+var MUTATION_TITLES = ['l’Éveillée', 'la Transfigurée', 'la Lumineuse', 'l’Ancestrale', 'l’Éternelle'];
+function mutationTitle(n) { return n ? MUTATION_TITLES[Math.min(MUTATION_TITLES.length, n) - 1] : ''; }
 var playerMutation = { n: 0, traits: {} }, playerMutBonus = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
 function mutationBonus(m) {
   var b = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
@@ -414,7 +417,7 @@ function lookFor(equip) {
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
   look.skin = !playerHermit && heroSkin.fx || null; // les signes du skin (pas en mode Ermite, pour l'instant)
-  look.mutation = playerMutation.n || 0; // les marques lumineuses de la mutation
+  look.mutation = playerMutation.n || 0; // l'aura de la mutation
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }

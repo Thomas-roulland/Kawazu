@@ -213,8 +213,9 @@ function dungeonState(save, d) { return (save.dungeons && save.dungeons[d.id]) |
 // le temps avant de pouvoir retenter le monstre qui nous a battus (0 : on peut y aller)
 function dungeonRetryIn(save, d) { return Math.max(0, (dungeonState(save, d).lost || 0) + DUNGEON_RETRY_MS - Date.now()); }
 function dungeonCleared(save, d) { return dungeonState(save, d).room >= DUNGEON_ROOMS; }
-// Un donjon s'ouvre quand on a son niveau et que le précédent est vidé (ou qu'on y est déjà entré)
-function dungeonOpen(save, d) { return save.level >= d.level && (d.n === 0 || dungeonState(save, d).room > 0 || dungeonCleared(save, DUNGEONS[d.n - 1])); }
+// Un donjon s'ouvre quand on a son niveau et que le précédent est vidé ; un donjon où l'on est déjà entré (ou nettoyé)
+// reste ouvert, même après une mutation qui ramène la grenouille au niveau 1
+function dungeonOpen(save, d) { return dungeonState(save, d).room > 0 || (save.level >= d.level && (d.n === 0 || dungeonCleared(save, DUNGEONS[d.n - 1]))); }
 // ce qui manque pour l'ouvrir
 function dungeonLock(save, d) {
   if (dungeonOpen(save, d)) return '';

@@ -269,29 +269,10 @@
     layerEls[k] = el;
   });
   var sceneStatic = null;
-  // Le décor du camp : le paysage de la carte du monde, là où se tient la grenouille (le même point que sur la carte),
-  // agrandi deux fois, avec l'ambiance de sa terre (halo, brume, lucioles, neige ou feuilles)
-  var CAMP_ZOOM = 2;
-  function campPlace() {
-    var cur = currentWorld(), isle = isleOf(cur), M = isle.map, T = M.TRAILS, n = T.length, local = cur - M.FIRST, p;
-    if (local >= n) p = T[n - 1].at(T[n - 1].total);
-    else { local = Math.max(0, local); p = T[local].at(T[local].stageDist[Math.min(save.progress[M.FIRST + local], STAGES)]); }
-    return { M: M, p: p, w: cur, key: isle.id + ':' + cur + ':' + save.progress[cur] };
-  }
+  // le décor du camp prend l'ambiance du biome où l'on en est dans l'aventure
   function campBiome() {
-    var pl = campPlace();
-    if (sceneStatic && sceneStatic.key === pl.key) return;
-    var M = pl.M, unlocked = [];
-    for (var li = 0; li < M.REGIONS.length; li++) if (worldUnlocked(save, M.FIRST + li)) unlocked.push(li);
-    var src = M.render(unlocked).canvas, CW = CampScene.W, CH = CampScene.H, z = CAMP_ZOOM;
-    var ox = Math.round(pl.p.x - (CampScene.HERO.x + 16) / z), oy = Math.round(pl.p.y - (CampScene.HERO.y + 31) / z); // ses pieds sur le point de la carte
-    var back = document.createElement('canvas'); back.width = CW; back.height = CH;
-    var x = back.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    x.fillStyle = (M.sea && M.sea.deep && M.sea.deep[0]) || '#0f2430'; x.fillRect(0, 0, CW, CH); // au-delà du bord de la carte : la mer
-    x.drawImage(src, -ox * z, -oy * z, M.W * z, M.H * z);
-    var id = BIOMES[pl.w].id;
-    sceneStatic = { key: pl.key, biome: id, back: back, theme: CampScene.THEMES[id] || CampScene.THEMES.marais };
+    var id = BIOMES[currentWorld()].id;
+    if (!sceneStatic || sceneStatic.biome !== id) sceneStatic = CampScene.buildStatic(id);
   }
   var DEPTH = { back: [-14, -8], mid: [-5, -3], front: [18, 10] };
   var base = { x: 0, y: 0 }, parallax = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -330,10 +311,10 @@
   function drawCamp(now) {
     if (!sceneStatic) campBiome();
     var t = now / 1000, set = HERO_IMG.face;
-    CampScene.drawMap(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], save.meditation ? HERO_IMG.zen : null);
+    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], null, save.meditation ? HERO_IMG.zen : null);
     var cpet = save.pet && petById(save.pet);
     if (cpet && petLevel(save, cpet.id)) { // le compagnon, sur le ponton à côté d'elle
-      var pf = petFrames(cpet), ps = SPECIES[cpet.species].size === 32 ? 24 : 16, px = CampScene.HERO.x - ps - 16, py = CampScene.HERO.y + 31 - ps + Math.round(Math.sin(t * 2) * 0.6);
+      var pf = petFrames(cpet), ps = SPECIES[cpet.species].size === 32 ? 24 : 16, px = CampScene.HERO.x - ps - 7, py = CampScene.HERO.y + 31 - ps + Math.round(Math.sin(t * 2) * 0.6);
       layers.mid.fillStyle = 'rgba(0,0,0,0.3)'; layers.mid.fillRect(px + 2, CampScene.HERO.y + 30, ps - 4, 2);
       layers.mid.drawImage(pf[Math.floor(now / 450) % pf.length], px, py, ps, ps);
     }
@@ -550,8 +531,8 @@
   function renderMeditation() {
     var box = $('meditation'), r = meditationRates(save.level), g = meditationGain(save);
     if (!g) {
-      box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu en tailleur : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
-        (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer</button>');
+      box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu sur le nénuphar : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
+        (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer sur le nénuphar</button>');
       return;
     }
     box.innerHTML = '<div class="adv-kicker">MÉDITATION · ' + hmm(g.ms) + (g.full ? ' (PLEIN)' : '') + '</div>' +
@@ -568,7 +549,7 @@
     quested(qd);
     if (g.xp || g.gold) {
       Sfx.play(g.levels ? 'levelup' : 'pickup');
-      notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' de méditation, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
+      notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' sur le nénuphar, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
     }
     renderAll();
   }
@@ -768,7 +749,7 @@
         '<ul class="mu-traits">' + traits.map(function (id) { return '<li><b>' + MUTATIONS[id].name + (m.traits[id] > 1 ? ' ×' + m.traits[id] : '') + '</b><small>' + MUTATIONS[id].desc + (m.traits[id] > 1 ? ' (×' + m.traits[id] + ')' : '') + '</small></li>'; }).join('') + '</ul>';
     }
     if (!ready) {
-      html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix. Et des marques lumineuses apparaissent sur sa peau.</p>' +
+      html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix. Et des une aura l’entoure, plus dense à chaque mutation, et elle gagne un titre (« l’Éveillée », « la Transfigurée »…).</p>' +
         '<span class="xp-track mu-track"><span style="width:' + Math.min(100, save.level / MUTATION_LEVEL * 100) + '%"></span></span><small class="mu-lvl">Niveau ' + save.level + ' / ' + MUTATION_LEVEL + '</small>';
     } else {
       var choices = mutationChoices(save);
@@ -1997,8 +1978,8 @@
   var RANK_SORTS = {
     aventure: { name: 'Aventure', cmp: function (a, b) { return b.conquis - a.conquis || b.niveau - a.niveau || b.xp - a.xp; },
       metric: function (e) { return ((e.cycle || 1) > 1 ? 'Cycle ' + romanCycle(e.cycle) + ' · ' : '') + ((e.conquis - ((e.cycle || 1) - 1) * TOTAL_STAGES) >= TOTAL_STAGES ? 'Monde vaincu !' : (BIOMES[e.monde] || BIOMES[0]).name + ' · ' + e.etape + '/' + STAGES); } },
-    niveau: { name: 'Niveau', cmp: function (a, b) { return b.niveau - a.niveau || b.xp - a.xp || b.conquis - a.conquis; },
-      metric: function (e) { return 'Niveau ' + e.niveau; } },
+    niveau: { name: 'Niveau', cmp: function (a, b) { return (b.mutations || 0) - (a.mutations || 0) || b.niveau - a.niveau || b.xp - a.xp || b.conquis - a.conquis; }, // (une mutation passe devant tous les niveaux)
+      metric: function (e) { return (e.mutations ? e.mutations + ' mutation' + (e.mutations > 1 ? 's' : '') + ' · ' : '') + 'Niveau ' + e.niveau; } },
     succes: { name: 'Succès', cmp: function (a, b) { return b.succes - a.succes || b.niveau - a.niveau; },
       metric: function (e) { return e.succes + ' succès'; } },
     tour: { name: 'Tour', cmp: function (a, b) { return (b.tour || 0) - (a.tour || 0) || b.niveau - a.niveau; },
@@ -2109,7 +2090,7 @@
       return '<li class="rk-row' + (i < 3 ? ' top' + (i + 1) : '') + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-open' : '') + '">' +
         '<button class="rk-line" data-rank-frog="' + e.id + '" aria-expanded="' + (rank.sel === e.id) + '">' +
         '<span class="rk-pos">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
-        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
+        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.mutations ? ' <i class="rk-mut" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, e.mutations) - 1] + '" title="' + e.mutations + ' mutation' + (e.mutations > 1 ? 's' : '') + '">✦' + e.mutations + ' ' + mutationTitle(e.mutations) + '</i>' : '') + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
         voieChip(e) + '<span class="rk-metric">' + S.metric(e) + '</span>' + (gifts ? '<span class="rk-gift">' + (gift ? giftText(gift) : '') + '</span>' : '') + '</button>' +
         (rank.sel === e.id ? rankDetail(e) : '') + '</li>';
     }).join('') || '<li class="rk-msg"><span>' + (season ? 'Personne n’a encore de points cette saison : chaque quête, boss, salle de donjon ou attaque du Titan en rapporte.' : 'Aucune grenouille ici pour l’instant.') + '</span></li>';
