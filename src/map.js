@@ -221,8 +221,9 @@ function makeWorldMap(cfg) {
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) { field[y * W + x] = landField(x, y); owner[y * W + x] = nearest(x, y); }
 
     var put = function (p, rgb) { d[p] = rgb[0]; d[p + 1] = rgb[1]; d[p + 2] = rgb[2]; d[p + 3] = 255; };
-    var SEA = [hex('#0f2430'), hex('#15323f')], SHALLOW = [hex('#1f4a55'), hex('#2a5d66')], FOAM = hex('#cfe8e0');
-    var SAND = hex('#c9b47a'), SAND2 = hex('#a8925a');
+    var SC = cfg.sea || {}; // (une carte peut avoir son propre dehors : le gouffre du Royaume sous la Terre)
+    var SEA = (SC.deep || ['#0f2430', '#15323f']).map(hex), SHALLOW = (SC.shallow || ['#1f4a55', '#2a5d66']).map(hex), FOAM = hex(SC.foam || '#cfe8e0');
+    var SAND = hex((SC.sand || [])[0] || '#c9b47a'), SAND2 = hex((SC.sand || [])[1] || '#a8925a');
 
     for (y = 0; y < H; y++) {
       for (x = 0; x < W; x++) {
@@ -248,7 +249,7 @@ function makeWorldMap(cfg) {
     // vaguelettes et rochers en mer
     for (var n = 0; n < 160 * (W * H) / 256000; n++) {
       var wx = Math.floor(hash(n, 1, 3) * W), wy = Math.floor(hash(n, 2, 3) * H), wf = landField(wx, wy);
-      if (wf > 24) { ctx.fillStyle = '#2a5d66'; ctx.fillRect(wx, wy, 4, 1); ctx.fillRect(wx + 1, wy - 1, 2, 1); }
+      if (wf > 24) { ctx.fillStyle = SC.wave || '#2a5d66'; ctx.fillRect(wx, wy, 4, 1); ctx.fillRect(wx + 1, wy - 1, 2, 1); }
       else if (wf > 8 && wf < 14 && n % 5 === 0) ctx.drawImage(spr('rock', 0), wx - 3, wy - 4);
     }
 
@@ -296,7 +297,7 @@ function makeWorldMap(cfg) {
         if (lift > 0) clear[i] = Math.max(clear[i], lift);
       }
     }
-    var CLOUD = [hex('#a2a8b8'), hex('#c4c8d3'), hex('#e0e3e9'), hex('#f3f4f6')], RIM = hex('#ffffff');
+    var CLOUD = (SC.cloud || ['#a2a8b8', '#c4c8d3', '#e0e3e9', '#f3f4f6']).map(hex), RIM = hex(SC.rim || '#ffffff');
     var minX = W, minY = H, maxX = 0, maxY = 0;
     for (y = 0; y < H; y++) {
       for (x = 0; x < W; x++) {
@@ -339,7 +340,7 @@ function makeWorldMap(cfg) {
     return cache;
   }
 
-  return { W: W, H: H, FIRST: FIRST, REGIONS: REGIONS, TRAILS: TRAILS, render: render, drawCompass: drawCompass };
+  return { W: W, H: H, FIRST: FIRST, REGIONS: REGIONS, TRAILS: TRAILS, render: render, drawCompass: drawCompass, sea: cfg.sea || null };
 }
 
 // ---------- L'Île du départ ----------
@@ -590,5 +591,57 @@ var ArchipelMap = makeWorldMap({
   }
 });
 
+// ---------- Le Royaume sous la Terre ----------
+// Six cavernes reliées par d'étroits tunnels, en spirale qui descend : on entre par la fissure au nord-ouest (sous le
+// Mont aux Mille Tempêtes), et l'on finit au Cœur de la Terre, au milieu. Autour, pas de mer : le gouffre, et sa brume
+// de cendre sur les cavernes qu'on n'a pas encore vues.
+var RoyaumeMap = makeWorldMap({
+  W: 768, H: 480, first: ROYAUME_FROM, radius: 78, bridge: 22, density: 1.3,
+  regions: [{ x: 120, y: 122 }, { x: 310, y: 98 }, { x: 520, y: 118 }, { x: 650, y: 290 }, { x: 470, y: 382 }, { x: 292, y: 300 }],
+  blobs: [{ x: 64, y: 300, r: 26 }, { x: 700, y: 90, r: 22 }, { x: 160, y: 420, r: 30 }, { x: 640, y: 430, r: 18 }],
+  start: { x: 50, y: 58 }, nest: { x: 226, y: 238 },
+  sea: { deep: ['#07060c', '#0c0a14'], shallow: ['#16121f', '#1e1a2a'], foam: '#4a3a6a', sand: ['#3a3440', '#2c2834'], wave: '#2a2440',
+    cloud: ['#2c2838', '#3a3448', '#4a4458', '#5a546a'], rim: '#7a7090' },
+  trailPal: [
+    { e: '#1a1416', f: '#5a4e56', l: '#8a7e86' }, { e: '#1e1428', f: '#6a5a7a', l: '#6af0d0' },
+    { e: '#0a0e16', f: '#3a4a62', l: '#6a8aaa', planks: true }, { e: '#160e22', f: '#5a4a6a', l: '#c080ff', planks: true },
+    { e: '#18241f', f: '#8a8a7a', l: '#e0b43a' }, { e: '#0e0806', f: '#5a3e34', l: '#ff8a2a' }
+  ],
+  decor: [
+    ['rock', 'rock', 'stub', 'rock', 'glow'], ['mushroom', 'mushroom', 'glow', 'grass', 'mushroom'], ['rock', 'crystal', 'reeds', 'glow', 'rock'],
+    ['crystal', 'crystal', 'rock', 'glow', 'stub'], ['pillar', 'tomb', 'pillar', 'rock', 'grass'], ['lavarock', 'lavarock', 'rock', 'bones', 'deadtree']
+  ],
+  // l'entrée de la mine, un champignon géant, un bouquet de cristaux, un temple en ruine
+  landmarks: function (m) {
+    var K = MAP_K;
+    return [
+      m.sprite(['kkkkkkkkkkkkkk', 'kWWWWWWWWWWWWk', 'kkkkkkkkkkkkkk', '.kWk......kWk.', '.kWk.kkkk.kWk.', '.kWkkbbbbkkWk.', '.kWkbbbbbbkWk.', '.kWkbbbbbbkWk.', '.kWkbbbbbbkWk.', 'kkkkkkkkkkkkkk'],
+        { k: K, W: '#8a6a3a', b: '#0a0608' }),
+      m.sprite(['....kkkkkk....', '..kkPPsPPPkk..', '.kPPPPPPsPPPk.', 'kPsPPPPPPPPsPk', 'kkkkkkkkkkkkkk', '.....kTTk.....', '.....kTTk.....', '.....kTTk.....', '....kTTTTk....', '...kkkkkkkk...'],
+        { k: K, P: '#a04ad0', s: '#6af0d0', T: '#e8dcc8' }),
+      null,
+      m.sprite(['.....k......', '....kck.....', '...kcCck..k.', '.k.kcCck.kck', 'kck.kcCckcCk', 'kcCkkcCckcCk', 'kcCck.kcckCk', '.kcCckkcCkck', '..kkkkkkkkk.'],
+        { k: K, c: '#f0d0ff', C: '#c080ff' }),
+      m.sprite(['....kkkkkkkk....', '..kkGGGGGGGGkk..', '.kGGGGGGGGGGGGk.', 'kkkkkkkkkkkkkkkk', '.kSk.kSk.kSk.kSk', '.kSk.kSk.kSk.kSk', '.kSk.kSk.kSk.k.k', '.kSk.kSk.kSk....', '.kSk.kSk.kSk....', 'kkkkkkkkkkkkkk..'],
+        { k: K, G: '#e0b43a', S: '#a8a898' }),
+      null
+    ];
+  },
+  // le lac noir et sa lumière, et le Cœur de la Terre : un puits de magma qui brille, et ses étincelles
+  mountains: function (ctx, T) {
+    var R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    var disc = function (cx, cy, rx, ry, c) { for (var dy = -ry; dy <= ry; dy++) { var hw = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) * (dy / ry)))); R(cx - hw, cy + dy, hw * 2 + 1, 1, c); } };
+    var l = T[2].landmark, lx = Math.round(l.x), ly = Math.round(l.y);
+    disc(lx, ly, 22, 9, MAP_K); disc(lx, ly, 21, 8, '#0e1a30'); disc(lx - 2, ly - 1, 15, 5, '#16243e');
+    [[-12, -2], [-4, 2], [6, -3], [12, 1]].forEach(function (p) { R(lx + p[0], ly + p[1], 3, 1, '#4a6a9a'); });
+    R(lx + 4, ly - 14, 1, 10, '#2a3448'); R(lx + 3, ly - 16, 3, 3, '#fff080'); R(lx + 4, ly - 15, 1, 1, '#ffffff'); // la lumière de la baudroie
+    var v = T[5].landmark, vx = Math.round(v.x), vy = Math.round(v.y);
+    disc(vx, vy, 27, 12, MAP_K); disc(vx, vy, 26, 11, '#2a1a16');
+    [[22, 9, '#5a1e10'], [17, 7, '#a83a0a'], [12, 5, '#e0601a'], [7, 3, '#ffa03a'], [3, 1, '#fff080']].forEach(function (e) { disc(vx, vy, e[0], e[1], e[2]); });
+    [[-30, -4], [28, -2], [-18, 10], [16, 11], [0, -13]].forEach(function (p) { disc(vx + p[0], vy + p[1], 4, 3, MAP_K); disc(vx + p[0], vy + p[1] - 1, 3, 2, '#4a3430'); }); // les roches autour
+    [[-6, -22], [4, -30], [-2, -38], [8, -18], [-10, -30]].forEach(function (p, k) { R(vx + p[0], vy + p[1], 2, 2, k % 2 ? '#ffd040' : '#ff7a2a'); });
+  }
+});
+
 // la carte de chaque île
-ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap, archipel: ArchipelMap }[s.id]; });
+ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap, archipel: ArchipelMap, royaume: RoyaumeMap }[s.id]; });

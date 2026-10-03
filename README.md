@@ -282,8 +282,17 @@ grenouille, avec l’événement en cours (le week-end double XP).
   lanterne hantée, oni, macaque des neiges, tengu et le **Ryū des Brumes**, son dernier boss. Leur butin a ses propres
   armes et formes (Bō, Naginata, Tachi, Kanabō, Tantō, Senban, Haori, Obi, Bague, Kabuto). Un répit après les
   Colosses : ses ordinaires se gagnent bien, ses boss demandent du butin.
-- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ryū des Brumes, au sommet de
-  l’Archipel), on peut entrer dans le **cycle suivant** : tout recommence
+- **Le Royaume sous la Terre** : une fois le Ryū des Brumes vaincu, un quatrième film, **la Descente** : le dragon
+  s’enroule dans les nuages, la montagne se fend, la grenouille tombe dans le noir entre des champignons qui s’allument
+  un à un, et se pose au bord d’un lac noir où une petite lumière l’attend. Puis **six terres sous le monde** (niveaux
+  249 à 298), sur une carte de cavernes reliées par des tunnels, au-dessus d’un gouffre : les Cavernes Murmurantes, la
+  Forêt de Champignons géants, le Lac sans Soleil, les Mines de Cristal, la Cité Engloutie et le Cœur de la Terre.
+  **Dix nouvelles créatures** (`src/royaume.js`) : la taupe mineuse et son casque, le ver des galeries, le champignon
+  errant, l’escargot luisant, l’axolotl, la baudroie et sa lumière, le golem de cristal, le scarabée-rhinocéros, la statue
+  gardienne, et le **Ver du Cœur du Monde**, le dernier boss. Leur butin a ses propres armes et formes (Pic, Trident, Lame,
+  Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel.
+- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ver du Cœur du Monde, au fond du
+  Royaume sous la Terre), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), toutes les terres
   partent de la force du milieu du Continent, et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
   échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
@@ -393,7 +402,8 @@ puissance des voies.
 - `src/looks.js` : équipement visible, signes des skins (paintSkin), ondes de choc, kunaï lancé, espèces de monstres
 - `src/biomes.js` : les biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss) et la liste des îles (`ISLES`) ;
   `src/colosses.js` : l’Île des Colosses (l’outil de sculpture des sprites, ses espèces, ses 3 terres, son butin) ;
-  `src/archipel.js` : l’Archipel des Brumes (ses 10 espèces, ses 6 terres, son butin)
+  `src/archipel.js` : l’Archipel des Brumes (ses 10 espèces, ses 6 terres, son butin) ; `src/royaume.js` : le Royaume
+  sous la Terre (ses 10 espèces, ses 6 terres, son butin)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde

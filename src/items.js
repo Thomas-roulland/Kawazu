@@ -905,6 +905,8 @@ if (typeof COLOSSUS_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, COLOSSUS
 if (typeof COLOSSUS_ICONS !== 'undefined') Object.assign(ICONS, COLOSSUS_ICONS);
 if (typeof ARCHIPEL_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ARCHIPEL_GEAR);
 if (typeof ARCHIPEL_ICONS !== 'undefined') Object.assign(ICONS, ARCHIPEL_ICONS);
+if (typeof ROYAUME_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ROYAUME_GEAR);
+if (typeof ROYAUME_ICONS !== 'undefined') Object.assign(ICONS, ROYAUME_ICONS);
 (function () {
   var SECOND = { echarpe: 'vitalite', ceinture: 'agilite', anneau: 'esprit', tete: 'vitalite' };
   var R = Math.round;

@@ -27,6 +27,8 @@ var FEATS = [
   { id: 'premier', name: 'Le Premier Crapaud', desc: 'Conquérir les 600 étages des deux tours.', cat: 'boss', tier: 2, test: function (s) { return s.tower >= TOWER_TOP; } },
   { id: 'archipel', name: 'Dans les brumes', desc: 'Accoster sur l’Archipel des Brumes.', cat: 'boss', tier: 2, test: function (s) { return isleOpen(s, isleById('archipel')); } },
   { id: 'ryu', name: 'Dompteuse de dragon', desc: 'Vaincre le Ryū des Brumes, au sommet du Mont aux Mille Tempêtes.', cat: 'boss', tier: 2, test: function (s) { return s.progress[isleById('archipel').to - 1] >= STAGES; } },
+  { id: 'royaume', name: 'Sous la terre', desc: 'Descendre dans le Royaume sous la Terre.', cat: 'boss', tier: 2, test: function (s) { return isleOpen(s, isleById('royaume')); } },
+  { id: 'coeur', name: 'Le cœur du monde', desc: 'Vaincre le Ver du Cœur du Monde, tout au fond du Royaume.', cat: 'boss', tier: 2, test: function (s) { return s.progress[isleById('royaume').to - 1] >= STAGES; } },
   { id: 'forge5', name: 'Forgé dans le jade', desc: 'Renforcer un objet jusqu’à +5 à la forge.', cat: 'objets', tier: 1, test: function (s) { return s.owned.some(function (id) { return forgeOf(id) >= 5; }); } },
   { id: 'forge10', name: 'Chef-d’œuvre', desc: 'Renforcer un objet jusqu’à +10.', cat: 'objets', tier: 2, test: function (s) { return s.owned.some(function (id) { return forgeOf(id) >= FORGE_MAX; }); } },
   { id: 'panoplie', name: 'Panoplie complète', desc: 'Porter quatre Uniques du même donjon.', cat: 'objets', tier: 2, test: function (s) { var c = setCounts(s.equip); return Object.keys(c).some(function (k) { return c[k] >= 4; }); } },

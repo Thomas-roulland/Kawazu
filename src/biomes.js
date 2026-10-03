@@ -390,6 +390,8 @@ var CONTINENT_END = BIOMES.length; // les terres du Continent s'arrêtent ici
 // Dans l'ordre où on les découvre : leurs terres vont de BIOMES[from] à BIOMES[to - 1]. La carte de chacune (map) est
 // posée par map.js, son film d'arrivée par hub.js. Les îles suivantes s'ajoutent à la suite (colosses.js…), et le cycle
 // suivant (NG+) ne s'ouvre qu'au bout de la dernière.
+// « de » devant le nom d'une terre : des Cavernes Murmurantes, du Lac sans Soleil, de la Forêt…, de l'Orage
+function ofLand(name) { return /^Les /.test(name) ? 'des ' + name.slice(4) : (/^Le /.test(name) ? 'du ' + name.slice(3) : (/^La /.test(name) ? 'de la ' + name.slice(3) : (/^L’/.test(name) ? 'de l’' + name.slice(2) : 'de ' + name))); }
 var ISLES = [
   { id: 'ile', name: 'L’Île du départ', short: 'L’Île', from: 0, to: ISLAND_WORLDS },
   { id: 'continent', name: 'le Continent', short: 'Le Continent', from: ISLAND_WORLDS, to: CONTINENT_END }

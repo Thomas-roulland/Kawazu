@@ -61,7 +61,14 @@ var CampScene = (function () {
     torii: { shift: { h: -60, s: 1.2, l: 0.85 }, fog: '232,185,172', halo: '255,212,192', fire: '#ff5a3a', fires: 22, ruins: true },
     onsen: { shift: { h: 80, s: 0.3, l: 1.35 }, fog: '235,240,245', halo: '250,252,255', fire: '#ffb070', fires: 12, snow: true },
     jardin: { shift: { h: 120, s: 0.4, l: 0.7 }, fog: '172,180,200', halo: '210,220,240', fire: '#f0f0ff', fires: 16, ruins: true },
-    mont: { shift: { h: 140, s: 0.7, l: 0.55 }, fog: '122,132,172', halo: '170,190,230', fire: '#6af0ff', fires: 24 }
+    mont: { shift: { h: 140, s: 0.7, l: 0.55 }, fog: '122,132,172', halo: '170,190,230', fire: '#6af0ff', fires: 24 },
+    // le Royaume sous la Terre
+    cavernes: { shift: { h: -20, s: 0.4, l: 0.55 }, fog: '120,110,120', halo: '180,240,230', fire: '#6af0d0', fires: 14, cave: true },
+    champignons: { shift: { h: -160, s: 0.9, l: 0.6 }, fog: '150,110,190', halo: '160,240,220', fire: '#6af0d0', fires: 32, cave: true },
+    lac: { shift: { h: 150, s: 0.8, l: 0.45 }, fog: '90,110,150', halo: '230,230,150', fire: '#fff080', fires: 8, cave: true },
+    cristaux: { shift: { h: -110, s: 0.9, l: 0.6 }, fog: '160,120,190', halo: '240,190,255', fire: '#ff80ff', fires: 22, cave: true },
+    cite: { shift: { h: 100, s: 0.5, l: 0.6 }, fog: '110,150,140', halo: '240,210,140', fire: '#e0b43a', fires: 16, cave: true, ruins: true },
+    coeur: { shift: { h: -110, s: 1.3, l: 0.5 }, fog: '170,90,60', halo: '255,170,90', fire: '#ff8a2a', fires: 34, cave: true }
   };
 
   function rgbToHsl(r, g, b) {

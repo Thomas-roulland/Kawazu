@@ -1368,18 +1368,20 @@
     wm.style.backgroundPosition = Math.round(cam.x % T) + 'px ' + Math.round(cam.y % T) + 'px';
   }
   // Une tuile de haute mer, comme celle des cartes (map.js) : le bleu profond et ses vaguelettes, qui se répète sans fin
-  var SEA_TILE = 128, seaUrl = null;
-  function seaTile() {
-    if (seaUrl) return seaUrl;
+  // (une carte peut avoir son propre dehors, M.sea : le gouffre du Royaume sous la Terre)
+  var SEA_TILE = 128, seaUrls = {};
+  function seaTile(M) {
+    var sc = (M && M.sea) || {}, deep = sc.deep || ['#0f2430', '#15323f'], key = deep[0];
+    if (seaUrls[key]) return seaUrls[key];
     var t = document.createElement('canvas'); t.width = t.height = SEA_TILE;
     var x = t.getContext('2d');
-    x.fillStyle = '#0f2430'; x.fillRect(0, 0, SEA_TILE, SEA_TILE);
+    x.fillStyle = deep[0]; x.fillRect(0, 0, SEA_TILE, SEA_TILE);
     for (var n = 0; n < 11; n++) {
       var wx = 3 + Math.floor(hash(n, 11, 17) * (SEA_TILE - 8)), wy = 3 + Math.floor(hash(n, 12, 17) * (SEA_TILE - 6));
-      x.fillStyle = '#2a5d66'; x.fillRect(wx, wy, 4, 1); x.fillRect(wx + 1, wy - 1, 2, 1);
+      x.fillStyle = sc.wave || '#2a5d66'; x.fillRect(wx, wy, 4, 1); x.fillRect(wx + 1, wy - 1, 2, 1);
     }
-    for (var d = 0; d < 26; d++) { x.fillStyle = '#15323f'; x.fillRect(Math.floor(hash(d, 13, 17) * SEA_TILE), Math.floor(hash(d, 14, 17) * SEA_TILE), 1, 1); }
-    return (seaUrl = t.toDataURL());
+    for (var d = 0; d < 26; d++) { x.fillStyle = deep[1]; x.fillRect(Math.floor(hash(d, 13, 17) * SEA_TILE), Math.floor(hash(d, 14, 17) * SEA_TILE), 1, 1); }
+    return (seaUrls[key] = t.toDataURL());
   }
   function camCenter(M, L, p, s) {
     var free = camFree(L);
@@ -1406,7 +1408,7 @@
     var m = M.render(unlocked), c = $('worldmap-canvas');
     if (c.width !== M.W || c.height !== M.H) { c.width = M.W; c.height = M.H; }
     c.getContext('2d').drawImage(m.canvas, 0, 0);
-    $('worldmap').style.backgroundImage = 'url(' + seaTile() + ')'; // autour de la carte, la même mer, à l'infini
+    $('worldmap').style.backgroundImage = 'url(' + seaTile(M) + ')'; // autour de la carte, la même mer (ou le même gouffre), à l'infini
     // la caméra : calée sur l'étape en cours quand on ouvre la carte ou qu'on change de carte, sinon elle reste où on l'a mise
     var L = camLimits(M);
     if (L.vw) {
@@ -1445,7 +1447,7 @@
       }
     });
     if (m.peekAt) {
-      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS DE ' + BIOMES[off + m.peek - 1].name.toUpperCase() + '</small></div>';
+      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS ' + ofLand(BIOMES[off + m.peek - 1].name).toUpperCase() + '</small></div>';
     }
     // les deux cartes, une fois le Continent ouvert ; le cycle en cours ; la boussole et le zoom
     ui += '<canvas class="wm-compass" width="28" height="28" aria-hidden="true"></canvas>' +
@@ -1535,7 +1537,8 @@
   var FILMS = {
     continent: function () { return Cinematic.dive(HERO_IMG, ContinentMap); },
     colosses: function () { return Cinematic.crossing(HERO_IMG, ColossesMap); },
-    archipel: function () { return Cinematic.mists(HERO_IMG, ArchipelMap); }
+    archipel: function () { return Cinematic.mists(HERO_IMG, ArchipelMap); },
+    royaume: function () { return Cinematic.descent(HERO_IMG, RoyaumeMap); }
   };
   function playArrival(isle) {
     var done = function () {

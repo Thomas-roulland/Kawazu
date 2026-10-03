@@ -552,5 +552,80 @@ var Cinematic = (function () {
     };
   }
 
-  return { play: play, dive: dive, crossing: crossing, mists: mists };
+  // ---------- La Descente : de l'Archipel des Brumes au Royaume sous la Terre ----------
+  // Le Ryū vaincu s'enroule dans les nuages ; au pied du Mont, la terre se fend ; la grenouille tombe dans le noir, entre
+  // des champignons qui s'allument un à un ; elle se pose au bord d'un lac noir, où une petite lumière l'attend ; puis la
+  // carte du royaume et son nom.
+  function descent(hero, map) {
+    var face = hero.face, side = hero.profil, at = function (list, t) { return list[Math.floor(t / (1000 / list.length)) % list.length]; };
+    var halo = function (F, cx, cy, r, col, a) { for (var k = 4; k >= 1; k--) { var rr = r * k / 4; F.alpha(a * (1 - k / 5), function () { for (var dy = -rr; dy <= rr; dy += 2) { var hw = Math.round(Math.sqrt(Math.max(0, rr * rr - dy * dy))); F.R(cx - hw, cy + dy, hw * 2, 2, col); } }); } };
+    var dragon = null, fish = null, land = null;
+    var spores = []; for (var i = 0; i < 46; i++) spores.push({ x: rnd(i, 130) * 360, y: rnd(i, 131) * 200, v: 0.4 + rnd(i, 132), p: rnd(i, 133) * 6 });
+    // ---- 1. Le sommet : le Ryū s'enroule dans les nuages et s'en va ; la montagne tremble, la terre se fend ----
+    function crack(ctx, k, t, F) {
+      if (!dragon) dragon = stringsToCanvas(SPECIES.ryu.frames[0], SPECIES.ryu.pal, true);
+      F.bands(0, F.H, [[0, '#2a2a4a'], [0.6, '#4a4a6a'], [1, '#2a2438']]);
+      F.alpha(0.6, function () { for (var c = 0; c < 7; c++) F.R(((c * 70 - t * 0.02) % 420 + 420) % 420 - 60, 20 + (c % 3) * 16, 80, 8, '#8a8ab0'); });
+      ctx.save(); ctx.translate(250 + k * 60, 60 - k * 70); ctx.rotate(-0.3 - k); ctx.globalAlpha = 1 - k * 0.7; ctx.drawImage(dragon, -40, -40, 80, 80); ctx.restore(); ctx.globalAlpha = 1;
+      var sh = k > 0.5 ? Math.round(Math.sin(t / 30) * 2 * (k - 0.5) * 2) : 0;
+      for (var mx = 0; mx < F.W; mx += 2) { var my = 150 - Math.round(Math.max(0, 40 - Math.abs(mx - 170) * 0.35) + Math.sin(mx / 9) * 2); F.R(mx + sh, my, 2, F.H - my, '#3a3a5a'); F.R(mx + sh, my, 2, 1, '#6a6a8a'); } // le sommet du mont
+      F.R(0 + sh, 150, F.W, 50, '#3a3a5a'); F.R(0 + sh, 150, F.W, 2, '#5a5a7a');
+      var open = clamp((k - 0.55) / 0.4);
+      if (open > 0) { var cx = 170 + sh; for (var y = 150; y < F.H; y++) { var w = Math.max(0, Math.round((y - 150) * 0.3 * open + 6 * open)); F.R(cx - w, y, w * 2, 1, '#06040a'); if (y % 4 === 0) F.R(cx - w - 1, y, 1, 1, '#ff8a2a'); } }
+      F.frog(at(face, t), 170 + sh, 137 + (k > 0.9 ? (k - 0.9) / 0.1 * 50 : 0), 0.8, 0); // (elle tombe dans la fissure)
+      F.fade(1 - k * 6); F.fade((k - 0.9) / 0.1, '#000000');
+    }
+    // ---- 2. La chute : le noir, des champignons qui s'allument de part et d'autre, des spores qui montent ----
+    function fall(ctx, k, t, F) {
+      F.bands(0, F.H, [[0, '#06040a'], [1, '#120e1e']]);
+      for (var m = 0; m < 10; m++) {
+        var lit = clamp((k * 12 - m) / 2), my = ((m * 46 - k * 600) % 460 + 460) % 460 - 60, mx = m % 2 ? 20 + (m % 3) * 14 : 300 - (m % 3) * 14;
+        F.R(mx - 2, my + 6, 5, 14, lit ? '#e8dcc8' : '#2a2430');
+        if (lit) halo(F, mx, my + 6, 26, m % 3 ? '#a04ad0' : '#6af0d0', 0.5 * lit);
+        F.alpha(0.3 + 0.7 * lit, function () { F.R(mx - 9, my, 19, 7, lit ? (m % 3 ? '#a04ad0' : '#6af0d0') : '#2a2430'); F.R(mx - 6, my - 2, 13, 2, lit ? '#d08af0' : '#2a2430'); [[-5, 2], [1, 1], [5, 3]].forEach(function (s) { F.R(mx + s[0], my + s[1], 2, 2, lit ? '#ffffff' : '#2a2430'); }); });
+      }
+      spores.forEach(function (p) { var py = ((p.y - t * 0.05 * p.v) % 200 + 200) % 200; F.R(p.x % 360, py, 1, 1, Math.sin(t / 300 + p.p) > 0 ? '#6af0d0' : '#c080ff'); });
+      var fy = 86 + Math.sin(t / 200) * 6;
+      F.frog(at(face, t), 160, fy, 0.8, 0);
+      F.fade(1 - k * 8, '#000000'); F.fade((k - 0.9) / 0.1, '#000000');
+    }
+    // ---- 3. Le lac noir : elle se pose sur la rive, une petite lumière s'approche sur l'eau ----
+    function lake(ctx, k, t, F) {
+      if (!fish) fish = stringsToCanvas(SPECIES.baudroie.frames[0], SPECIES.baudroie.pal);
+      F.bands(0, 110, [[0, '#05060c'], [1, '#0e1424']]);
+      for (var s = 0; s < 9; s++) { var sx = s * 44 + 10; F.R(sx, 0, 6, 18 + (s % 3) * 12, '#1a1e2c'); F.R(sx + 2, 18 + (s % 3) * 12, 2, 6, '#1a1e2c'); } // les stalactites
+      for (var c2 = 0; c2 < 14; c2++) F.R(rnd(c2, 140) * 360, 20 + rnd(c2, 141) * 60, 2, 2, c2 % 2 ? '#c080ff' : '#6af0d0'); // des cristaux dans la voûte
+      F.bands(110, F.H, [[0, '#0e1a30'], [1, '#05080e']], 2);
+      for (var w = 0; w < 24; w++) F.R(((rnd(w, 142) * 400 - t * 0.01) % 400 + 400) % 400 - 20, 116 + rnd(w, 143) * 60, 5, 1, 'rgba(120,150,210,0.4)');
+      F.R(0, 150, 120, 4, '#2a2430'); F.R(0, 154, 110, 30, '#1a1620'); // la rive
+      var fx = 300 - ease(k) * 140, glow = 0.55 + 0.15 * Math.sin(t / 200);
+      halo(F, fx - 12, 123, 34, '#fff080', glow);
+      F.alpha(glow * 0.6, function () { for (var rf = 0; rf < 6; rf++) F.R(fx - 22 + rf * 3, 152 + rf * 3, 18 - rf * 2, 1, '#fff080'); }); // son reflet sur l'eau
+      F.alpha(0.9, function () { ctx.drawImage(fish, fx - 16, 118, 32, 32); });
+      F.frog(k < 0.3 ? at(face, t) : at(side, t), 60, 137, 0.8, 0);
+      F.fade(1 - k * 8, '#000000'); F.fade((k - 0.88) / 0.12, '#ffffff');
+    }
+    function title(ctx, k, t, F) {
+      if (!land) { var all = []; for (var li = 0; li < map.REGIONS.length; li++) all.push(li); land = map.render(all).canvas; }
+      mapReveal(ctx, k, F, map, land, 'LE ROYAUME SOUS LA TERRE', 'SIX TERRES SOUS LE MONDE', 12);
+    }
+    return {
+      dur: 16000,
+      captions: [
+        [0, 'Le Ryū des Brumes s’enroule dans les nuages et disparaît. Sous les pattes de la grenouille, la montagne tremble.'],
+        [3500, 'La terre se fend. Elle tombe dans le noir… et, un à un, des champignons s’allument autour d’elle.'],
+        [8000, 'Elle se pose au bord d’un lac noir. Sur l’eau, une petite lumière s’approche.'],
+        [12000, 'LE ROYAUME SOUS LA TERRE · Six terres sous le monde, et tout au fond, son cœur qui bat.']
+      ],
+      sounds: [[300, 'boss'], [3000, 'thud'], [3600, 'riser'], [5200, 'glint'], [8200, 'splash'], [10400, 'peep'], [12100, 'levelup']],
+      scenes: [
+        { from: 0, to: 3500, draw: crack },
+        { from: 3500, to: 8000, draw: fall },
+        { from: 8000, to: 12000, draw: lake },
+        { from: 12000, to: 16000, draw: title }
+      ]
+    };
+  }
+
+  return { play: play, dive: dive, crossing: crossing, mists: mists, descent: descent };
 })();

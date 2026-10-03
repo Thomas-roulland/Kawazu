@@ -104,7 +104,7 @@ function xpGapMult(heroLevel, foeLevel) { var gap = heroLevel - foeLevel - XP_GA
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
 // Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le boss de la toute dernière terre
-// l'est (celui de la dernière île : le Ryū des Brumes, au sommet de l'Archipel, pour l'instant)
+// l'est (celui de la dernière île : le Ver du Cœur du Monde, au fond du Royaume sous la Terre, pour l'instant)
 function continentOpen(save) { return worldUnlocked(save, ISLAND_WORLDS); }
 // une île est ouverte quand le boss de la dernière terre de la précédente est tombé
 function isleOpen(save, isle) { return worldUnlocked(save, isle.from); }
