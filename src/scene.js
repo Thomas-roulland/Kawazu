@@ -55,7 +55,13 @@ var CampScene = (function () {
     orage: { shift: { h: 105, s: 0.8, l: 0.7 }, fog: '150,170,210', halo: '190,220,255', fire: '#6af0ff', fires: 22, ruins: true },
     geants: { shift: { h: 25, s: 1.25, l: 0.75 }, fog: '160,205,150', halo: '205,245,185', fire: '#c8f070', fires: 18, leaves: true },
     forge: { shift: { h: -115, s: 1.4, l: 0.55 }, fog: '205,110,80', halo: '255,150,100', fire: '#ff5a1a', fires: 34 },
-    leviathans: { shift: { h: 140, s: 1.1, l: 0.5 }, fog: '100,150,190', halo: '150,210,240', fire: '#6af0e0', fires: 24, cave: true }
+    leviathans: { shift: { h: 140, s: 1.1, l: 0.5 }, fog: '100,150,190', halo: '150,210,240', fire: '#6af0e0', fires: 24, cave: true },
+    bambous: { shift: { h: 20, s: 0.9, l: 0.95 }, fog: '200,222,200', halo: '230,245,225', fire: '#c8f070', fires: 14, leaves: true },
+    rizieres: { shift: { h: 10, s: 1.1, l: 1.1 }, fog: '210,230,205', halo: '240,250,222', fire: '#fff6a0', fires: 10 },
+    torii: { shift: { h: -60, s: 1.2, l: 0.85 }, fog: '232,185,172', halo: '255,212,192', fire: '#ff5a3a', fires: 22, ruins: true },
+    onsen: { shift: { h: 80, s: 0.3, l: 1.35 }, fog: '235,240,245', halo: '250,252,255', fire: '#ffb070', fires: 12, snow: true },
+    jardin: { shift: { h: 120, s: 0.4, l: 0.7 }, fog: '172,180,200', halo: '210,220,240', fire: '#f0f0ff', fires: 16, ruins: true },
+    mont: { shift: { h: 140, s: 0.7, l: 0.55 }, fog: '122,132,172', halo: '170,190,230', fire: '#6af0ff', fires: 24 }
   };
 
   function rgbToHsl(r, g, b) {

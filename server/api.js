@@ -183,7 +183,7 @@ const summaries = async (account) => (await Promise.all(account.grenouilles.map(
 // vu : l'heure (arrondie) de la dernière partie, pour ne pas réécrire la fiche à chaque sauvegarde.
 const RANK = 'classement';
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v) || 0));
-const TERRES = 25; // les terres du monde (src/biomes.js : l'île, le Continent, les Colosses) ; à suivre quand une île s'ajoute
+const TERRES = 31; // les terres du monde (l'île, le Continent, les Colosses, l'Archipel) ; à suivre quand une île s'ajoute
 function rankEntry(frog, pseudo) {
   const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, TERRES).map((p) => num(p, 10)) : [];
   const cycle = Math.max(1, num(s.cycle || 1, 999)), mutations = num(s.mutation && s.mutation.n, 999);

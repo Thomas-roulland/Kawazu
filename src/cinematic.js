@@ -475,5 +475,82 @@ var Cinematic = (function () {
     };
   }
 
-  return { play: play, dive: dive, crossing: crossing };
+
+  // ---------- Le Passage des Brumes : de l'Abîme des Léviathans à l'Archipel des Brumes ----------
+  // Le Léviathan sombre dans le noir ; à la surface, l'aube et une mer de brume ; une barque à lanterne glisse entre des
+  // portes rouges qui sortent du brouillard, sous des pétales ; elle accoste dans une bambouseraie où une renarde
+  // regarde ; puis la carte de l'archipel et son nom.
+  function mists(hero, map) {
+    var face = hero.face, side = hero.profil, at = function (list, t) { return list[Math.floor(t / (1000 / list.length)) % list.length]; };
+    var serpent = null, fox = null, land = null;
+    var petals = []; for (var i = 0; i < 40; i++) petals.push({ x: rnd(i, 120) * 360, y: rnd(i, 121) * 200, v: 0.5 + rnd(i, 122), p: rnd(i, 123) * 6 });
+    // ---- 1. L'abîme : le Léviathan vaincu sombre, une lumière perce d'en haut ----
+    function sink(ctx, k, t, F) {
+      if (!serpent) { var p = {}; Object.keys(SPECIES.leviathan.pal).forEach(function (c) { p[c] = '#06101a'; }); p.y = '#ff4a4a'; serpent = stringsToCanvas(SPECIES.leviathan.frames[0], p); }
+      F.bands(0, F.H, [[0, '#0e3a5a'], [0.5, '#06182a'], [1, '#020608']]);
+      for (var r = 0; r < 5; r++) { var x0 = 120 + r * 26 + Math.sin(t / 900 + r) * 6; ctx.fillStyle = 'rgba(160,220,255,' + (0.05 + 0.05 * k) + ')'; ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + 10, 0); ctx.lineTo(x0 + 40, F.H); ctx.lineTo(x0 + 18, F.H); ctx.fill(); }
+      ctx.save(); ctx.translate(170, 40 + ease(k) * 170); ctx.rotate(0.3 + k * 0.8); ctx.globalAlpha = 1 - k * 0.6; ctx.drawImage(serpent, -64, -64, 128, 128); ctx.restore(); ctx.globalAlpha = 1;
+      for (var b = 0; b < 24; b++) { var by = F.H - ((t / 10 + rnd(b, 124) * F.H) % (F.H + 20)); F.R(rnd(b, 125) * F.W, by, 2, 2, 'rgba(200,240,255,0.5)'); }
+      F.fade(1 - k * 6); F.fade((k - 0.85) / 0.15, '#e8eef4');
+    }
+    // ---- 2. La mer de brume : la barque, la lanterne, les portes rouges qui sortent du brouillard ----
+    function boat(ctx, k, t, F) {
+      F.bands(0, 104, [[0, '#a8b8d0'], [0.6, '#e8d8e0'], [1, '#f8e8e0']]);
+      ctx.fillStyle = '#fff4e0'; ctx.beginPath(); ctx.arc(250, 70, 16, 0, Math.PI * 2); ctx.fill();
+      F.bands(104, F.H, [[0, '#b8c8d8'], [1, '#5a6a8a']], 2);
+      for (var w = 0; w < 30; w++) { var wx = ((rnd(w, 126) * 400 - t * 0.02) % 400 + 400) % 400 - 40; F.R(wx, 108 + rnd(w, 127) * 70, 6, 1, 'rgba(255,255,255,0.5)'); }
+      // les portes rouges, de plus en plus près, qui passent
+      for (var g = 0; g < 5; g++) {
+        var gx = ((g * 110 + 360 - t * 0.035) % 550) - 120, sc = 0.5 + (g % 3) * 0.25, gy = 104 - 60 * sc, a = Math.min(1, 0.35 + sc * 0.5);
+        F.alpha(a, function () { F.R(gx, gy, 70 * sc, 5 * sc, '#c9412f'); F.R(gx - 6 * sc, gy - 4 * sc, 82 * sc, 4 * sc, '#1a1a1a'); F.R(gx + 6 * sc, gy + 12 * sc, 58 * sc, 3 * sc, '#c9412f'); F.R(gx + 10 * sc, gy, 5 * sc, 64 * sc, '#c9412f'); F.R(gx + 55 * sc, gy, 5 * sc, 64 * sc, '#c9412f'); });
+      }
+      F.alpha(0.55, function () { for (var m = 0; m < 6; m++) F.R(0, 80 + m * 9 + Math.sin(t / 700 + m) * 2, F.W, 5, '#f4f0f4'); }); // la brume
+      // la barque, sa lanterne, la grenouille debout à la proue
+      var bx = 60 + ease(k) * 120, by = 132 + Math.sin(t / 500) * 2;
+      F.R(bx - 40, by, 80, 6, '#5a3a20'); F.R(bx - 46, by - 4, 10, 6, '#5a3a20'); F.R(bx + 36, by - 4, 10, 6, '#5a3a20'); F.R(bx - 40, by + 6, 80, 2, '#3a2412');
+      F.R(bx + 36, by - 22, 2, 18, '#3a2412'); F.R(bx + 32, by - 32, 10, 12, '#ff9a3a'); F.R(bx + 34, by - 30, 6, 8, '#ffe0a0');
+      F.frog(at(side, t), bx + 6, by - 14, 0.8, 0);
+      petals.forEach(function (p) { var px = (p.x - t * 0.02 * p.v) % 360, py = (p.y + t * 0.015 * p.v) % 200; F.R(px < 0 ? px + 360 : px, py, 2, 1, Math.sin(t / 300 + p.p) > 0 ? '#ffb0c8' : '#ffd0e0'); });
+      F.fade(1 - k * 6, '#e8eef4');
+    }
+    // ---- 3. La bambouseraie : la barque accoste, une renarde regarde entre les bambous ----
+    function shore(ctx, k, t, F) {
+      if (!fox) { var fp = Object.assign({}, SPECIES.kitsune.pal); fox = stringsToCanvas(SPECIES.kitsune.frames[0], fp); }
+      F.bands(0, F.H, [[0, '#c8d8c0'], [0.7, '#e8f0e0'], [1, '#d8d0b0']]);
+      for (var b = 0; b < 16; b++) { var bx = b * 22 + rnd(b, 128) * 10, sway = Math.sin(t / 900 + b) * 2, col = b % 3 ? '#5a9a4a' : '#3a7a2a';
+        F.alpha(0.5 + 0.5 * (b % 2), function () { for (var y = 0; y < 150; y += 2) F.R(bx + sway * y / 150, y, 4, 2, y % 24 === 0 ? '#2a5a20' : col); F.R(bx + sway + 3, 30 + (b % 4) * 20, 8, 2, '#6ab04a'); }); }
+      F.alpha(0.4, function () { F.R(0, 90, F.W, 30, '#f4f8f0'); }); // la brume au ras du sol
+      F.R(0, 150, F.W, 30, '#b8a878'); F.R(0, 150, F.W, 2, '#d8c898');
+      for (var y2 = 152; y2 < F.H; y2++) F.R(0, y2, 60 - (y2 - 152), 1, '#7aa0b0');
+      F.R(250, 118, 10, 32, '#8a8a80'); F.R(246, 112, 18, 8, '#a0a098'); F.R(250, 120, 10, 6, '#ffd070'); // une lanterne de pierre
+      var step = clamp((k - 0.2) / 0.4), fx = 40 + step * 120;
+      F.R(10, 148, 70, 6, '#5a3a20');
+      F.frog(k < 0.65 ? at(side, t) : at(face, t), fx, 136 - Math.sin(step * Math.PI) * 18, 0.8, 0);
+      var eyes = clamp((k - 0.5) / 0.2);
+      if (eyes > 0) F.alpha(eyes, function () { ctx.drawImage(fox, 196, 96, 40, 40); });
+      F.fade(1 - k * 8, '#e8eef4'); F.fade((k - 0.88) / 0.12, '#ffffff');
+    }
+    function title(ctx, k, t, F) {
+      if (!land) { var all = []; for (var li = 0; li < map.REGIONS.length; li++) all.push(li); land = map.render(all).canvas; }
+      mapReveal(ctx, k, F, map, land, 'L\'ARCHIPEL DES BRUMES', 'SIX TERRES DANS LE BROUILLARD', 12);
+    }
+    return {
+      dur: 16000,
+      captions: [
+        [0, 'Le Léviathan Ancestral sombre dans le noir. Tout au-dessus, une lumière pâle.'],
+        [3500, 'À l’aube, la mer est couverte de brume. Une barque attend, sa lanterne allumée, et des portes rouges sortent du brouillard.'],
+        [8000, 'Elle accoste dans une forêt de bambous. Entre les tiges, quelqu’un regarde.'],
+        [12000, 'L’ARCHIPEL DES BRUMES · Six terres de légende, reliées par des ponts dans le brouillard.']
+      ],
+      sounds: [[300, 'thud'], [3600, 'riser'], [6200, 'glint'], [9000, 'splash'], [10400, 'peep'], [12100, 'levelup']],
+      scenes: [
+        { from: 0, to: 3500, draw: sink },
+        { from: 3500, to: 8000, draw: boat },
+        { from: 8000, to: 12000, draw: shore },
+        { from: 12000, to: 16000, draw: title }
+      ]
+    };
+  }
+
+  return { play: play, dive: dive, crossing: crossing, mists: mists };
 })();

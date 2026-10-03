@@ -25,6 +25,8 @@ var FEATS = [
   { id: 'unique', name: 'Unique en son genre', desc: 'Trouver un objet Unique dans un donjon.', cat: 'objets', tier: 2, test: function (s) { return s.owned.some(function (id) { return rarityOf(id) === 'unique'; }); } },
   { id: 'ancetres', name: 'Plus haut que les Sages', desc: 'Conquérir un étage de la Tour des Ancêtres.', cat: 'boss', tier: 2, test: function (s) { return s.tower > TOWER_FLOORS; } },
   { id: 'premier', name: 'Le Premier Crapaud', desc: 'Conquérir les 600 étages des deux tours.', cat: 'boss', tier: 2, test: function (s) { return s.tower >= TOWER_TOP; } },
+  { id: 'archipel', name: 'Dans les brumes', desc: 'Accoster sur l’Archipel des Brumes.', cat: 'boss', tier: 2, test: function (s) { return isleOpen(s, isleById('archipel')); } },
+  { id: 'ryu', name: 'Dompteuse de dragon', desc: 'Vaincre le Ryū des Brumes, au sommet du Mont aux Mille Tempêtes.', cat: 'boss', tier: 2, test: function (s) { return s.progress[isleById('archipel').to - 1] >= STAGES; } },
   { id: 'cycle2', name: 'Nouvelle lune', desc: 'Entrer dans le cycle II.', cat: 'boss', tier: 2, test: function (s) { return (s.cycle || 1) >= 2; } },
   { id: 'cycle5', name: 'Éternel retour', desc: 'Entrer dans le cycle V.', cat: 'boss', tier: 2, test: function (s) { return (s.cycle || 1) >= 5; } },
   { id: 'legende', name: 'Légende vivante', desc: 'Trouver un objet légendaire.', cat: 'objets', tier: 2, test: function (s) { return s.owned.some(function (id) { return rarityOf(id) === 'legendaire'; }); } },

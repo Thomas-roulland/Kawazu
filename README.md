@@ -272,8 +272,17 @@ Les **lucioles** sont la monnaie du jeu.
   (`src/colosses.js`), qui font deux fois la taille des monstres de l’île en combat, et des boss très durs (le
   Roi-Chêne, le Titan de Braise, le Léviathan Ancestral). Leur butin a ses propres armes et ses propres formes (Bourdon,
   Trident, Ōdachi, Marteau, Coutelas, Étoile, Mante, Baudrier, Chevalière, Heaume de titan).
-- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Léviathan Ancestral, au bout de l’Île
-  des Colosses), on peut entrer dans le **cycle suivant** : tout recommence
+- **L’Archipel des Brumes** : une fois le Léviathan Ancestral vaincu, un troisième film, **le Passage des Brumes** :
+  le Léviathan sombre dans le noir ; à l’aube, une barque à lanterne glisse sur une mer de brume entre des portes
+  rouges, sous des pétales ; elle accoste dans une bambouseraie où une renarde regarde. Puis **six terres de légende**
+  (niveaux 201 à 250), sur une carte d’îles reliées par des ponts : la Bambouseraie des Brumes, les Rizières en
+  terrasses, le Chemin des Mille Portes, les Sources fumantes, le Jardin de Pierre et le Mont aux Mille Tempêtes.
+  **Dix nouvelles créatures** sculptées en code (`src/archipel.js`) : tanuki, renarde, mante, carpe koï, épouvantail,
+  lanterne hantée, oni, macaque des neiges, tengu et le **Ryū des Brumes**, son dernier boss. Leur butin a ses propres
+  armes et formes (Bō, Naginata, Tachi, Kanabō, Tantō, Senban, Haori, Obi, Bague, Kabuto). Un répit après les
+  Colosses : ses ordinaires se gagnent bien, ses boss demandent du butin.
+- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ryū des Brumes, au sommet de
+  l’Archipel), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), toutes les terres
   partent de la force du milieu du Continent, et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
   échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
@@ -350,7 +359,8 @@ puissance des voies.
 - `src/sprites.js` : Kawazu et ses animations, repris de la maquette Claude Design
 - `src/looks.js` : équipement visible, signes des skins (paintSkin), ondes de choc, kunaï lancé, espèces de monstres
 - `src/biomes.js` : les biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss) et la liste des îles (`ISLES`) ;
-  `src/colosses.js` : l’Île des Colosses (l’outil de sculpture des sprites, ses espèces, ses 3 terres, son butin)
+  `src/colosses.js` : l’Île des Colosses (l’outil de sculpture des sprites, ses espèces, ses 3 terres, son butin) ;
+  `src/archipel.js` : l’Archipel des Brumes (ses 10 espèces, ses 6 terres, son butin)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde

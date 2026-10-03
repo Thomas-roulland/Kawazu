@@ -1423,7 +1423,8 @@
   // joue qu'une fois (save.seenIsles).
   var FILMS = {
     continent: function () { return Cinematic.dive(HERO_IMG, ContinentMap); },
-    colosses: function () { return Cinematic.crossing(HERO_IMG, ColossesMap); }
+    colosses: function () { return Cinematic.crossing(HERO_IMG, ColossesMap); },
+    archipel: function () { return Cinematic.mists(HERO_IMG, ArchipelMap); }
   };
   function playArrival(isle) {
     var done = function () {

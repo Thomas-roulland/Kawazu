@@ -888,6 +888,8 @@ var CONTINENT_GEAR = {
 // (les îles suivantes ajoutent les leurs : COLOSSUS_GEAR, et ses icônes, dans colosses.js)
 if (typeof COLOSSUS_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, COLOSSUS_GEAR);
 if (typeof COLOSSUS_ICONS !== 'undefined') Object.assign(ICONS, COLOSSUS_ICONS);
+if (typeof ARCHIPEL_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ARCHIPEL_GEAR);
+if (typeof ARCHIPEL_ICONS !== 'undefined') Object.assign(ICONS, ARCHIPEL_ICONS);
 (function () {
   var SECOND = { echarpe: 'vitalite', ceinture: 'agilite', anneau: 'esprit', tete: 'vitalite' };
   var R = Math.round;

@@ -545,5 +545,50 @@ var ColossesMap = makeWorldMap({
   }
 });
 
+// ---------- L'Archipel des Brumes ----------
+// Six îles reliées par de fins ponts de terre, en lacets du sud-ouest (la bambouseraie, où l'on accoste) au nord-est
+// (le Mont aux Mille Tempêtes) ; une pagode, une porte rouge géante, une cloche, et la montagne dans les nuages.
+var ArchipelMap = makeWorldMap({
+  W: 768, H: 480, first: ARCHIPEL_FROM, radius: 74, bridge: 20, density: 1.3,
+  regions: [{ x: 120, y: 368 }, { x: 290, y: 330 }, { x: 214, y: 186 }, { x: 392, y: 142 }, { x: 532, y: 262 }, { x: 650, y: 128 }],
+  blobs: [{ x: 400, y: 400, r: 26 }, { x: 70, y: 210, r: 22 }, { x: 690, y: 330, r: 30 }, { x: 540, y: 80, r: 18 }],
+  start: { x: 54, y: 420 }, nest: { x: 676, y: 108 },
+  trailPal: [
+    { e: '#2a3a1a', f: '#8a8a5a', l: '#b0b07a' }, { e: '#2a3a4a', f: '#a89a6a', l: '#d0c48a', planks: true },
+    { e: '#3a1a0a', f: '#c9412f', l: '#f07a4a', planks: true }, { e: '#5a6068', f: '#e8eef4', l: '#ffffff' },
+    { e: '#22222a', f: '#a0a0a8', l: '#c8c8d0' }, { e: '#12121e', f: '#5a5a7a', l: '#8a8ab0' }
+  ],
+  decor: [
+    ['reeds', 'reeds', 'tree', 'grass', 'pine'], ['grass', 'reeds', 'flower', 'stub', 'grass'], ['banner', 'pillar', 'flower', 'tree', 'grass'],
+    ['rock', 'pine', 'glow', 'rock', 'grass'], ['rock', 'stub', 'pillar', 'tree', 'glow'], ['pine', 'rock', 'rock', 'crystal', 'stub']
+  ],
+  landmarks: function (m) {
+    var K = MAP_K;
+    return [
+      m.sprite(['.....kkk.....', '....kRRRk....', '..kkkkkkkkk..', '.kRRRRRRRRRk.', 'kkkkkkkkkkkkk', '..kWWkWWkWW..', '..kWWkWWkWW..', '.kkkkkkkkkkk.', 'kRRRRRRRRRRRk', 'kkkkkkkkkkkkk', '..kWWkWWkWW..', '..kkkkkkkkk..'],
+        { k: K, R: '#2a6a5a', W: '#e8d8b0' }), // une pagode dans les bambous
+      null,
+      m.sprite(['kkkkkkkkkkkkkkkk', 'kRRRRRRRRRRRRRRk', 'kkkkkkkkkkkkkkkk', '..kRk......kRk..', '.kkkkkkkkkkkkkk.', '.kRRRRRRRRRRRRk.', '.kkkkkkkkkkkkkk.', '..kRk......kRk..', '..kRk......kRk..', '..kRk......kRk..', '..kRk......kRk..', '.kkkkk....kkkkk.'],
+        { k: K, R: '#d8402a' }), // la porte rouge géante
+      null,
+      m.sprite(['....kkkk....', '...kLLLLk...', '..kLLlLLLk..', '..kLlLLLLk..', '.kLLLLLLLLk.', '.kLLLLLLLLk.', 'kLLLLLLLLLLk', 'kkkkkkkkkkkk', '.....kk.....'],
+        { k: K, L: '#8a7a5a', l: '#c8b88a' }), // la grande cloche du jardin
+      null
+    ];
+  },
+  // la montagne des tempêtes, dans ses nuages, et la foudre
+  mountains: function (ctx, T) {
+    var K = MAP_K, R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    var v = T[5].landmark, vx = Math.round(v.x), vy = Math.round(v.y) + 2;
+    for (var yy = 0; yy < 44; yy++) {
+      var half = Math.round(yy * 0.85), top = vy - 44 + yy;
+      R(vx - half - 1, top, half * 2 + 3, 1, K); R(vx - half, top, half + 1, 1, '#5a5a7a'); R(vx + 1, top, half, 1, '#3a3a5a');
+      if (yy < 12) { R(vx - half, top, half * 2 + 1, 1, yy < 6 ? '#f4f4ff' : '#c8c8e0'); }
+    }
+    [[-26, -40, 30], [10, -48, 26], [-6, -56, 22]].forEach(function (c) { R(vx + c[0], vy + c[1], c[2], 5, 'rgba(230,232,245,0.85)'); R(vx + c[0] + 5, vy + c[1] - 3, c[2] - 10, 3, 'rgba(250,250,255,0.85)'); });
+    [[vx + 14, vy - 38], [vx + 17, vy - 33], [vx + 14, vy - 28], [vx + 18, vy - 24]].forEach(function (p) { R(p[0], p[1], 2, 5, '#f0f040'); });
+  }
+});
+
 // la carte de chaque île
-ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap }[s.id]; });
+ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap, archipel: ArchipelMap }[s.id]; });

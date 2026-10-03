@@ -62,7 +62,8 @@ function makeEnemy(w, level, variant, rank, title) {
     name: isGuard ? v.name + ' ' + title : v.name, species: v.species, pal: v.pal, level: level,
     rank: rank || 'normal', behavior: s.behavior,
     // (chez les Colosses, tout est géant : ~110 px, les gardiens ~126, les boss ~140, quelle que soit l'espèce)
-    scale: b.giant ? (isBoss ? 140 : (isGuard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (isBoss ? (s.size === 32 ? 1 : 1.9) : (isGuard ? 1.45 : 1)),
+    // (dans l'Archipel, les créatures 32 × 32 gardent une taille normale : monsterScale ; son dernier boss est plus grand : bossScale)
+    scale: b.giant ? (isBoss ? 140 : (isGuard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (isBoss ? (s.size === 32 ? (b.bossScale || 1) : 1.9) : (isGuard ? 1.45 : 1)) * (s.size === 32 && !isBoss && b.monsterScale ? b.monsterScale : 1),
     // (sur le Continent, les espèces ont toutes la même base de PV : c'est la terre qui fait la force, et le dragon un peu plus)
     maxHp: Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX),
     dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX),
@@ -103,7 +104,7 @@ function xpGapMult(heroLevel, foeLevel) { var gap = heroLevel - foeLevel - XP_GA
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
 // Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le boss de la toute dernière terre
-// l'est (celui de la dernière île : le Léviathan Ancestral, pour l'instant)
+// l'est (celui de la dernière île : le Ryū des Brumes, au sommet de l'Archipel, pour l'instant)
 function continentOpen(save) { return worldUnlocked(save, ISLAND_WORLDS); }
 // une île est ouverte quand le boss de la dernière terre de la précédente est tombé
 function isleOpen(save, isle) { return worldUnlocked(save, isle.from); }
