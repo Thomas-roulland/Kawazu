@@ -108,12 +108,15 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
     une petite armure, et des soins. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et
     **coups de boule**. Ses **mains grandissent avec ses objets** : leur Esprit est celui d’une arme du rang de ses autres
     objets portés, de leur rareté et de leur forge. Au-delà du niveau 150, ses coups uniques rattrapent les sorts à coups
-    multiples des autres voies (+0,4 % de dégâts par niveau contre les monstres, +1,2 % en duel et à la guerre).
+    multiples des autres voies (+0,2 % de dégâts par niveau contre les monstres, +1,2 % en duel et à la guerre). En fin de jeu, les Armes et le
+    Lancer ont, contre les monstres seulement, plus de PV (jusqu’à +50 % et +30 %, du niveau 120 au niveau 200) : ils
+    n’ont presque rien pour tenir les longs combats, là où l’Ermite a ses soins.
 
   **L’équilibre des voies** (réglé au simulateur, duels joués dans les deux sens, tous les 10 niveaux de 30 à 280) : en duel,
   chaque voie gagne 49 à 51 % de ses combats sur tout le jeu (43 à 55 % selon la phase) ; contre les monstres, les Armes
-  et le Lancer tuent plus vite (environ 4 tours), l’Ermite plus lentement (5,5) mais il tient mieux les combats longs
-  grâce à ses soins (85 % des combats durs de la fin, contre 50 à 60 %).
+  et le Lancer tuent plus vite (environ 5 tours), l’Ermite plus lentement (7) mais il tient un peu mieux les combats
+  longs grâce à ses soins (combats durs de la fin : Armes 62 %, Lancer 61 %, Ermite 72 %). Les notes de chaque
+  rééquilibrage : la page **/patch** du jeu (patch.html).
 
   On commence **à mains nues** : l’arme de départ vient avec le choix de la voie et de l’arme.
   Une voie ne manie que sa famille d’armes, et on y **choisit son arme** au Temple (Armes : bâton, harpon, katana ou masse ;
@@ -270,7 +273,7 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   fond. Leurs **douze créatures n’existent nulle part ailleurs** (gargouille, mimique, spectre, liche, golem runique,
   minotaure, chimère, basilic, feu-follet, crâne flottant, hydre, œil flottant), et leurs **objets Uniques** non plus :
   dix modèles par donjon, à ses couleurs et à ses noms (« Couperet des Gargouilles »), une rareté vert rayonnant plus
-  forte qu’un Épique (×2,3, contre ×2,1 pour un Épique ; ×2,6 jusqu’au 4 octobre 2026, les anciens ont été recalculés une fois) (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
+  forte qu’un Épique (×2,3, contre ×2,1 pour un Épique ; ×2,6 jusqu’au 3 octobre 2026, les anciens ont été recalculés une fois) (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
   arrivant à leur niveau avec des objets Rares, les salles du milieu se perdent souvent et le boss ne tombe qu’une fois
   sur trois ou quatre) et bien payés : une salle rapporte près d’un cinquième de niveau, le gardien un tiers, le boss
   presque un niveau. **Un seul passage** : un monstre vaincu ne revient pas, un donjon fini est **nettoyé** ; battu,
@@ -322,9 +325,8 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   **Dix nouvelles créatures** (`src/royaume.js`) : la taupe mineuse et son casque, le ver des galeries, le champignon
   errant, l’escargot luisant, l’axolotl, la baudroie et sa lumière, le golem de cristal, le scarabée-rhinocéros, la statue
   gardienne, et le **Ver du Cœur du Monde**, le dernier boss. Leur butin a ses propres armes et formes (Pic, Trident, Lame,
-  Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel. (Depuis le 4 octobre 2026, leurs gardiens et leurs boss sont relevés, LATE_POWER : ils
-  tombaient presque à coup sûr ; leurs boss se gagnent maintenant à 35-58 % avec l’équipement du réglage, comme chez les
-  Colosses, et leurs monstres ordinaires restent du gibier.)
+  Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel. (Depuis le 3 octobre 2026, leurs gardiens et leurs boss sont relevés, LATE_POWER : ils
+  tombaient presque à coup sûr ; leurs boss se gagnent maintenant à 25-60 % avec l’équipement du réglage (Colosses : 63-70 %), et leurs monstres ordinaires restent du gibier.)
 - **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ver du Cœur du Monde, au fond du
   Royaume sous la Terre), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), et **toutes les terres ont la force
@@ -351,7 +353,7 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   des éclats de jade ; les trois faites, le **coffre du jour** s’ouvre (un objet Rare ou Épique de sa terre, et plus
   d’éclats). Un badge sur « Camp » dit quand une récompense attend (`src/quetes.js`).
 - **Les événements** : le **week-end de l’XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte **50 % de
-  plus** (×2 jusqu’au 4 octobre 2026), jusqu’à dimanche minuit : le menu affiche le temps qui reste et la bannière s’éteint d’elle-même ; une
+  plus** (×2 jusqu’au 3 octobre 2026), jusqu’à dimanche minuit : le menu affiche le temps qui reste et la bannière s’éteint d’elle-même ; une
   méditation ou une mission n’a le bonus que pour ses heures passées pendant le week-end) et le **mercredi du
   butin** (+50 % de chances d’objet). Le camp annonce le prochain.
 - **La forge** (`src/forge.js`), une page à elle : l’atelier, son four et son enclume. À gauche, les objets à forger

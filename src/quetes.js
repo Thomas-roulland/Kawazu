@@ -3,7 +3,7 @@
 // ---------- Les événements de la semaine (à l'heure du joueur) ----------
 // Le week-end, tout ce qui rapporte de l'XP en rapporte 50 % de plus ; le mercredi, les objets tombent plus souvent.
 var EVENTS = {
-  xp2: { name: 'Week-end de l’XP', short: 'XP ×1,5', desc: 'Du samedi au dimanche soir, tout ce qui rapporte de l’XP en rapporte 50 % de plus.', days: [6, 0], xp: 0.5 }, // (×2 jusqu'au 4 octobre 2026)
+  xp2: { name: 'Week-end de l’XP', short: 'XP ×1,5', desc: 'Du samedi au dimanche soir, tout ce qui rapporte de l’XP en rapporte 50 % de plus.', days: [6, 0], xp: 0.5 }, // (×2 jusqu'au 3 octobre 2026)
   butin: { name: 'Mercredi du butin', short: 'Butin +50 %', desc: 'Tout le mercredi, +50 % de chances de trouver un objet.', days: [3], loot: 0.5 }
 };
 function eventsNow(t) { var d = new Date(t || Date.now()).getDay(); return Object.keys(EVENTS).filter(function (k) { return EVENTS[k].days.indexOf(d) >= 0; }); }

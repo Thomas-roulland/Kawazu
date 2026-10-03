@@ -40,9 +40,10 @@ var CONTINENT_RAMP = 0.8;
 // de la fin du monde, et les monstres doivent tenir tête dès la première terre (réglé au simulateur)
 var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS;
 // L'Archipel et le Royaume : leur force suit la pente du Continent, mais l'équipement grandit bien plus vite ; sans ce
-// renfort, leurs boss tombaient presque à coup sûr (77 à 97 %, contre 37 à 80 % ailleurs) ; avec, 35 à 58 %. Réglé au
+// renfort, leurs boss tombaient presque à coup sûr (77 à 97 %, contre 37 à 80 % ailleurs) ; avec, 25 à 60 % (les Armes et le Lancer
+// ayant en fin de jeu plus de PV contre les monstres, pveHp). Réglé au
 // simulateur (terres.js) ; pas dans les cycles, réglés à part.
-var LATE_POWER = { archipel: { hp: 1.4, dmg: 1.2 }, royaume: { hp: 1.45, dmg: 1.25 } };
+var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 } };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {

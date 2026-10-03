@@ -636,13 +636,16 @@ function combatStats(stats, voie, level) {
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
 // (gb : les panoplies d'Uniques et le compagnon, voir forge.js)
+// pveHp (d'une voie) : des PV en plus contre les monstres seulement, qui montent du niveau PVE_HP_FROM au niveau PVE_HP_TO
+// (les Armes et le Lancer n'ont presque rien pour tenir les longs combats de la fin, où l'Ermite a ses soins)
+var PVE_HP_FROM = 120, PVE_HP_TO = 200;
 function combatProfile(save, duel) { // (duel : contre une autre grenouille, en duel ou à la guerre)
   var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation), ms = masteryBonus(save), cb = save.clanBonus || {};
   var gb = typeof gearBonus === 'function' ? gearBonus(save) : {}, g = function (k) { return gb[k] || 0; };
-  var vd = voieDef(chosenVoie(save)), late = vd && vd.lateFrom ? Math.max(0, (save.level || 1) - vd.lateFrom) * ((duel ? vd.lateDuel : vd.lateDmg) || 0) : 0; // (le rattrapage de fin de jeu d'une voie)
+  var vd = voieDef(chosenVoie(save)), late = vd && vd.lateFrom ? Math.max(0, (save.level || 1) - vd.lateFrom) * ((duel ? vd.lateDuel : vd.lateDmg) || 0) : 0; // (le rattrapage de fin de jeu d'une voie ; et pveHp : des PV en plus contre les monstres seulement)
   if (g('lifesteal')) pas = Object.assign({}, pas, { lifesteal: (pas.lifesteal || 0) + g('lifesteal') });
   return {
-    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0) + g('hp'))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0) + g('dmg') + late),
+    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0) + g('hp')) * (duel || !vd || !vd.pveHp ? 1 : 1 + vd.pveHp * Math.max(0, Math.min(1, ((save.level || 1) - PVE_HP_FROM) / (PVE_HP_TO - PVE_HP_FROM))))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0) + g('dmg') + late),
     crit: Math.min(0.75, cs.crit + pas.crit + mb.crit + ms.crit + g('crit')), critMult: 1.6 + pas.critDmg + g('critDmg'), dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge + g('dodge')),
     agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell + ms.spell + g('spell'), cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb, mastery: ms, gear: gb,
     armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce + g('reduce'))
@@ -985,7 +988,7 @@ var RARITY_IDS = ['commun', 'rare', 'epique'];
 RARITIES.legendaire = { name: 'Légendaire', color: '#ff8c1a', mult: 1, extra: 0, price: 6 };
 // Unique : une rareté vert rayonnant, plus forte qu'un Épique, qu'on ne trouve que dans les Donjons (donjons.js) ;
 // chaque exemplaire porte le nom de son donjon
-RARITIES.unique = { name: 'Unique', color: '#3aff7a', mult: 2.3, extra: 3, price: 5 }; // (×2,6 jusqu'au 4 octobre 2026 : avec la forge, ils écrasaient le jeu)
+RARITIES.unique = { name: 'Unique', color: '#3aff7a', mult: 2.3, extra: 3, price: 5 }; // (×2,6 jusqu'au 3 octobre 2026 : avec la forge, ils écrasaient le jeu)
 var UNIQUE_VERSION = 2, UNIQUE_OLD = 2.6; // les Uniques tirés avant ce changement sont recalculés une fois (save.uniq)
 var ITEM_RARITIES = RARITY_IDS.concat(['unique', 'legendaire']); // pour ranger les objets
 var LEGEND_CHANCE = { 0: 0.003, 1: 0.008, 2: 0.02 }; // par victoire sur le Continent : monstre commun, boss ou rare, épique
