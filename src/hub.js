@@ -242,6 +242,15 @@
     renderAll();
     showPage('camp');
     startTick();
+    // les donjons nettoyés avant que leur boss ne revienne plus : le compagnon qu'on n'avait pas eu suit la grenouille
+    var missedPets = DUNGEONS.filter(function (d) { return dungeonCleared(save, d) && petById(d.id) && !petLevel(save, d.id); });
+    if (missedPets.length) {
+      save.pets = save.pets || {};
+      missedPets.forEach(function (d) { save.pets[d.id] = 1; });
+      if (!save.pet) save.pet = missedPets[0].id;
+      setPlayer(save); persist();
+      if (!save.notice) save.notice = 'Les donjons ne se refont plus : ' + (missedPets.length > 1 ? 'les petits des boss que tu avais vaincus te rejoignent (' + missedPets.map(function (d) { return petById(d.id).name; }).join(', ') + ')' : petById(missedPets[0].id).name + ', le petit d’un boss que tu avais vaincu, te rejoint') + '. Nourris-les d’éclats de jade pour les faire grandir.';
+    }
     if (save.notice) { notice(save.notice); delete save.notice; persist(); }
     // les nouveautés, une fois (une grenouille toute neuve les découvre en jouant)
     if (save.news !== NEWS.id) { var fresh = save.level <= 1 && !save.progress[0]; save.news = NEWS.id; persist(); if (!fresh) showNews(); }
