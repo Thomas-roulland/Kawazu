@@ -16,10 +16,14 @@ var VOIES = [
     base: { vitalite: 9, agilite: 6, force: 8, esprit: 4 }, main: 'force', mult: { force: 2, vitalite: 1.5 }, hp: 1.1, armor: 0.06, armorL: 0.0004 },
   { id: 'kunai', name: 'Voie du Lancer', short: 'Lancer', color: '#9cc7e0', family: 'distance',
     desc: 'À distance : kunaïs et shurikens d’eau. Des lancers qui ne ratent jamais, des marques, du poison et une ombre insaisissable.',
-    base: { vitalite: 8, agilite: 9, force: 5, esprit: 5 }, main: 'agilite', mult: { agilite: 2, vitalite: 1.5 }, hp: 1.06, armor: 0 },
+    base: { vitalite: 8, agilite: 9, force: 5, esprit: 5 }, main: 'agilite', mult: { agilite: 1.85, vitalite: 1.5 }, hp: 1.06, armor: 0 }, // (1,85 : ses coups sûrs, ses critiques et son esquive le rendaient trop fort en duel)
   { id: 'ermite', name: 'Voie de l’Ermite', short: 'Ermite', color: '#e0b43a', family: 'mains nues',
     desc: 'Mains nues : paumes d’énergie, coups de pied et coups de boule. L’énergie de la nature frappe, soigne et protège.',
-    base: { vitalite: 8, agilite: 5, force: 3, esprit: 11 }, main: 'esprit', mult: { esprit: 2, vitalite: 1.5 }, hp: 1.05, armor: 0.05 }
+    base: { vitalite: 8, agilite: 5, force: 3, esprit: 11 }, main: 'esprit', mult: { esprit: 2, vitalite: 1.5 }, hp: 1.05, armor: 0.05,
+    lateFrom: 150, lateDmg: 0.004, lateDuel: 0.012 }
+    // (au-delà du niveau 150, ses coups uniques rattrapent les sorts à coups multiples des deux autres voies : +0,4 % de dégâts
+    // par niveau contre les monstres, où ses soins le portent déjà, +1,2 % en duel et à la guerre ; réglé au simulateur :
+    // duels à 48-52 % pour chaque voie sur tout le jeu ; contre les monstres, l'Ermite un peu plus lent mais plus sûr)
 ];
 function voieDef(id) { return VOIES.filter(function (v) { return v.id === id; })[0] || null; }
 // ce que rapporte un point réparti dans une caractéristique, selon la voie (1 sans voie)

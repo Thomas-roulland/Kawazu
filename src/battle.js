@@ -1559,7 +1559,7 @@ var BattleScene = (function () {
     save = gameSave; fight = f; onEnd = callback;
     token++;
     weapon = weaponOf(save.equip);
-    var pr = combatProfile(save);
+    var pr = combatProfile(save, f.kind === 'duel' || f.kind === 'guerre');
     P = arm({
       hp: pr.maxHp, maxHp: pr.maxHp, dmg: pr.dmg, crit: pr.crit, critMult: pr.critMult, dodge: pr.dodge, agi: pr.agi,
       spell: pr.spell, cdr: pr.cdr, size: pr.size, pas: pr.pas, dmgReduce: pr.dmgReduce,

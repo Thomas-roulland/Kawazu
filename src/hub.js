@@ -2143,7 +2143,7 @@
     if (card.alloc && card.alloc.souffle && !card.alloc.esprit) ps.alloc.esprit = card.alloc.souffle; // une partie d'avant l'Esprit
     setPlayer(ps);
     try {
-      var weapon = weaponOf(equip), pr = combatProfile(ps);
+      var weapon = weaponOf(equip), pr = combatProfile(ps, true); // (une grenouille d'en face : duel ou guerre)
       var anims = buildKawazuAnims(dressKawazu(sp, lookFor(equip))), pal = paletteFor(sp.PAL, equip);
       var imgs = function (frames) { return frames.map(function (g) { return g ? gridToCanvas(g, pal, true) : null; }); };
       return (dojo.fighters[card.id] = {

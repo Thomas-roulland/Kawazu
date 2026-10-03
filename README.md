@@ -101,10 +101,18 @@ grenouille, avec l’événement en cours (le week-end double XP).
   dégâts, compté ×2 quand on y met un point ; la Vitalité compte ×1,5) et ses traits :
   - **Voie des Armes** (corps à corps : bâtons, harpons, **katanas**, **masses**) : Force ; endurance ×1,1 et une armure
     qui grandit avec le niveau ;
-  - **Voie du Lancer** (distance : kunaïs, **shurikens**, qui donnent de l’Agilité) : Agilité ; critique, esquive et
-    initiative, des lancers qui ne ratent jamais ;
+  - **Voie du Lancer** (distance : kunaïs, **shurikens**, qui donnent de l’Agilité) : Agilité (×1,85 par point) ; critique,
+    esquive et initiative, des lancers qui ne ratent jamais ;
   - **Voie de l’Ermite** (mains nues, qui donnent de l’Esprit) : Esprit ; sorts plus puissants qui reviennent plus vite,
-    une petite armure. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et **coups de boule**.
+    une petite armure, et des soins. Mode Ermite : peau orange, yeux de crapaud, plus d’arme ; paumes, **coups de pied** et
+    **coups de boule**. Ses **mains grandissent avec ses objets** : leur Esprit est celui d’une arme du rang de ses autres
+    objets portés, de leur rareté et de leur forge. Au-delà du niveau 150, ses coups uniques rattrapent les sorts à coups
+    multiples des autres voies (+0,4 % de dégâts par niveau contre les monstres, +1,2 % en duel et à la guerre).
+
+  **L’équilibre des voies** (réglé au simulateur, duels joués dans les deux sens, tous les 10 niveaux de 30 à 280) : en duel,
+  chaque voie gagne 49 à 51 % de ses combats sur tout le jeu (43 à 55 % selon la phase) ; contre les monstres, les Armes
+  et le Lancer tuent plus vite (environ 4 tours), l’Ermite plus lentement (5,5) mais il tient mieux les combats longs
+  grâce à ses soins (85 % des combats durs de la fin, contre 50 à 60 %).
 
   On commence **à mains nues** : l’arme de départ vient avec le choix de la voie et de l’arme.
   Une voie ne manie que sa famille d’armes, et on y **choisit son arme** au Temple (Armes : bâton, harpon, katana ou masse ;

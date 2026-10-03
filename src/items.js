@@ -358,11 +358,34 @@ function computeStats(equip) {
 
 // En mode Ermite, pas d'arme : les mains nues frappent au corps à corps avec une onde de paume
 var HERMIT_SKIN = { name: 'Mode Ermite', g: '#9a4212', m: '#e07a2a', l: '#f8b060', c: '#fff0c8' };
-function hermitHands() {
+// Les mains de l'Ermite grandissent comme une arme : leur Esprit est celui d'une arme du rang de ses autres objets portés
+// (le plus haut), à la même rareté et à la même forge (le rapport moyen entre leurs stats et celles de leur modèle),
+// fois HERMIT_HANDS. Sans cela, l'Ermite décrochait dès le niveau 80 (0 à 7 % de duels gagnés contre les autres voies
+// au-delà du niveau 110, des boss trois fois plus longs à tomber) : réglé au simulateur, voies à égalité.
+var HERMIT_HANDS = 0.95, weaponMainByTier = null;
+function weaponMainOf(tier) {
+  if (!weaponMainByTier) {
+    weaponMainByTier = {};
+    BASE_IDS.forEach(function (id) { var it = ITEMS[id], t = ITEM_TIER[id]; if (!it || it.slot !== 'arme' || it.reward || !t) return; weaponMainByTier[t] = Math.max(weaponMainByTier[t] || 0, it.stats.force || 0, it.stats.agilite || 0, it.stats.esprit || 0); });
+  }
+  for (var t = tier; t >= 1; t--) if (weaponMainByTier[t]) return weaponMainByTier[t];
+  return 0;
+}
+// un exemplaire comparé à son modèle : sa rareté, sa forge, le « + » des cycles
+function gearRatio(id) {
+  var it = ITEMS[id], b = it && ITEMS[it.base || baseOf(id)], s = 0, s0 = 0;
+  if (!it || !b) return 1;
+  Object.keys(b.stats).forEach(function (k) { if (b.stats[k] > 0) { s0 += b.stats[k]; s += Math.max(0, it.stats[k] || 0); } });
+  return s0 ? Math.max(1, s / s0) : 1;
+}
+function hermitHands(equip) {
+  var worn = ['tete', 'echarpe', 'ceinture', 'anneau'].map(function (sl) { return equip && equip[sl]; }).filter(function (id) { return id && ITEMS[id]; });
+  var tier = worn.reduce(function (t, id) { return Math.max(t, tierOf(id)); }, 1);
+  var ratio = worn.length ? worn.reduce(function (a, id) { return a + gearRatio(id); }, 0) / worn.length : 1;
   return {
     slot: 'arme', kind: 'mains', wtype: 'mains', name: 'Mains de l’ermite', icon: 'baton', drop: 0,
-    stats: { esprit: 3 + Math.floor(playerLevel / 4), force: 2 },
-    desc: 'Mode Ermite : pas d’arme, que la paume. Plus fortes à chaque niveau.',
+    stats: { esprit: 3 + Math.floor(playerLevel / 4) + Math.round(HERMIT_HANDS * weaponMainOf(tier) * ratio), force: 2 },
+    desc: 'Mode Ermite : pas d’arme, que la paume. Elles grandissent avec tes objets : leur force est celle d’une arme de leur rang, de leur rareté et de leur forge.',
     blade: '#f3d27a', wave: ['#fff0a0', '#e07a2a'],
     look: { weapon: 'mains' },
     attack: { fx: { type: 'palm' }, reach: 20, durations: [0.1, 0.06, 0.06, 0.14] }
@@ -378,7 +401,7 @@ function bareHands() {
   };
 }
 function weaponOf(equip) {
-  if (playerHermit) return hermitHands();
+  if (playerHermit) return hermitHands(equip);
   return ITEMS[equip.arme] || bareHands();
 }
 function isRanged(weapon) { return weapon.kind === 'kunai'; }
@@ -613,12 +636,13 @@ function combatStats(stats, voie, level) {
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
 // (gb : les panoplies d'Uniques et le compagnon, voir forge.js)
-function combatProfile(save) {
+function combatProfile(save, duel) { // (duel : contre une autre grenouille, en duel ou à la guerre)
   var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation), ms = masteryBonus(save), cb = save.clanBonus || {};
   var gb = typeof gearBonus === 'function' ? gearBonus(save) : {}, g = function (k) { return gb[k] || 0; };
+  var vd = voieDef(chosenVoie(save)), late = vd && vd.lateFrom ? Math.max(0, (save.level || 1) - vd.lateFrom) * ((duel ? vd.lateDuel : vd.lateDmg) || 0) : 0; // (le rattrapage de fin de jeu d'une voie)
   if (g('lifesteal')) pas = Object.assign({}, pas, { lifesteal: (pas.lifesteal || 0) + g('lifesteal') });
   return {
-    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0) + g('hp'))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0) + g('dmg')),
+    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0) + g('hp'))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0) + g('dmg') + late),
     crit: Math.min(0.75, cs.crit + pas.crit + mb.crit + ms.crit + g('crit')), critMult: 1.6 + pas.critDmg + g('critDmg'), dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge + g('dodge')),
     agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell + ms.spell + g('spell'), cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb, mastery: ms, gear: gb,
     armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce + g('reduce'))
