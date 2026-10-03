@@ -30,6 +30,22 @@ Sans serveur, pour jouer seul en local : double-cliquer sur `jeu.html`.
   freinés. Derrière HTTPS en local, lancer avec `COOKIE_SECURE=1`.
 - `server/data/` est exclu de git (`.gitignore`) : les comptes des joueurs ne partent jamais sur GitHub.
 
+### Le journal des grenouilles (pour analyser l’équilibre)
+
+Le jeu trace chaque combat (lieu, adversaire, tours, plus gros coup, dégâts, PV), chaque gain d’XP **et sa source**
+(carte, donjon, tour, méditation, quêtes, Titan…), la forge, le recyclage, les achats, les compagnons, les mutations et
+les cycles (`src/journal.js`) ; avec un compte, tout part au serveur (les 5 000 derniers événements par grenouille), et
+le serveur y ajoute un instantané à chaque sauvegarde qui change le niveau ou l’équipement, avec un signal « saut » si le
+niveau, les lucioles ou les éclats bondissent. Chacun exporte le sien depuis la fenêtre **Sauvegarde → Exporter le
+journal**. Pour lire **tous** les journaux, définir sur Vercel la variable `KAWAZU_ADMIN` (un secret d’au moins 16
+caractères), puis :
+
+    KAWAZU_ADMIN=le-secret node outils/journal-analyse.js https://kawazu-psi.vercel.app
+    node outils/journal-analyse.js kawazu-journal-Kaisho.json
+
+Le rapport donne, par grenouille : le rythme des niveaux, l’XP par source, les combats (gagnés en un tour, écart de
+niveau, plus gros coup comparé aux PV de l’ennemi) terre par terre, la forge, l’équipement porté, et les signaux.
+
 ### Mettre le jeu en ligne (gratuit : Vercel + Upstash)
 
 Vercel sert les pages et fait tourner l’API en fonctions (`api/index.js`, qui appelle `server/api.js`) ;
@@ -309,8 +325,10 @@ grenouille, avec l’événement en cours (le week-end double XP).
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
   nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent ; sa peau ne
-  change pas, mais une **aura** l’entoure, plus dense à chaque mutation (sa couleur change avec le nombre), et elle gagne
-  un **titre** (l’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle). Ses donjons restent : ceux où
+  change pas, mais une **aura** l’entoure, façon Dofus, de plus en plus présente : un cercle de lumière au sol et des
+  étincelles qui montent, puis une colonne de lumière (2 mutations), des éclats en orbite (3), une couronne (4), des
+  couleurs mêlées (5 et plus) ; au camp, sur la fiche et en combat, purement décorative, et **masquable**. Elle gagne aussi
+  des **titres** (l’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle), un au choix, affiché au classement. Ses donjons restent : ceux où
   elle est entrée ou qu’elle a nettoyés restent ouverts, même au niveau 1.
 - Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
   Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.
@@ -410,7 +428,7 @@ puissance des voies.
 
 - `index.html`, `src/accueil.js`, `src/accueil.css` : la page d’accueil (cinématique, compte, grenouilles)
 - `jeu.html`, `src/style.css` : le jeu, ses pages et son style (bois, dorures, parchemin)
-- `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
+- `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle ; `src/journal.js` et `outils/journal-analyse.js` : le journal des grenouilles et son analyse
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
 - `src/donjons.js` : les Donjons (leurs salles, leurs boss, les objets Uniques, les portes en pixel art)
 - `src/forge.js` : la forge (éclats, recyclage, renforcement), les panoplies d’Uniques et les compagnons ;

@@ -115,6 +115,7 @@ function worldDone(save) { return save.progress[BIOMES.length - 1] >= STAGES; }
 function nextCycle(save) {
   if (!worldDone(save)) return false;
   save.cycle = (save.cycle || 1) + 1;
+  if (typeof journal === 'function') journal('cycle', { cycle: save.cycle, niveau: save.level });
   save.progress = BIOMES.map(function () { return 0; });
   save.expedition = null;
   return true;
@@ -238,7 +239,7 @@ function claimMeditation(save, again) {
   var g = meditationGain(save);
   if (!g) return null;
   save.gold += g.gold;
-  g.levels = g.xp ? gainXp(save, g.xp) : 0;
+  g.levels = g.xp ? gainXp(save, g.xp, 'meditation') : 0;
   save.meditation = again ? { since: Date.now() } : null;
   return g;
 }

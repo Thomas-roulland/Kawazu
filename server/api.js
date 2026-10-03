@@ -10,6 +10,9 @@
 //   PUT  /api/grenouilles/:id   { save }                enregistre la partie
 //   POST /api/grenouilles/:id/sauver { save }           idem, pour navigator.sendBeacon à la fermeture de la page
 //   DELETE /api/grenouilles/:id                         supprime une grenouille
+//   POST /api/grenouilles/:id/journal { evenements }    le journal de la grenouille (combats, XP et sa source, forge…)
+//   GET  /api/grenouilles/:id/journal                   son journal (le plus récent d'abord), pour l'analyser
+//   GET  /api/admin/journaux?n=&id=                     tous les journaux (en-tête x-kawazu-admin = KAWAZU_ADMIN)
 //   GET  /api/classement                                les fiches publiques de toutes les grenouilles
 //   GET  /api/dojo/:id                                  le dojo d'une grenouille : réputation, duels du jour, journal,
 //                                                       top 10, cadeaux à recevoir
@@ -90,6 +93,9 @@ function redisStore(url, token) {
     hset: (k, field, v) => cmd(['HSET', k, field, JSON.stringify(v)]),
     hincr: (k, field, n) => cmd(['HINCRBY', k, field, String(n)]),
     hdel: (k, field) => cmd(['HDEL', k, field]),
+    lpush: (k, values) => cmd(['LPUSH', k].concat(values)),
+    ltrim: (k, a, b) => cmd(['LTRIM', k, String(a), String(b)]),
+    lrange: async (k, a, b) => (await cmd(['LRANGE', k, String(a), String(b)])) || [],
     hgetall: async (k) => {
       const flat = (await cmd(['HGETALL', k])) || [], out = {};
       for (let i = 0; i + 1 < flat.length; i += 2) out[flat[i]] = JSON.parse(flat[i + 1]);
@@ -123,7 +129,10 @@ function fileStore(dir) {
     hset: async (k, field, v) => { const e = read(k), o = e ? e.v : {}; o[field] = v; write(k, o); },
     hincr: async (k, field, n) => { const e = read(k), o = e ? e.v : {}; o[field] = (+o[field] || 0) + n; write(k, o); return o[field]; },
     hdel: async (k, field) => { const e = read(k); if (e && e.v[field]) { delete e.v[field]; write(k, e.v); } },
-    hgetall: async (k) => { const e = read(k); return e ? e.v : {}; }
+    hgetall: async (k) => { const e = read(k); return e ? e.v : {}; },
+    lpush: async (k, values) => { const e = read(k), l = e && Array.isArray(e.v) ? e.v : []; values.forEach((v) => l.unshift(v)); write(k, l); return l.length; },
+    ltrim: async (k, a, b) => { const e = read(k); if (e && Array.isArray(e.v)) write(k, e.v.slice(a, b + 1)); },
+    lrange: async (k, a, b) => { const e = read(k); return e && Array.isArray(e.v) ? e.v.slice(a, b < 0 ? undefined : b + 1) : []; }
   };
 }
 // Sur Vercel, le disque est en lecture seule : sans Upstash, pas de comptes
@@ -204,7 +213,7 @@ function rankEntry(frog, pseudo) {
     id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: pseudo,
     niveau: num(s.level || 1, 999), xp: num(s.xp, 1e9), voie: typeof s.voie === 'string' ? s.voie.slice(0, 12) : null,
     // l'aventure : les étapes conquises, et chaque cycle (NG+) terminé compte pour tout le monde (TERRES × 10 étapes)
-    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations,
+    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations, titre: mutations ? (typeof s.titre === 'number' && s.titre >= -1 && s.titre < Math.min(mutations, 5) ? Math.floor(s.titre) : Math.min(mutations, 5) - 1) : -1,
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
     dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 600),
@@ -282,6 +291,37 @@ async function editGifts(frogId, fn) {
     return list;
   });
 }
+// ---------- Le journal des grenouilles : de quoi analyser l'équilibre, et repérer ce qui est abusé ----------
+// journal:<grenouille> : une liste (la plus récente d'abord, JOURNAL_MAX au plus). Le jeu y envoie ses événements (chaque
+// combat, chaque gain d'XP et sa source, la forge, le recyclage, les achats, les mutations…) ; le serveur y ajoute un
+// instantané à chaque sauvegarde qui change le niveau, l'équipement, la mutation ou le cycle, avec un signal « saut »
+// quand le niveau, les lucioles ou les éclats bondissent d'un coup (à regarder de près).
+const JOURNAL_MAX = 5000, JOURNAL_LOT = 100, JOURNAL_EVENT = 2000;
+async function journalPush(id, events) {
+  if (!events.length) return;
+  await store.lpush('journal:' + id, events.map((e) => JSON.stringify(e)));
+  await store.ltrim('journal:' + id, 0, JOURNAL_MAX - 1);
+}
+async function journalRead(id, n) { return (await store.lrange('journal:' + id, 0, Math.max(1, Math.min(JOURNAL_MAX, n)) - 1)).map((s) => { try { return typeof s === 'string' ? JSON.parse(s) : s; } catch (e) { return null; } }).filter(Boolean); }
+// ce qui compte d'une partie, pour la suivre : niveau, avancée, monnaies, et chaque objet porté (rareté, forge, stats)
+function snapshotOf(s) {
+  s = s || {};
+  const items = s.items && typeof s.items === 'object' ? s.items : {}, equip = s.equip && typeof s.equip === 'object' ? s.equip : {}, gear = {};
+  Object.keys(equip).forEach((slot) => { const id = equip[slot], it = typeof id === 'string' && items[id]; gear[slot] = it ? { base: String(it.base).slice(0, 40), rar: it.rar, forge: num(it.forge, 10), stats: it.stats } : (typeof id === 'string' ? id.slice(0, 40) : null); });
+  return { niv: num(s.level || 1, 999), xp: num(s.xp, 1e12), conquis: Array.isArray(s.progress) ? s.progress.reduce((a, n) => a + (+n || 0), 0) : 0, tour: num(s.tower, 999),
+    or: num(s.gold, 1e15), eclats: num(s.eclats, 1e12), cycle: num(s.cycle || 1, 999), mut: num(s.mutation && s.mutation.n, 999), dalles: Array.isArray(s.tree) ? s.tree.length : 0,
+    maitrises: s.mastery && typeof s.mastery === 'object' ? s.mastery : {}, compagnon: typeof s.pet === 'string' ? s.pet : null, objets: Array.isArray(s.owned) ? s.owned.length : 0, equipement: gear };
+}
+async function journalSnapshot(id, before, after) {
+  const a = snapshotOf(before), b = snapshotOf(after), sig = (x) => JSON.stringify(x.equipement) + '|' + x.mut + '|' + x.cycle;
+  if (a.niv === b.niv && sig(a) === sig(b)) return;
+  const saut = [];
+  if (b.niv - a.niv >= 5) saut.push('niveau +' + (b.niv - a.niv));
+  if (b.or - a.or >= Math.max(200000, 3000 * b.niv)) saut.push('lucioles +' + (b.or - a.or));
+  if (b.eclats - a.eclats >= 5000) saut.push('éclats +' + (b.eclats - a.eclats));
+  await journalPush(id, [Object.assign({ t: Date.now(), k: 'sauvegarde', serveur: true }, b, saut.length ? { saut: saut } : {})]);
+}
+
 async function addGift(frogId, gift) { await editGifts(frogId, (list) => list.filter((g) => g.id !== gift.id).concat([gift])); }
 // ---------- Les saisons de classement : un mois (heure de Paris) ----------
 // Les points de saison sont gagnés dans le jeu (quêtes, boss, donjons, Titan…) et publiés avec la fiche. Le premier du
@@ -892,6 +932,16 @@ async function route(req, res, p) {
   }
 
   // tout le reste demande d'être connecté
+  if (p === '/api/admin/journaux' && method === 'GET') {
+    const secret = process.env.KAWAZU_ADMIN || '', given = String(req.headers['x-kawazu-admin'] || '');
+    const ok = secret.length >= 16 && given.length === secret.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(secret));
+    if (!ok) return send(res, 404, { erreur: 'Route inconnue.' });
+    const q = new URL(req.url, 'http://x').searchParams, n = num(+q.get('n') || 500, JOURNAL_MAX), only = q.get('id');
+    const fiches = await store.hgetall(RANK), ids = Object.keys(fiches).filter((k) => !only || k === only);
+    const out = [];
+    for (const k of ids) out.push({ id: k, nom: fiches[k].nom, pseudo: fiches[k].pseudo, niveau: fiches[k].niveau, evenements: await journalRead(k, n) });
+    return send(res, 200, { genere: Date.now(), grenouilles: out });
+  }
   if (!me) return send(res, 401, { erreur: 'Connecte-toi d’abord.' });
   const account = me.compte;
   if (p === '/api/moi' && method === 'GET') {
@@ -924,12 +974,22 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(ti[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return titanRoute(req, res, account, ti[1], ti[2], method);
   }
-  const m = /^\/api\/grenouilles\/([0-9a-f-]{36})(\/sauver)?$/.exec(p);
+  const m = /^\/api\/grenouilles\/([0-9a-f-]{36})(\/sauver|\/journal)?$/.exec(p);
   if (m) {
     const id = m[1], frog = account.grenouilles.indexOf(id) >= 0 ? await store.get('grenouille:' + id) : null;
     if (!frog) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     if (method === 'GET' && !m[2]) { await publish(frog, account.pseudo); return send(res, 200, frog); } // la partie reprend : la fiche est à jour
-    if ((method === 'PUT' && !m[2]) || (method === 'POST' && m[2])) {
+    if (m[2] === '/journal') {
+      if (method === 'GET') return send(res, 200, { id: id, nom: frog.nom, evenements: await journalRead(id, JOURNAL_MAX) });
+      if (method !== 'POST') return send(res, 404, { erreur: 'Route inconnue.' });
+      const b = await readBody(req, 256 * 1024), list = b && Array.isArray(b.evenements) ? b.evenements : null;
+      if (!list || list.length > JOURNAL_LOT) return send(res, 400, { erreur: 'Journal invalide.' });
+      const now = Date.now(), ok = list.filter((e) => e && typeof e === 'object' && !Array.isArray(e) && typeof e.k === 'string' && JSON.stringify(e).length <= JOURNAL_EVENT)
+        .map((e) => Object.assign({}, e, { k: e.k.slice(0, 24), t: num(e.t, now + 60000) || now, arrive: now }));
+      await journalPush(id, ok); // (envoyés du plus ancien au plus récent : la liste garde le plus récent en tête)
+      return send(res, 200, { ok: true, gardes: ok.length });
+    }
+    if ((method === 'PUT' && !m[2]) || (method === 'POST' && m[2] === '/sauver')) {
       const b = await readBody(req, 256 * 1024);
       if (!b || typeof b.save !== 'object' || !b.save || Array.isArray(b.save)) return send(res, 400, { erreur: 'Sauvegarde invalide.' });
       const before = JSON.parse(JSON.stringify(frog));
@@ -938,6 +998,7 @@ async function route(req, res, p) {
       if (b.save.hero && typeof b.save.hero.name === 'string') frog.nom = b.save.hero.name.slice(0, 16);
       await store.set('grenouille:' + id, frog);
       await publish(frog, account.pseudo, before);
+      try { await journalSnapshot(id, before.save, frog.save); } catch (e) { console.error('journal :', e.message); } // (le journal ne bloque jamais une sauvegarde)
       return send(res, 200, { ok: true, modifie: frog.modifie });
     }
     if (method === 'DELETE' && !m[2]) {
@@ -945,7 +1006,7 @@ async function route(req, res, p) {
       await saveAccount(account);
       await store.del('grenouille:' + id);
       await withLock(CLAN_LOCK, () => leaveClan(id)); // elle quitte son clan
-      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id), store.del(titanDayKey(id))]);
+      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id), store.del(titanDayKey(id)), store.del('journal:' + id)]);
       return send(res, 200, { ok: true });
     }
   }

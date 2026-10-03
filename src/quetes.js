@@ -89,7 +89,7 @@ function claimQuest(save, id) {
   var r = questReward(save), xp = clanXp(r.xp);
   save.gold += r.gold; save.eclats = (save.eclats || 0) + r.eclats;
   seasonAdd(save, r.pts);
-  return { gold: r.gold, eclats: r.eclats, xp: xp, levels: gainXp(save, xp) };
+  return { gold: r.gold, eclats: r.eclats, xp: xp, levels: gainXp(save, xp, 'quete') };
 }
 function chestReady(save) { var qs = save.quests; return !!qs && qs.day === dayKey() && !qs.chest && qs.list.length > 0 && qs.list.every(function (q) { return q.got; }); }
 function claimChest(save) {
@@ -101,7 +101,7 @@ function claimChest(save) {
   save.owned.push(item);
   save.gold += r.gold; save.eclats = (save.eclats || 0) + r.eclats;
   seasonAdd(save, r.pts);
-  return { gold: r.gold, eclats: r.eclats, xp: xp, levels: gainXp(save, xp), item: item };
+  return { gold: r.gold, eclats: r.eclats, xp: xp, levels: gainXp(save, xp, 'coffre'), item: item };
 }
 // Ce qu'il y a à réclamer (pour le badge du camp)
 function questsClaimable(save) {

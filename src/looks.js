@@ -106,28 +106,43 @@ var HATS = {
   }
 };
 
-// L'aura de la mutation (M) : un liseré de lumière autour de la grenouille (sa peau ne change pas), plus dense à
-// chaque mutation, de la couleur de la mutation
-function paintAura(g, n) {
-  var H = g.length, dens = Math.min(1, 0.35 + 0.2 * (n - 1)), add = [];
-  for (var y = 0; y < H - 2; y++) for (var x = 0; x < g[y].length; x++) {
-    if (g[y][x] !== '.') continue;
-    var near = [[0, 1], [0, -1], [1, 0], [-1, 0]].some(function (d) { var r = g[y + d[0]], ch = r && r[x + d[1]]; return ch && ch !== '.' && ch !== 'M'; });
-    if (near && hash(y, x, 57) < dens) add.push([y, x]);
+// L'aura de mutation, façon Dofus (purement décorative ; on peut la masquer) : au sol, un cercle de lumière qui tourne
+// et des étincelles qui montent ; dès 2 mutations une colonne de lumière, à 3 des éclats en orbite, à 4 une couronne
+// au-dessus de la tête, à 5 et plus des couleurs mêlées. part : 'back' (derrière la grenouille) ou 'front' (devant) ;
+// cx, foot : son centre et le sol sous ses pieds ; u : la taille d'un pixel de son image ; t : le temps, en secondes.
+function auraRgba(hex, a) { var v = parseInt(hex.slice(1), 16); return 'rgba(' + (v >> 16 & 255) + ',' + (v >> 8 & 255) + ',' + (v & 255) + ',' + a + ')'; }
+function drawAura(ctx, part, cx, foot, u, n, t) {
+  if (!n) return;
+  var back = part === 'back', col = MUTATION_GLOW[Math.min(MUTATION_GLOW.length, n) - 1], keep = ctx.globalAlpha, N = Math.min(n, 5);
+  var colAt = function (i) { return n >= 5 ? MUTATION_GLOW[(i + Math.floor(t * 0.7)) % (MUTATION_GLOW.length - 1)] : col; };
+  var dot = function (x, y, s, c, a) { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = c; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), Math.max(1, Math.round(s)), Math.max(1, Math.round(s))); };
+  var mid = foot - 14 * u, rx = (17 + N) * u, ry = 4 * u, pulse = 0.6 + 0.3 * Math.sin(t * 2.4);
+  if (back) {
+    // un halo derrière elle, qui respire
+    var r = (18 + 3 * N) * u, g = ctx.createRadialGradient(cx, mid, 2 * u, cx, mid, r);
+    g.addColorStop(0, auraRgba(col, 0.22 + 0.05 * N + 0.06 * Math.sin(t * 1.8))); g.addColorStop(1, auraRgba(col, 0));
+    ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(Math.round(cx - r), Math.round(mid - r), Math.round(2 * r), Math.round(2 * r));
+    if (n >= 2) { // la colonne de lumière
+      var h = (34 + 6 * N) * u, cg = ctx.createLinearGradient(0, foot - h, 0, foot);
+      cg.addColorStop(0, auraRgba(col, 0)); cg.addColorStop(1, auraRgba(col, 0.3 + 0.08 * Math.sin(t * 2.2)));
+      ctx.fillStyle = cg; ctx.fillRect(Math.round(cx - 11 * u), Math.round(foot - h), Math.round(22 * u), Math.round(h));
+    }
+    // les étincelles qui montent du cercle, derrière elle (on les voit sur les côtés et au-dessus)
+    var motes = Math.min(30, 6 + 6 * n);
+    for (var m = 0; m < motes; m++) {
+      var life = (t * (0.3 + (m % 5) * 0.06) + m * 0.137) % 1, side = m % 2 ? 1 : -1, dx = (9 + (m * 7) % 9) * u * side;
+      dot(cx + dx * (1 + life * 0.3) + Math.sin(t * 2 + m) * u, foot - life * (30 + 5 * N) * u, m % 3 ? u : 2 * u, colAt(m), Math.sin(life * Math.PI) * 0.95);
+    }
   }
-  add.forEach(function (p) { g[p[0]][p[1]] = 'M'; });
-}
-// (avant : des taches sur la peau ; gardé pour mémoire, plus utilisé)
-function paintMutation(g, n) {
-  var spots = [];
-  for (var y = 9; y < g.length - 3; y++) for (var x = 0; x < g[y].length; x++) if (g[y][x] === 'm' || g[y][x] === 'g') spots.push([y, x]);
-  var count = Math.min(spots.length, 2 + 3 * n);
-  spots.sort(function (a, b) { return hash(a[0], a[1], 91) - hash(b[0], b[1], 91); });
-  for (var i = 0; i < count; i++) { // des taches de deux pixels, pour qu'elles se voient sur toutes les peaux
-    var y2 = spots[i][0], x2 = spots[i][1];
-    g[y2][x2] = 'M';
-    if (g[y2][x2 + 1] === 'm' || g[y2][x2 + 1] === 'g' || g[y2][x2 + 1] === 'l') g[y2][x2 + 1] = 'M';
+  // le cercle au sol, qui tourne (sa moitié du fond derrière elle, l'autre devant)
+  for (var i = 0; i < 40; i++) { var a = i / 40 * Math.PI * 2 + t * 0.9, s = Math.sin(a); if ((s < 0) !== back) continue; dot(cx + Math.cos(a) * rx, foot + s * ry, n >= 3 ? 2 * u : u, colAt(i), pulse * (i % 2 ? 1 : 0.6)); }
+  if (n >= 3) for (var o = 0; o < 3; o++) { // des éclats en orbite autour de la taille, avec leur traîne
+    var oa = t * 1.6 + o * 2.094, os = Math.sin(oa);
+    if ((os < 0) !== back) continue;
+    for (var tr = 0; tr < 3; tr++) dot(cx + Math.cos(oa - tr * 0.18) * 19 * u, mid + Math.sin(oa - tr * 0.18) * 5 * u, (tr ? 1 : 2) * u, colAt(o + 3), 0.95 - tr * 0.3);
   }
+  if (n >= 4 && !back) for (var c = 0; c < 12; c++) { var ca = c / 12 * Math.PI * 2 + t * 0.6, cs = Math.sin(ca); dot(cx + Math.cos(ca) * 8 * u, foot - 35 * u + cs * 1.8 * u, cs > 0 ? 2 * u : u, colAt(c), cs > 0 ? 0.95 : 0.5); } // une couronne de lumière
+  ctx.globalAlpha = keep;
 }
 // La cape des Légendaires (couleurs de l'écharpe, r et R) : dans le dos, elle couvre tout ; de profil, elle flotte
 // derrière la grenouille ; de face, on n'en voit que les bords. phase 1 : l'autre image, quand le vent la soulève
@@ -550,7 +565,6 @@ function dressKawazu(sp, look) {
   var sides = [side, atk].concat(hermit || []);
   finish({ main: main, back: back, ko: ko }, sides, 0);
   if (bare) { finish({ main: bare.main, back: bare.back }, [bare.side], 1); out.wind = bare; }
-  if (look.mutation) [main, back, side, atk].concat(hermit || []).forEach(function (g) { paintAura(g, look.mutation); });
   out.main = main; out.side = side; out.back = back; out.atk = atk; out.ko = ko;
   if (hermit) { out.hermitStance = hermit[0]; out.hermitAtk = hermit; }
   out.kick = kickPose(hermit ? hermit[0] : side);

@@ -50,8 +50,8 @@ function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 
 // ---------- La mutation : à partir du niveau MUTATION_LEVEL, la grenouille peut muter ----------
 // Elle repart au niveau 1 (caractéristiques et dalles rendues à zéro ; elle garde sa voie, ses objets, ses lucioles
 // et sa progression), mais pour toujours : +MUTATION_BASE à chaque caractéristique, +10 % d'XP, et un trait choisi
-// parmi trois (ils se cumulent). Une aura l'entoure (sa peau ne change pas), plus dense à chaque mutation, et elle
-// gagne un titre (MUTATION_TITLES), affiché au classement.
+// parmi trois (ils se cumulent). Sa peau ne change pas : une aura l'entoure (drawAura, looks.js), plus présente à chaque
+// mutation, qu'on peut masquer (save.auraOff) ; et elle gagne des titres (MUTATION_TITLES), un au choix (save.titre).
 var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1;
 var MUTATIONS = {
   ecorce: { name: 'Peau d’écorce', desc: '+8 % de PV', hp: 0.08 },
@@ -66,6 +66,8 @@ var MUTATIONS = {
 var MUTATION_GLOW = ['#5afff0', '#fff05a', '#ff5ae0', '#b8ff4a', '#ffffff']; // la couleur de l'aura, selon le nombre de mutations
 var MUTATION_TITLES = ['l’Éveillée', 'la Transfigurée', 'la Lumineuse', 'l’Ancestrale', 'l’Éternelle'];
 function mutationTitle(n) { return n ? MUTATION_TITLES[Math.min(MUTATION_TITLES.length, n) - 1] : ''; }
+// le titre choisi (save.titre : son rang, -1 pour aucun ; par défaut le plus haut gagné)
+function chosenTitle(save) { var n = (save.mutation && save.mutation.n) || 0, i = typeof save.titre === 'number' ? save.titre : n - 1; return i >= 0 && i < Math.min(n, MUTATION_TITLES.length) ? MUTATION_TITLES[i] : ''; }
 var playerMutation = { n: 0, traits: {} }, playerMutBonus = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
 function mutationBonus(m) {
   var b = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
@@ -106,8 +108,9 @@ function setPlayer(save) {
 }
 
 // Ajoute de l'XP ; renvoie le nombre de niveaux gagnés
-function gainXp(save, amount) {
-  var gained = 0;
+function gainXp(save, amount, src) {
+  var gained = 0, from = save.level;
+  if (typeof journal === 'function' && amount > 0) setTimeout(function () { journal('xp', { src: src || '?', xp: Math.round(amount), avant: from, apres: save.level, besoin: xpForLevel(from) }); }, 0); // (le journal : après le calcul des niveaux)
   save.xp += Math.round(amount);
   while (save.level < MAX_LEVEL && save.xp >= xpForLevel(save.level)) {
     save.xp -= xpForLevel(save.level);
@@ -417,7 +420,7 @@ function lookFor(equip) {
   look.weapon = w.look.weapon;
   look.hermit = playerHermit;
   look.skin = !playerHermit && heroSkin.fx || null; // les signes du skin (pas en mode Ermite, pour l'instant)
-  look.mutation = playerMutation.n || 0; // l'aura de la mutation
+  look.mutation = 0; // (l'aura de mutation n'est plus dans l'image : drawAura, autour de la grenouille)
   look.fx = isRanged(w) ? { type: 'none' } : w.attack.fx;
   return look;
 }
@@ -1178,6 +1181,8 @@ function parseSave(data) {
     if (ITEMS[id].investi) save.items[id].investi = ITEMS[id].investi;
   });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
+  if (data.auraOff) save.auraOff = true; // l'aura de mutation masquée
+  if (typeof data.titre === 'number' && data.titre >= -1 && data.titre < MUTATION_TITLES.length) save.titre = Math.floor(data.titre);
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
   if (Array.isArray(data.progress)) data.progress.forEach(function (n, i) { if (i < save.progress.length) save.progress[i] = Math.min(10, int(n, 0) || 0); });
   if (data.battle) save.battle = { auto: !!data.battle.auto, speed: [1, 2, 4].indexOf(data.battle.speed) >= 0 ? data.battle.speed : 1 };

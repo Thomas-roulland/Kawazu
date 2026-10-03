@@ -302,6 +302,7 @@
     <p id="save-intro">La partie est enregistrée automatiquement dans ce navigateur. Attention : chaque adresse a sa propre sauvegarde (ouvrir le fichier en double-clic ou via <code>localhost</code> ne partage pas la même). Exporte-la dans un fichier pour la retrouver partout.</p>
     <div class="modal-actions">
       <button id="save-export" class="btn">Exporter (fichier)</button>
+      <button id="journal-export" class="btn btn-ghost" title="Le journal de ta grenouille (combats, XP et d’où elle vient, forge…), pour analyser l’équilibre du jeu">Exporter le journal</button>
       <label class="btn btn-ghost file-btn">Importer…<input id="save-import" type="file" accept=".json,application/json"></label>
     </div>
     <div id="save-msg" class="muted" role="status"></div>
@@ -380,6 +381,7 @@
 </div>
 
 <script src="src/cloud.js"></script>
+<script src="src/journal.js"></script>
 <script src="src/audio.js"></script>
 <script src="src/sprites.js"></script>
 <script src="src/looks.js"></script>

@@ -1989,3 +1989,10 @@ h1 { line-height: 1.3; }
 
 /* ---------- Le classement : les mutations (leur aura et leur titre) ---------- */
 .rk-name b i.rk-mut { color: var(--g); background: color-mix(in srgb, var(--g) 14%, transparent); box-shadow: inset 0 0 0 1px var(--g), 0 0 8px color-mix(in srgb, var(--g) 50%, transparent); font-family: var(--body); font-size: 13px; text-transform: none; }
+
+/* ---------- La mutation : l'aura (à masquer) et le titre au choix ---------- */
+.mu-look { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mu-look .btn { padding: 6px 10px; font-size: 9px; }
+.mu-titles { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.mu-titles small { color: var(--muted); font-size: 13px; }
+.mu-titles .tab { padding: 3px 8px; font-size: 13px; }

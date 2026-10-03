@@ -382,6 +382,8 @@ var BattleScene = (function () {
     if (def.shield > 0) { var ab = Math.min(def.shield, dmg); def.shield -= ab; taken -= ab; if (ab) floater(cx + 10, cy - 18, '(' + ab + ')', '#9cd8f8'); }
     def.hp -= taken;
     if (att === P && fight.stats) { var st = fight.stats; st.total += dmg; st.hits++; if (crit) st.crits++; st.best = Math.max(st.best, dmg); }
+    if (att === P && trace) { trace.inflige += dmg; trace.coups++; if (crit) trace.crits++; trace.max = Math.max(trace.max, dmg); }
+    if (def === P && trace) trace.recu += taken;
     if (def === P && fight.stats) fight.stats.taken = (fight.stats.taken || 0) + taken;
     def.hurt = def === P ? 0.35 : 0.15;
     shake = Math.max(shake, opts.heavy ? 6 : (crit ? 4 : 2));
@@ -1112,6 +1114,7 @@ var BattleScene = (function () {
   async function act(skill) {
     if (busy || over || !skill || !ready(P, skill)) return;
     busy = true;
+    if (trace) { trace.tours++; trace.sorts[skill.id] = (trace.sorts[skill.id] || 0) + 1; }
     renderHud();
     await perform(P, E, skill);
     await ripostes(P, E);
@@ -1253,6 +1256,7 @@ var BattleScene = (function () {
   // la fin de l'assaut contre l'Alpha : les tours sont écoulés
   async function raidEnd() {
     over = true;
+    traceEnd(E.hp <= 0 ? 'victoire' : 'assaut');
     renderHud();
     sfx('ladder');
     log('Fin de l’assaut !', 'hero');
@@ -1285,6 +1289,7 @@ var BattleScene = (function () {
     if (over) return;
     over = true;
     E.dead = true;
+    traceEnd('victoire');
     sfx(E.rank === 'boss' ? 'bossDown' : 'kill');
     burst(midX(E), GROUND - 30, '#f4f4e8', 30);
     log(E.name + ' est à terre : victoire !', 'hero');
@@ -1299,7 +1304,7 @@ var BattleScene = (function () {
     if (fight.albumId) albumKill(save, fight.albumId);
     var quests = typeof track === 'function' ? track(save, 'stage').concat(E.rank === 'boss' || E.rank === 'gardien' ? track(save, 'boss') : [], E.rarity && E.rarity !== 'commun' ? track(save, 'rareFoe') : [], trackLoot(save, [loot])) : [];
     var gapX = xpGapMult(save.level, E.level), xp = clanXp(r.xp * gapX), gold = clanGold(r.gold); // avec les bonus du clan, moins d'XP si on est bien trop fort
-    var levels = gainXp(save, xp);
+    var levels = gainXp(save, xp, 'carte');
     save.gold += gold;
     var unlocked = null;
     if (save.progress[fight.biomeIndex] < fight.stage) {
@@ -1312,9 +1317,26 @@ var BattleScene = (function () {
     showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked, gap: gapX < 1 ? gapX : 0, quests: quests });
   }
 
+  // le journal : ce combat (où, contre qui, avec quoi, en combien de tours, le plus gros coup, et l'issue)
+  var trace = null;
+  function traceStart() {
+    var w = weaponOf(save.equip), wi = save.items && save.items[save.equip.arme];
+    trace = { t0: Date.now(), tours: 0, coups: 0, crits: 0, inflige: 0, max: 0, recu: 0, sorts: {},
+      heros: { niv: save.level, pv: P.maxHp, deg: Math.round(P.dmg), crit: Math.round(P.crit * 100), esq: Math.round((P.dodge || 0) * 100), arme: w && w.base ? w.base : (w && w.name), rar: wi ? wi.rar : null, forge: wi ? wi.forge || 0 : 0, cycle: save.cycle || 1, mut: (save.mutation && save.mutation.n) || 0, compagnon: save.pet || null } };
+  }
+  function traceEnd(issue) {
+    if (!trace || typeof journal !== 'function') return;
+    var f = fight, lieu = f.kind === 'stage' ? { terre: f.biomeIndex, etape: f.stage } : (f.kind === 'donjon' ? { donjon: f.dungeon, salle: f.room } : (f.kind === 'tour' ? { etage: f.floor || f.stage } : {}));
+    journal('combat', Object.assign({ type: f.kind, issue: issue, tours: trace.tours, coups: trace.coups, crits: trace.crits, inflige: Math.round(trace.inflige), max: Math.round(trace.max), recu: Math.round(trace.recu),
+      pvRestants: Math.max(0, Math.round(P.hp / P.maxHp * 100)), duree: Math.round((Date.now() - trace.t0) / 1000), sorts: trace.sorts, heros: trace.heros,
+      ennemi: { nom: E.name, niv: E.level, pv: E.maxHp, deg: Math.round(E.dmg || 0), rang: E.rank || null, rarete: E.rarity || null } }, lieu));
+    trace = null;
+  }
+
   async function defeat() {
     if (over) return;
     over = true;
+    traceEnd('defaite');
     P.dead = true;
     sfx('ko');
     log(heroName() + ' est à terre…', 'danger');
@@ -1405,10 +1427,12 @@ var BattleScene = (function () {
     } else ctx.drawImage(img, R(cx - s / 2), R(top), s, s);
   }
   function drawFrog(f, now) {
-    var s = fsz(f), cx = midX(f);
+    var s = fsz(f), cx = midX(f), mutN = f === P && !save.auraOff && save.mutation ? save.mutation.n : 0;
+    if (mutN) drawAura(ctx, 'back', cx, GROUND + f.y, s / 32, mutN, now / 1000); // l'aura de mutation, derrière elle puis devant
     ctx.globalAlpha = f.alpha == null ? 1 : f.alpha;
     drawSprite(f, attImg(f), cx);
     ctx.globalAlpha = 1;
+    if (mutN) drawAura(ctx, 'front', cx, GROUND + f.y, s / 32, mutN, now / 1000);
     drawSword(f);
     // l'onde de l'arme (bâton, harpon, paume)
     if (f.fx && f.imgs.fx[1]) {
@@ -1551,6 +1575,7 @@ var BattleScene = (function () {
     });
     tweens = []; floaters = []; particles = []; shots = []; fxs = []; shake = 0;
     busy = true; over = false;
+    traceStart();
     bg = f.backdrop || buildBackground(BIOMES[f.biomeIndex]);
     if (f.gloom) bg = gloomy(bg); // un donjon : le même décor, dans le noir des couloirs
     $('battle').style.background = f.backdrop ? '#1a1108' : BIOMES[f.biomeIndex].pal.groundDark;

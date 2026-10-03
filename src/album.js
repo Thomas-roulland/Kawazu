@@ -59,7 +59,7 @@ function albumClaim(save, ms) {
   var a = albumOf(save);
   a.paliers.push(ms.id);
   save.gold += ms.gold;
-  var levels = ms.xp ? gainXp(save, ms.xp) : 0;
+  var levels = ms.xp ? gainXp(save, ms.xp, 'album') : 0;
   if (ms.item && save.owned.indexOf(ms.item) < 0) save.owned.push(ms.item);
   return { levels: levels };
 }
