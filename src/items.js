@@ -31,9 +31,12 @@ var playerLevel = 1;
 // Les bonus du clan (le butin : +2 % par niveau) sur l'XP et les lucioles gagnées ; gardés dans la sauvegarde,
 // mis à jour chaque fois que le jeu lit le clan
 var clanBonus = { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 };
-// (et ceux de la mutation : voir mutationBonus)
-function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp)); }
-function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold)); }
+// (et ceux de la mutation : voir mutationBonus ; des panoplies et du compagnon : voir gearBonus dans forge.js ; et les
+// événements de la semaine, le week-end double XP : voir eventMult dans quetes.js)
+var playerGearBonus = { xp: 0, gold: 0, loot: 0 };
+function eventBoost(key) { return typeof eventMult === 'function' ? eventMult(key) : 1; }
+function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp + playerGearBonus.xp) * eventBoost('xp')); }
+function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold + playerGearBonus.gold)); }
 
 // ---------- Le cycle (NG+) : une fois le dernier boss du monde vaincu, le monde recommence, plus fort ----------
 // Au cycle c, les monstres se calent sur le niveau de la grenouille (jamais sous celui de leur étape), leurs PV et dégâts
@@ -94,6 +97,8 @@ function setPlayer(save) {
   playerMutation = save.mutation || { n: 0, traits: {} }; playerMutBonus = mutationBonus(playerMutation);
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
   playerLevel = save.level;
+  var gb = typeof gearBonus === 'function' ? gearBonus(save) : {};
+  playerGearBonus = { xp: gb.xp || 0, gold: gb.gold || 0, loot: gb.loot || 0 };
 }
 
 // Ajoute de l'XP ; renvoie le nombre de niveaux gagnés
@@ -438,6 +443,13 @@ var EXTRA_SKINS = {
 // Pas en mode Ermite pour l'instant : l'Ermite garde sa peau orange et ne peut pas changer de skin.
 var PREMIUM_SKINS = {
   // la peau du sommet de la Tour des Ancêtres : jamais en boutique (reward), donnée au 600e étage
+  // les peaux des saisons de classement (quetes.js, server/api.js) : les trois premières d'un mois les reçoivent
+  saison_or: { name: 'Champion d’or', price: 0, reward: true, g: '#6a4a0a', m: '#d8a42a', l: '#f8d870', c: '#fff6d0', scarf: ['#c9412f', '#7a1a1a'],
+    pal: { e: '#fff6a0' }, desc: 'Une peau d’or massif, qui brille au soleil comme une médaille. Elle va à la grenouille arrivée première d’une saison de classement.' },
+  saison_argent: { name: 'Champion d’argent', price: 0, reward: true, g: '#4a5260', m: '#a8b2c0', l: '#dce4ee', c: '#ffffff', scarf: ['#3a7fc9', '#1a3a6a'],
+    desc: 'Une peau d’argent poli, froide comme la lune. Elle va à la grenouille arrivée deuxième d’une saison de classement.' },
+  saison_bronze: { name: 'Champion de bronze', price: 0, reward: true, g: '#4a2410', m: '#a8622a', l: '#e09a5a', c: '#ffe0b8', scarf: ['#4e9a45', '#1f4a1a'],
+    desc: 'Une peau de bronze patiné, chaude comme une braise. Elle va à la grenouille arrivée troisième d’une saison de classement.' },
   ancetre: { name: 'Premier Crapaud', price: 0, reward: true, g: '#14121e', m: '#2e2a44', l: '#4a4468', c: '#8a84b0',
     pal: { e: '#6af0ff', U: '#0a0a14', G: '#e0b43a', D: '#e0b43a', W: '#e0b43a' }, fx: ['yeux', 'cernes', 'bandes'],
     desc: 'La peau d’obsidienne du tout premier crapaud ninja, striée d’or, les yeux pleins de la lumière des esprits. On ne l’achète pas : on la mérite, au sommet de la Tour des Ancêtres.' },
@@ -593,13 +605,16 @@ function combatStats(stats, voie, level) {
   };
 }
 // Tout ce qui compte en combat, caractéristiques et passifs de l'arbre réunis (pour la grenouille chargée par setPlayer)
+// (gb : les panoplies d'Uniques et le compagnon, voir forge.js)
 function combatProfile(save) {
   var cs = combatStats(computeStats(save.equip), chosenVoie(save), save.level), pas = treeBonuses(save).passives, mb = mutationBonus(save.mutation), ms = masteryBonus(save), cb = save.clanBonus || {};
+  var gb = typeof gearBonus === 'function' ? gearBonus(save) : {}, g = function (k) { return gb[k] || 0; };
+  if (g('lifesteal')) pas = Object.assign({}, pas, { lifesteal: (pas.lifesteal || 0) + g('lifesteal') });
   return {
-    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0)),
-    crit: Math.min(0.75, cs.crit + pas.crit + mb.crit + ms.crit), critMult: 1.6 + pas.critDmg, dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge),
-    agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell + ms.spell, cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb, mastery: ms,
-    armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce)
+    maxHp: Math.round(cs.maxHp * (1 + pas.hpMult + mb.hp + ms.hp + (cb.vie || 0) + g('hp'))), dmg: cs.dmg * (1 + pas.dmgMult + mb.dmg + ms.dmg + (cb.force || 0) + g('dmg')),
+    crit: Math.min(0.75, cs.crit + pas.crit + mb.crit + ms.crit + g('crit')), critMult: 1.6 + pas.critDmg + g('critDmg'), dodge: Math.min(0.5, cs.dodge + pas.dodge + mb.dodge + g('dodge')),
+    agi: cs.agi, spell: cs.spell + pas.spellMult + mb.spell + ms.spell + g('spell'), cdr: cs.cdr, size: 1 + pas.size, pas: pas, mut: mb, mastery: ms, gear: gb,
+    armor: cs.armor, dmgReduce: Math.min(0.6, cs.armor + pas.dmgReduce + g('reduce'))
   };
 }
 
@@ -986,10 +1001,15 @@ function registerItem(id, inst) {
   });
   var plus = Math.max(0, Math.min(99, Math.floor(+inst.plus || 0))); // le « + » des objets trouvés dans les cycles suivants
   var nm = typeof inst.name === 'string' && inst.name ? inst.name.slice(0, 48) : b.name; // (un Unique a le nom de son donjon)
-  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? nm + ' +' + plus : nm });
+  // la forge : chaque niveau ajoute FORGE_STEP des stats positives (les stats tirées restent dans raw)
+  var forge = Math.max(0, Math.min(FORGE_MAX, Math.floor(+inst.forge || 0))), forged = {};
+  Object.keys(stats).forEach(function (k) { forged[k] = stats[k] > 0 ? Math.round(stats[k] * (1 + FORGE_STEP * forge)) : stats[k]; });
+  ITEMS[id] = Object.assign({}, b, { stats: forged, raw: stats, forge: forge, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? nm + ' +' + plus : nm });
   if (inst.from) ITEMS[id].dungeon = String(inst.from).slice(0, 8);
   return true;
 }
+// La forge (forge.js) : un exemplaire se renforce de +1 à +FORGE_MAX, chaque niveau ajoutant FORGE_STEP de ses stats
+var FORGE_MAX = 10, FORGE_STEP = 0.05;
 // Un nouvel exemplaire d'un modèle : ses stats tirées selon la rareté
 function rollItem(save, base, rar) {
   var b = ITEMS[base], R = RARITIES[rar], stats = {}, plus = Math.max(0, (save.cycle || 1) - 1), boost = 1 + CYCLE.loot * plus;
@@ -1046,9 +1066,10 @@ function itemPrice(id) {
 function sellPrice(id) { return Math.max(3, Math.floor(itemPrice(id) / 4)); }
 
 // Butin : un nouvel exemplaire d'un modèle de rang autorisé, de rareté tirée au sort (luck : voir rollRarity)
+function lootBoost() { return 1 + playerMutBonus.loot + (clanBonus.butin || 0) + playerGearBonus.loot + (eventBoost('loot') - 1); }
 function rollLoot(save, maxTier, chance, luck) {
   if (maxTier > 6 && Math.random() < (LEGEND_CHANCE[luck || 0] || 0) * (1 + playerMutBonus.loot)) return rollLegend(save, maxTier); // ultra rare
-  if (Math.random() > chance * (1 + playerMutBonus.loot + (clanBonus.butin || 0))) return null;
+  if (Math.random() > chance * lootBoost()) return null;
   return rollItem(save, pickBase(maxTier, save), rollRarity(luck));
 }
 
@@ -1057,6 +1078,7 @@ function rollLoot(save, maxTier, chance, luck) {
 // Attention : le navigateur range la sauvegarde par adresse (fichier ouvert en double-clic ≠ http://localhost),
 // d'où l'export / import pour la retrouver partout.
 var SAVE_VERSION = 6;
+var PET_MAX_LEVEL = 10; // le niveau le plus haut d'un compagnon (forge.js)
 
 function newSave() {
   return {
@@ -1072,6 +1094,12 @@ function newSave() {
     mastery: { force: 0, carapace: 0, instinct: 0, souffle: 0 }, // les Maîtrises (après l'arbre), pour toujours
     awakened: [], // les sorts éveillés (un tous les 10 rangs de maîtrise)
     dungeons: {}, // les Donjons : id -> { room: salles vidées, day: le jour du dernier boss redéfié }
+    eclats: 0, // les éclats de jade, le métal de la forge (forge.js)
+    pets: {}, pet: null, // les compagnons : id du donjon -> niveau ; celui qui accompagne la grenouille
+    quests: null, // les quêtes du jour (quetes.js) : { day, list: [{ id, n, got }], chest }
+    season: null, // la saison de classement en cours : { id: 'AAAA-MM', pts }
+    counts: { coffres: 0, titan: 0 }, // des compteurs pour les hauts faits : coffres des quêtes ouverts, attaques du Titan
+    inClan: false, // dans un clan (vu la dernière fois que le jeu l'a lu : pour les quêtes)
     ach: [], // hauts faits obtenus (voir feats.js)
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
@@ -1134,7 +1162,9 @@ function parseSave(data) {
     var di = data.items[id];
     if (!registerItem(id, di)) return;
     save.items[id] = { base: di.base, rar: di.rar, stats: ITEMS[id].stats };
+    save.items[id].stats = ITEMS[id].raw; // (sans la forge)
     if (ITEMS[id].plus) save.items[id].plus = ITEMS[id].plus;
+    if (ITEMS[id].forge) save.items[id].forge = ITEMS[id].forge;
     if (typeof di.name === 'string' && di.name) save.items[id].name = di.name.slice(0, 48);
     if (di.from) save.items[id].from = String(di.from).slice(0, 8);
   });
@@ -1178,6 +1208,15 @@ function parseSave(data) {
     var dd = data.dungeons[id];
     if (/^d\d{1,2}$/.test(id) && dd && typeof dd === 'object') save.dungeons[id] = { room: Math.min(10, int(dd.room, 0) || 0), day: typeof dd.day === 'string' ? dd.day.slice(0, 12) : '' };
   });
+  save.eclats = Math.min(1e9, int(data.eclats, 0) || 0);
+  save.inClan = !!data.inClan;
+  if (data.counts && typeof data.counts === 'object') Object.keys(save.counts).forEach(function (k) { save.counts[k] = Math.min(1e7, int(data.counts[k], 0) || 0); });
+  if (data.pets && typeof data.pets === 'object') Object.keys(data.pets).forEach(function (id) { if (/^d\d{1,2}$/.test(id)) save.pets[id] = Math.min(PET_MAX_LEVEL, int(data.pets[id], 1) || 0); });
+  if (typeof data.pet === 'string' && save.pets[data.pet]) save.pet = data.pet;
+  if (data.quests && typeof data.quests === 'object' && typeof data.quests.day === 'string' && Array.isArray(data.quests.list)) {
+    save.quests = { day: data.quests.day.slice(0, 12), chest: !!data.quests.chest, list: data.quests.list.slice(0, 5).filter(function (q) { return q && typeof q.id === 'string'; }).map(function (q) { return { id: q.id.slice(0, 16), n: Math.min(9999, int(q.n, 0) || 0), got: !!q.got }; }) };
+  }
+  if (data.season && typeof data.season.id === 'string') save.season = { id: data.season.id.slice(0, 8), pts: Math.min(1e7, int(data.season.pts, 0) || 0) };
   if (data.mastery && typeof data.mastery === 'object') MASTERIES.forEach(function (x) { save.mastery[x.id] = Math.min(9999, int(data.mastery[x.id], 0) || 0); });
   if (Array.isArray(data.awakened)) save.awakened = data.awakened.filter(function (id, i) { return skillById(id) && data.awakened.indexOf(id) === i; }).slice(0, awakeningsAllowed(save));
   if (data.clanBonus) { var cb = data.clanBonus, cl = function (v, mx) { return Math.min(mx, Math.max(0, +v || 0)); }; save.clanBonus = { xp: cl(cb.xp, 0.2), lucioles: cl(cb.lucioles, 0.2), butin: cl(cb.butin, 0.2), force: cl(cb.force, 0.1), vie: cl(cb.vie, 0.1) }; }

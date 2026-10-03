@@ -57,10 +57,11 @@ Upstash, définir `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` avant `
 ## Le menu
 
 Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, La Voie, Boutique, Skins), **les aventures**
-(Carte du monde, Tour des Sages, Cascade des duels, Clans) et **la collection** (Album, Classement). En bas : les touches
+(Carte du monde, Tour des Sages, Donjons, Cascade des duels, Clans, le Titan) et **la collection** (Album, Classement). En bas : les touches
 du clavier, la sauvegarde, le son (touche M). Les barres de défilement sont cachées sur petit écran et tactile, fines et
 aux couleurs du jeu ailleurs ; les chiffres sont en Silkscreen (le 5 et le 8 ne se confondent plus).
-Les **lucioles** sont la monnaie du jeu.
+Les **lucioles** sont la monnaie du jeu, les **éclats de jade** le métal de la forge ; les deux s’affichent sous la
+grenouille, avec l’événement en cours (le week-end double XP).
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
   l’ambiance du biome en cours (lagune, saules d’automne, grotte, ruines englouties, sommet enneigé),
@@ -216,7 +217,7 @@ Les **lucioles** sont la monnaie du jeu.
   Écharpes, Ceintures, Anneaux, Trésors. Chaque créature (dans ses trois raretés) et chaque objet y est une
   **carte à collectionner** au cadre de sa rareté ; une carte pas encore trouvée montre son dos et un indice.
 - **Classement** : une liste simple et sobre, aux couleurs du jeu : les **50 premières** grenouilles puis « Afficher la suite »
-  (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour ou Duels (avec les cadeaux du lundi), filtre par
+  (et « Aller à ma place »). Tri par Aventure, Niveau, Succès, Tour, **Saison** ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
 ## Le Continent, l’Île des Colosses, les cycles et la mutation
@@ -295,6 +296,35 @@ Les **lucioles** sont la monnaie du jeu.
 - Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
   Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.
 
+## Chaque jour : quêtes, forge, compagnons, Titan et saisons
+
+- **Les quêtes du jour**, au camp : trois quêtes chaque jour (une de combat, une d’objets, une à part : missions,
+  méditation, duels, le Titan, l’Alpha du clan…), tirées d’après la date. Chacune rapporte des lucioles, un peu d’XP et
+  des éclats de jade ; les trois faites, le **coffre du jour** s’ouvre (un objet Rare ou Épique de sa terre, et plus
+  d’éclats). Un badge sur « Camp » dit quand une récompense attend (`src/quetes.js`).
+- **Les événements** : le **week-end double XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte deux fois
+  plus) et le **mercredi du butin** (+50 % de chances d’objet). Le camp annonce le prochain.
+- **La forge** (`src/forge.js`), sur la fiche de chaque objet : **recycler** un objet donne des éclats de jade (selon sa
+  rareté et son rang ; la vente en masse sait aussi recycler), et ces éclats **renforcent** un objet de +1 à **+10**
+  (+5 % de stats par niveau, +50 % à +10), pour un peu de lucioles aussi. Plus rien de ce qui tombe n’est inutile.
+- **Les panoplies d’Uniques** : les Uniques d’un même donjon forment une panoplie ; en porter 2, 3 puis 4 donne un bonus
+  de plus à chaque palier. Six sortes, une par donjon à tour de rôle : du Colosse (PV, dégâts reçus), du Fauve (dégâts,
+  critique), de l’Ombre (esquive), du Sage (sorts), de Fortune (XP, lucioles, objets) et du Sang (vol de vie).
+- **Les compagnons** : au fond de chaque donjon, le petit du boss peut suivre la grenouille (50 % la première fois,
+  20 % au boss du jour) ; le retrouver le fait grandir, jusqu’au niveau 10. Il donne un petit bonus (PV, dégâts,
+  objets, XP ou lucioles), se tient à côté d’elle au camp, et en combat il bondit sur l’ennemi tous les deux tours
+  (sauf en duel et à la guerre). Trente compagnons, un par donjon (case « Compagnon » de la fiche du personnage).
+- **Le Titan de la semaine** (avec un compte) : un boss mondial, le même pour toutes les grenouilles de tous les joueurs
+  (le Kraken des Tempêtes, le Léviathan d’Écume, le Cyclope Sans-Sommeil, le Ryū Céleste, le Sylvain Colérique, à tour
+  de rôle). Ses PV sont partagés ; chaque grenouille l’attaque **3 fois par jour** pendant 10 tours, et chaque attaque
+  rapporte lucioles, XP et éclats. Quand il tombe, chacune de celles qui l’ont frappé reçoit sa part, et un Titan plus
+  fort se dresse. Le lundi, les dix plus grands coups de la semaine reçoivent un cadeau, toutes les autres une part ;
+  ses PV s’ajustent d’une semaine à l’autre selon qu’il est tombé ou non.
+- **Les saisons de classement** : un mois chacune. Chaque exploit rapporte des points (quêtes, coffre, boss, salles de
+  donjon, étages de la tour, attaques du Titan, duels, assauts du clan) ; l’onglet **Saison** du classement les compare.
+  Le premier du mois, les dix premières reçoivent un cadeau (lucioles, éclats, XP), et les trois premières une peau qu’on
+  ne trouve nulle part ailleurs : **Champion d’or**, **d’argent** et **de bronze**.
+
 ## Objets et raretés
 
 - **3 raretés**, reconnaissables à leur bordure : **Commun** (gris), **Rare** (bleu), **Épique** (violet). Les trésors
@@ -353,6 +383,9 @@ puissance des voies.
 - `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
 - `src/donjons.js` : les Donjons (leurs salles, leurs boss, les objets Uniques, les portes en pixel art)
+- `src/forge.js` : la forge (éclats, recyclage, renforcement), les panoplies d’Uniques et les compagnons ;
+  `src/quetes.js` : les événements de la semaine, les quêtes du jour et les saisons ; le Titan est dans `src/worlds.js`
+  et `src/hub.js` (et `/api/titan` côté serveur)
 - `src/tower.js` : la Tour des Cent Sages (les sages, leurs récompenses, la pagode et ses cascades, l’arène) ; `src/album.js` : le bestiaire, les objets, les chapitres du livre et les paliers
 - `src/cascade.js` : le décor de la Cascade des duels (page et arène, eau animée) ; les duels eux-mêmes sont dans `src/hub.js` et `src/battle.js` (et côté serveur, les routes `/api/dojo`) ; les Clans sont dans `src/hub.js` (et `/api/clans` côté serveur), leurs Alphas dans `src/worlds.js`
 - `src/audio.js` : musique lo-fi générée en continu (plus rythmée en combat), musique 8 bits de la cinématique, bruitages et ambiance du marais, le tout synthétisé en Web Audio

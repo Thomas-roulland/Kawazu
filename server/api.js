@@ -29,6 +29,9 @@
 //   POST /api/clans/:id/guerre { cible }                le chef déclare la guerre à un autre clan (5 grenouilles au moins)
 //   POST /api/clans/:id/defi { adversaire }             un combat de la guerre : la fiche de la grenouille d'en face
 //   POST /api/clans/:id/combat { adversaire, victoire } son résultat : des points pour son clan
+//   GET  /api/titan/:id                                 le Titan de la semaine (PV partagés par toutes les grenouilles),
+//                                                       ses attaques du jour, le classement des dégâts, ses cadeaux
+//   POST /api/titan/:id/attaque { degats }              une attaque contre le Titan
 //
 // Les données passent par un petit magasin clé -> valeur :
 //   - en ligne : Upstash Redis, par son API REST (variables KV_REST_API_URL et KV_REST_API_TOKEN, posées par
@@ -38,7 +41,8 @@
 // essais:<adresse> (compteur des tentatives de connexion), les tableaux classement (id -> fiche) et reputation
 // (id -> points), dojo:<id> (duels du jour, journal), cadeaux:<id>, dojo-semaine (la semaine en cours),
 // clan:<id>, clans (id -> résumé), clan-de:<grenouille>, clan-jour:<grenouille>, clan-exclu:<grenouille>, guerre:<id>
-// (voir « Les Clans »).
+// (voir « Les Clans »), titan (le Titan de la semaine), titan-degats:<semaine> (id -> dégâts), titan-jour:<grenouille>,
+// saison-courante (la saison en cours, pour distribuer les cadeaux de la précédente).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -48,7 +52,7 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['braise', 'givrette', 'nenuphette', 'tourbe', 'orchidee2', 'cuivre', 'nuitetoilee', 'citronnelle', 'corsaire', 'ronin', 'lavande', 'cendrillard', 'arlequin', 'dune', 'moussaillon', 'ecorce2', 'perle', 'dardnoir', 'feufollet', 'tonnerre', 'ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
+const ALL_SKINS = SKINS.concat(['saison_or', 'saison_argent', 'saison_bronze', 'braise', 'givrette', 'nenuphette', 'tourbe', 'orchidee2', 'cuivre', 'nuitetoilee', 'citronnelle', 'corsaire', 'ronin', 'lavande', 'cendrillard', 'arlequin', 'dune', 'moussaillon', 'ecorce2', 'perle', 'dardnoir', 'feufollet', 'tonnerre', 'ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
 // les skins renommés : une sauvegarde pas encore relue par le jeu les porte encore sous leur ancien nom
 const RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
   gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
@@ -198,7 +202,9 @@ function rankEntry(frog, pseudo) {
     progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations,
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
-    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 600)
+    dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 600),
+    // la saison de classement (un mois) : son id ('AAAA-MM') et les points gagnés pendant
+    saison: s.season && typeof s.season.id === 'string' ? s.season.id.slice(0, 8) : '', pts: num(s.season && s.season.pts, 1e7)
   };
 }
 // Met la fiche à jour si elle a changé (compare à l'ancienne version de la grenouille, déjà lue)
@@ -247,6 +253,104 @@ async function weeklyGifts() {
   }
   await store.set('dojo-semaine', week);
 }
+async function addGift(frogId, gift) { const key = 'cadeaux:' + frogId, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }
+// ---------- Les saisons de classement : un mois (heure de Paris) ----------
+// Les points de saison sont gagnés dans le jeu (quêtes, boss, donjons, Titan…) et publiés avec la fiche. Le premier du
+// mois, les dix premières de la saison passée reçoivent un cadeau ; les trois premières, une peau qu'on ne trouve pas
+// ailleurs.
+const SAISON_CADEAUX = [
+  { lucioles: 10000, eclats: 300, xpNiveau: 2, peau: 'saison_or' }, { lucioles: 7000, eclats: 200, xpNiveau: 1.5, peau: 'saison_argent' },
+  { lucioles: 5000, eclats: 150, xpNiveau: 1, peau: 'saison_bronze' }
+].concat(Array.from({ length: 7 }, () => ({ lucioles: 2500, eclats: 80, xpNiveau: 0.5 })));
+const seasonOf = (t) => parisDay(t).slice(0, 7);
+function nextSeason(now) { // le premier du mois suivant, minuit heure de Paris
+  const [y, m] = seasonOf(now).split('-').map(Number), t = new Date(Date.UTC(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 1));
+  const h = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hourCycle: 'h23' }).format(t);
+  return t.getTime() - h * 3600e3;
+}
+async function seasonGifts() {
+  const cur = seasonOf(new Date()), last = await store.get('saison-courante');
+  if (last === cur) return;
+  if (last && await store.setNew('saison-distribuee:' + last, 1)) {
+    const top = Object.values(await store.hgetall(RANK)).filter((e) => e.saison === last && e.pts > 0).sort((a, b) => b.pts - a.pts).slice(0, SAISON_CADEAUX.length);
+    for (let i = 0; i < top.length; i++) await addGift(top[i].id, Object.assign({ id: 'saison-' + last + '-' + (i + 1), source: 'saison', saison: last, rang: i + 1 }, SAISON_CADEAUX[i]));
+  }
+  await store.set('saison-courante', cur);
+}
+
+// ---------- Le Titan de la semaine (le boss mondial) ----------
+// Un Titan géant, le même pour toutes les grenouilles, qui change chaque lundi (heure de Paris). Ses PV sont partagés :
+// chaque grenouille l'attaque TITAN_PAR_JOUR fois par jour (TITAN_TOURS tours ; le combat se joue dans le navigateur et
+// envoie ses dégâts). Chaque attaque rapporte (lucioles, XP, éclats, selon les dégâts). Quand il tombe, chaque grenouille
+// qui l'a frappé reçoit sa part, et un Titan plus fort se dresse (rang + 1). Chaque lundi, les dix premières en dégâts
+// de la semaine reçoivent un cadeau, et toutes celles qui ont combattu une part. Ses PV s'ajustent d'une semaine à
+// l'autre : ×1,35 si le Titan est tombé, ×0,85 sinon (jamais sous TITAN_PV_MIN).
+const TITAN_PAR_JOUR = 3, TITAN_TOURS = 10, TITAN_PV = 600000, TITAN_PV_MIN = 300000;
+const TITAN_NOMS = ['le Kraken des Tempêtes', 'le Léviathan d’Écume', 'le Cyclope Sans-Sommeil', 'le Ryū Céleste', 'le Sylvain Colérique']; // (les mêmes que le jeu, src/worlds.js)
+const TITAN_CADEAUX = [{ lucioles: 3000, eclats: 120, xpNiveau: 1 }, { lucioles: 2200, eclats: 90, xpNiveau: 0.8 }, { lucioles: 1600, eclats: 70, xpNiveau: 0.6 }]
+  .concat(Array.from({ length: 7 }, () => ({ lucioles: 900, eclats: 40, xpNiveau: 0.4 })));
+const TITAN_PART = { lucioles: 400, eclats: 15, xpNiveau: 0.2 }; // pour chaque grenouille qui l'a frappé, au-delà des dix premières
+const titanHp = (base, rang) => Math.round(base * Math.pow(1.5, rang));
+async function titanState() {
+  const week = mondayOf(parisDay(new Date()));
+  let t = await store.get('titan');
+  if (t && t.semaine === week) return t;
+  let base = TITAN_PV;
+  if (t) { // une nouvelle semaine : les cadeaux de la précédente (une seule fois), puis un nouveau Titan
+    base = Math.max(TITAN_PV_MIN, Math.round(t.base * (t.vaincus > 0 ? 1.35 : 0.85)));
+    if (await store.setNew('titan-distribue:' + t.semaine, 1)) {
+      const deg = await store.hgetall('titan-degats:' + t.semaine), ranked = Object.keys(deg).filter((k) => +deg[k] > 0).sort((a, b) => deg[b] - deg[a]);
+      for (let i = 0; i < ranked.length; i++) {
+        await addGift(ranked[i], Object.assign({ id: 'titan-' + t.semaine + '-' + ranked[i].slice(0, 8), source: 'titan-semaine', semaine: t.semaine, rang: i < TITAN_CADEAUX.length ? i + 1 : 0, degats: +deg[ranked[i]] }, i < TITAN_CADEAUX.length ? TITAN_CADEAUX[i] : TITAN_PART));
+      }
+    }
+  }
+  const idx = Math.floor(new Date(week + 'T00:00:00Z').getTime() / (7 * 86400e3)) % TITAN_NOMS.length;
+  t = { semaine: week, idx: idx, rang: 0, base: base, pv: base, pvMax: base, vaincus: 0, parts: {} };
+  await store.set('titan', t);
+  return t;
+}
+async function titanDay(frogId) { // les attaques du jour repartent à zéro chaque jour
+  const r = (await store.get('titan-jour:' + frogId)) || { jour: '', n: 0 }, today = parisDay(new Date());
+  if (r.jour !== today) { r.jour = today; r.n = 0; }
+  return r;
+}
+async function titanRoute(req, res, account, id, action, method) {
+  await seasonGifts();
+  const t = await titanState();
+  if (!action && method === 'GET') {
+    const [day, deg, fiches, gifts] = await Promise.all([titanDay(id), store.hgetall('titan-degats:' + t.semaine), store.hgetall(RANK), store.get('cadeaux:' + id)]);
+    const ranked = Object.keys(deg).filter((k) => +deg[k] > 0 && fiches[k]).sort((a, b) => deg[b] - deg[a]);
+    return send(res, 200, {
+      semaine: t.semaine, fin: nextMonday(new Date()), titan: { idx: t.idx, rang: t.rang, pv: t.pv, pvMax: t.pvMax, vaincus: t.vaincus, nom: TITAN_NOMS[t.idx] },
+      restants: TITAN_PAR_JOUR - day.n, max: TITAN_PAR_JOUR, tours: TITAN_TOURS, mesDegats: +deg[id] || 0, place: ranked.indexOf(id) + 1, classes: ranked.length,
+      maPart: (t.parts || {})[id] || 0,
+      top: ranked.slice(0, 10).map((k) => Object.assign({}, fiches[k], { degats: +deg[k] })), recompenses: TITAN_CADEAUX, part: TITAN_PART, cadeaux: gifts || []
+    });
+  }
+  if (action === 'attaque' && method === 'POST') {
+    const b = await readBody(req, 4096), day = await titanDay(id);
+    if (day.n >= TITAN_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre le Titan aujourd’hui : reviens demain !' });
+    const frog = await store.get('grenouille:' + id), lvl = num((frog && frog.save && frog.save.level) || 1, 999);
+    const deg = clamp(Math.round(+b.degats || 0), 0, TITAN_TOURS * (60 + 30 * lvl) * 3); // au-delà, ce n'est pas un vrai combat
+    day.n++;
+    t.pv -= deg; t.parts = t.parts || {}; t.parts[id] = (t.parts[id] || 0) + deg;
+    const total = await store.hincr('titan-degats:' + t.semaine, id, deg);
+    let vaincu = null;
+    if (t.pv <= 0) { // le Titan tombe : une part pour chaque grenouille qui l'a frappé, et un Titan plus fort se dresse
+      vaincu = t.rang;
+      const gift = { id: 'titan-' + t.semaine + '-r' + t.rang, source: 'titan', titan: TITAN_NOMS[t.idx], rang: t.rang, lucioles: 600 + 300 * t.rang, eclats: 25 + 10 * t.rang, xpNiveau: 0.5 };
+      await Promise.all(Object.keys(t.parts).filter((f2) => t.parts[f2] > 0).map((f2) => addGift(f2, gift)));
+      t.rang++; t.vaincus++; t.pvMax = titanHp(t.base, t.rang); t.pv = t.pvMax; t.parts = {};
+    }
+    await Promise.all([store.set('titan', t), store.set('titan-jour:' + id, day)]);
+    // la récompense de l'attaque elle-même (le jeu l'applique) : selon les dégâts
+    const recompense = { lucioles: Math.round(200 + Math.min(1500, deg / 100)), eclats: Math.round(5 + Math.min(40, deg / 2500)), xpNiveau: Math.round((0.06 + Math.min(0.14, deg / Math.max(1, t.pvMax) * 4)) * 1000) / 1000 };
+    return send(res, 200, { degats: deg, total: total, pv: t.pv, pvMax: t.pvMax, rang: t.rang, vaincu: vaincu, restants: TITAN_PAR_JOUR - day.n, recompense: recompense });
+  }
+  return send(res, 404, { erreur: 'Route inconnue.' });
+}
+
 async function dojoRecord(id) { // les duels du jour repartent à zéro chaque jour
   const r = (await store.get('dojo:' + id)) || { v: 0, d: 0, jour: '', n: 0, offerts: [], journal: [] };
   const today = parisDay(new Date());
@@ -262,7 +366,10 @@ function equippedItems(s, equip) {
     const stats = {};
     // le Souffle d'avant est devenu l'Esprit
     ['vitalite', 'agilite', 'force', 'esprit', 'souffle'].forEach((k) => { if (typeof it.stats[k] === 'number') { const key = k === 'souffle' ? 'esprit' : k; stats[key] = clamp((stats[key] || 0) + Math.round(it.stats[k]), -99, 999); } });
-    out[id] = { base: it.base.slice(0, 32), rar: ['commun', 'rare', 'epique'].indexOf(it.rar) >= 0 ? it.rar : 'commun', stats: stats };
+    out[id] = { base: it.base.slice(0, 32), rar: ['commun', 'rare', 'epique', 'unique', 'legendaire'].indexOf(it.rar) >= 0 ? it.rar : 'commun', stats: stats };
+    if (it.forge) out[id].forge = num(it.forge, 10);
+    if (typeof it.from === 'string') out[id].from = it.from.slice(0, 8);
+    if (typeof it.name === 'string') out[id].name = it.name.slice(0, 48);
   });
   return out;
 }
@@ -279,6 +386,7 @@ function combatCard(frog, entry, points) {
 }
 async function dojoRoute(req, res, account, id, action, method) {
   await weeklyGifts();
+  await seasonGifts();
   if (!action && method === 'GET') {
     const [rec, reps, fiches, gifts] = await Promise.all([dojoRecord(id), store.hgetall(REP), store.hgetall(RANK), store.get('cadeaux:' + id)]);
     const mine = +reps[id] || 0, ranked = Object.keys(reps).filter((k) => +reps[k] > 0 && fiches[k]).sort((a, b) => reps[b] - reps[a]);
@@ -690,10 +798,11 @@ async function route(req, res, p) {
   }
 
   if (p === '/api/classement' && method === 'GET') {
+    await seasonGifts();
     const [fiches, reps] = await Promise.all([store.hgetall(RANK), store.hgetall(REP)]);
     const all = Object.values(fiches), mine = me ? me.compte.grenouilles : [];
     all.forEach((e) => { e.moi = mine.indexOf(e.id) >= 0; e.rep = +reps[e.id] || 0; });
-    return send(res, 200, { grenouilles: all, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX } });
+    return send(res, 200, { grenouilles: all, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX }, saison: { id: seasonOf(new Date()), fin: nextSeason(new Date()), recompenses: SAISON_CADEAUX } });
   }
 
   // tout le reste demande d'être connecté
@@ -724,6 +833,11 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return clanRoute(req, res, account, cl[1], cl[2], method);
   }
+  const ti = /^\/api\/titan\/([0-9a-f-]{36})(?:\/(attaque))?$/.exec(p);
+  if (ti) {
+    if (account.grenouilles.indexOf(ti[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
+    return titanRoute(req, res, account, ti[1], ti[2], method);
+  }
   const m = /^\/api\/grenouilles\/([0-9a-f-]{36})(\/sauver)?$/.exec(p);
   if (m) {
     const id = m[1], frog = account.grenouilles.indexOf(id) >= 0 ? await store.get('grenouille:' + id) : null;
@@ -745,7 +859,7 @@ async function route(req, res, p) {
       await saveAccount(account);
       await store.del('grenouille:' + id);
       await leaveClan(id); // elle quitte son clan
-      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id)]);
+      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id)]);
       return send(res, 200, { ok: true });
     }
   }

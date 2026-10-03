@@ -198,6 +198,28 @@ function alphaOf(rang, heroLevel) {
   };
 }
 
+// ---------- Le Titan de la semaine : le boss mondial, le même pour toutes les grenouilles (server/api.js) ----------
+// Cinq Titans qui reviennent à tour de rôle, un par semaine (idx, donné par le serveur) ; rang : combien sont déjà tombés
+// cette semaine. Comme l'Alpha, sa force de frappe suit le niveau de la grenouille qui l'attaque ; ses PV viennent du serveur.
+var TITANS = [
+  { name: 'Kraken des Tempêtes', species: 'kraken', biome: 'leviathans', hue: 200 },
+  { name: 'Léviathan d’Écume', species: 'leviathan', biome: 'leviathans', hue: 0 },
+  { name: 'Cyclope Sans-Sommeil', species: 'cyclope', biome: 'forge', hue: 300 },
+  { name: 'Ryū Céleste', species: 'ryu', biome: 'mont', hue: 180 },
+  { name: 'Sylvain Colérique', species: 'sylvain', biome: 'geants', hue: 90 }
+];
+var TITAN_DMG = 1.5;
+function titanOf(idx, rang, heroLevel) {
+  var t = TITANS[(idx || 0) % TITANS.length], s = SPECIES[t.species], lvl = Math.max(1, heroLevel || 1), pal = {};
+  Object.keys(s.pal).forEach(function (k) { pal[k] = k === 'k' || !/^#[0-9a-f]{6}$/i.test(s.pal[k]) ? s.pal[k] : hueShift(s.pal[k], t.hue, 1.15); });
+  var w = Math.max(0, BIOMES.map(function (b) { return b.id; }).indexOf(t.biome));
+  return {
+    name: t.name + (rang ? ' ' + ['', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][Math.min(9, rang)] : ''), species: t.species, pal: pal, biome: w,
+    scale: 140 / (s.size === 32 ? 96 : 48), level: lvl, rank: 'boss', behavior: s.behavior,
+    dmg: Math.round((2 + 0.95 * lvl) * MONSTER_POWER.dmg * TITAN_DMG * (1 + 0.05 * Math.min(10, rang || 0))), agi: 6 + lvl * 0.6, dodge: 0.05
+  };
+}
+
 // ---------- Méditation au camp : la grenouille médite sur un nénuphar, même quand on n'est pas là ----------
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.

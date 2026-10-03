@@ -129,6 +129,7 @@ var BattleScene = (function () {
     });
   }
   function alive(f) { return f.hp > 0 && !f.dead; }
+  function capped() { return fight.kind === 'raid' || fight.kind === 'titan'; } // un assaut aux tours comptés (l'Alpha, le Titan)
   function nameOf(f) { return f === P ? heroName() : E.name; }
   function heroName() { return save.hero ? save.hero.name : 'Kawazu'; }
 
@@ -183,7 +184,7 @@ var BattleScene = (function () {
       $('bt-enemy-hp').style.width = '100%';
       $('bt-enemy-hptext').textContent = 'Dégâts : ' + fight.stats.total;
     } else {
-      $('bt-enemy-lvl').textContent = fight.kind === 'raid' ? 'Niv. ' + E.level + ' · ALPHA · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'guerre' ? ' · GUERRE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
+      $('bt-enemy-lvl').textContent = capped() ? 'Niv. ' + E.level + (fight.kind === 'titan' ? ' · TITAN' : ' · ALPHA') + ' · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'guerre' ? ' · GUERRE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
       $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
       $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
     }
@@ -1108,13 +1109,48 @@ var BattleScene = (function () {
     renderHud();
     await perform(P, E, skill);
     await ripostes(P, E);
+    await petAct();
     if (fight.kind === 'arbre') { fight.done++; renderHud(); if (fight.done >= fight.turns) return trainingEnd(); }
     if (P.hp <= 0) return defeat();
     if (E.hp <= 0) return victory();
-    if (fight.kind === 'raid') { fight.done++; renderHud(); if (fight.done >= fight.turns) return raidEnd(); } // l'assaut a ses tours comptés
+    if (capped()) { fight.done++; renderHud(); if (fight.done >= fight.turns) return raidEnd(); } // l'assaut a ses tours comptés
     turnEnd(P, E);
     await wait(300);
     enemyTurn();
+  }
+
+  // ---------- Le compagnon ----------
+  // Le petit d'un boss de donjon (forge.js) se tient derrière la grenouille ; tous les PET_EVERY tours, il bondit sur
+  // l'ennemi. Pas en duel ni à la guerre (les grenouilles d'en face n'ont pas le leur).
+  var PET = null;
+  function makePet() {
+    var pet = typeof petById === 'function' && save.pet && fight.kind !== 'duel' && fight.kind !== 'guerre' ? petById(save.pet) : null, lvl = pet ? petLevel(save, pet.id) : 0;
+    if (!pet || !lvl) return null;
+    return { name: pet.name, lvl: lvl, power: petPower(lvl), frames: petFrames(pet), x: MARGIN - 40, homeX: MARGIN - 40, y: 0, turn: 0, hop: 0 };
+  }
+  async function petAct() {
+    if (!PET || over || !alive(E) || !alive(P)) return;
+    PET.turn++;
+    if (PET.turn % PET_EVERY) return;
+    var x0 = PET.homeX;
+    PET.hop = 1;
+    await tween(PET, 'x', E.x - 26, 230);
+    if (!alive(E)) { PET.hop = 0; return; }
+    var dmg = Math.max(1, Math.round(P.dmg * PET.power * (E.mark > 0 ? 1.3 : 1) * (0.9 + Math.random() * 0.2)));
+    E.hp -= dmg; E.hurt = 0.15;
+    if (fight.stats) fight.stats.total += dmg;
+    burst(midX(E), chestY(E), '#f4f4e8', 6);
+    floater(midX(E), chestY(E) - 16, dmg + '', '#c8f08a');
+    log(PET.name + ' bondit sur ' + E.name + ' : ' + dmg + ' dégâts.', 'hero');
+    sfx('hit');
+    renderHud();
+    await tween(PET, 'x', x0, 260);
+    PET.hop = 0;
+  }
+  function drawPet(now) {
+    var fr = PET.frames[Math.floor(now / 320) % PET.frames.length], hop = PET.hop ? -Math.abs(Math.sin(now / 70)) * 7 : Math.round(Math.sin(now / 400));
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(PET.x + 16, GROUND - 2, 10, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(fr, R(PET.x), R(GROUND - 32 + hop), 32, 32);
   }
 
   // ---------- Tour de l'ennemi ----------
@@ -1222,11 +1258,11 @@ var BattleScene = (function () {
     fight.settled = true;
     var html;
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
-    var title = fight.kind === 'raid' ? (E.hp <= 0 ? 'L’Alpha est tombé !' : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
+    var title = capped() ? (E.hp <= 0 ? (fight.kind === 'titan' ? 'Le Titan est tombé !' : 'L’Alpha est tombé !') : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
     var climb = fight.kind === 'tour' || fight.kind === 'donjon', nextL = fight.kind === 'tour' ? 'Étage suivant ▶' : 'Salle suivante ▶', backL = fight.kind === 'tour' ? 'Retour à la tour' : 'Retour au donjon';
     showEnd(win, html, title, climb
       ? (win ? (fight.next ? [['next', nextL], ['back', backL]] : [['back', backL]]) : [['again', 'Réessayer'], ['back', backL]])
-      : [['back', fight.kind === 'raid' || fight.kind === 'guerre' ? 'Retour au clan' : 'Retour à la cascade']]);
+      : [['back', fight.kind === 'titan' ? 'Retour au Titan' : (fight.kind === 'raid' || fight.kind === 'guerre' ? 'Retour au clan' : 'Retour à la cascade')]]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
   function showEnd(win, html, title, buttons) {
@@ -1255,6 +1291,7 @@ var BattleScene = (function () {
     var loot = rollLoot(save, tier, r.itemChance, fight.luck);
     if (loot) save.owned.push(loot);
     if (fight.albumId) albumKill(save, fight.albumId);
+    var quests = typeof track === 'function' ? track(save, 'stage').concat(E.rank === 'boss' || E.rank === 'gardien' ? track(save, 'boss') : [], E.rarity && E.rarity !== 'commun' ? track(save, 'rareFoe') : [], trackLoot(save, [loot])) : [];
     var gapX = xpGapMult(save.level, E.level), xp = clanXp(r.xp * gapX), gold = clanGold(r.gold); // avec les bonus du clan, moins d'XP si on est bien trop fort
     var levels = gainXp(save, xp);
     save.gold += gold;
@@ -1266,7 +1303,7 @@ var BattleScene = (function () {
     writeSave(save);
     if (farm) { farm.n++; farm.xp += xp; farm.gold += gold; if (loot) farm.loot++; }
     if (levels) sfx('levelup'); else if (loot) sfx('pickup');
-    showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked, gap: gapX < 1 ? gapX : 0 });
+    showResult(true, { xp: xp, gold: gold, loot: loot, levels: levels, unlocked: unlocked, gap: gapX < 1 ? gapX : 0, quests: quests });
   }
 
   async function defeat() {
@@ -1286,8 +1323,9 @@ var BattleScene = (function () {
     var box = $('bt-result');
     var html = '<h2>' + (win ? 'Victoire !' : 'Défaite…') + '</h2>';
     if (win) {
-      html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (clanBonus.xp || clanBonus.lucioles ? ' <small class="bt-clan">(clan : +' + Math.round(clanBonus.xp * 100) + ' % XP, +' + Math.round(clanBonus.lucioles * 100) + ' % lucioles)</small>' : '') + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
+      html += '<p>+' + info.xp + ' XP · +' + info.gold + ' lucioles' + (clanBonus.xp || clanBonus.lucioles ? ' <small class="bt-clan">(clan : +' + Math.round(clanBonus.xp * 100) + ' % XP, +' + Math.round(clanBonus.lucioles * 100) + ' % lucioles)</small>' : '') + (eventBoost('xp') > 1 ? ' · <small class="bt-event">' + EVENTS.xp2.name + ' : XP ×' + eventBoost('xp') + '</small>' : '') + (info.levels ? ' · <b>Niveau ' + save.level + ' !</b> +' + info.levels * POINTS_PER_LEVEL + ' points de caractéristique, +' + info.levels + ' point' + (info.levels > 1 ? 's' : '') + ' de voie' : '') + '</p>';
       if (info.gap) html += '<p class="bt-gap">XP réduite à ' + Math.round(info.gap * 100) + ' % : tu as ' + (save.level - E.level) + ' niveaux de plus que ce monstre. Va te mesurer plus loin !</p>';
+      if (info.quests && info.quests.length) html += questLine(info.quests);
       if (info.loot) { var lr = RARITIES[rarityOf(info.loot)]; html += '<p class="bt-loot" style="--rar:' + lr.color + '"><img src="' + iconCanvas(ITEMS[info.loot]).toDataURL() + '" alt=""> Objet trouvé : <b>' + ITEMS[info.loot].name + '</b> <em>' + lr.name + '</em></p>'; }
       var newIsle = info.unlocked && ISLES.filter(function (s) { return s.from > 0 && BIOMES[s.from] === info.unlocked; })[0];
       if (info.unlocked) html += newIsle ? '<p class="bt-unlock">' + BIOMES[newIsle.from - 1].boss.name + ' est vaincu ! Au-delà de la mer, <b>' + newIsle.name + '</b> t’attend : ouvre la carte.</p>' : '<p class="bt-unlock">Nouveau monde ouvert : <b>' + info.unlocked.name + '</b> !</p>';
@@ -1403,7 +1441,8 @@ var BattleScene = (function () {
     var es = enemySize(E);
     if (!E.dead) { ctx.beginPath(); ctx.ellipse(midX(E), GROUND - 2, es * 0.35, 4, 0, 0, Math.PI * 2); ctx.fill(); }
 
-    // Kawazu
+    // le compagnon, puis Kawazu
+    if (PET) drawPet(now);
     if (!P.dead || Math.floor(now / 150) % 2) drawFrog(P, now);
 
     // l'ennemi
@@ -1497,6 +1536,7 @@ var BattleScene = (function () {
       skills: deckSkills(save, weapon), kind: weapon.kind, wtype: weaponType(weapon), weapon: weapon, weaponId: baseOf(save.equip.arme || ''),
       blade: weapon.kind === 'mains' ? null : weapon.blade, wave: weapon.wave, hilt: weapon.colors && weapon.colors[4], imgs: heroImgs()
     }, 1, MARGIN);
+    PET = makePet();
     var en = f.enemy, size = enemySize(en);
     E = arm(Object.assign({}, en, { hp: en.hp0 != null ? en.hp0 : en.maxHp, turn: 0, charging: false, enraged: false, monster: en.frog ? null : monsterImgs(en) }), -1, W - MARGIN - size);
     [P, E].forEach(function (fi) {
@@ -1525,6 +1565,7 @@ var BattleScene = (function () {
     if (E.rarity === 'rare') log('Une créature rare : plus coriace, et un meilleur butin !', 'hero');
     if (E.rarity === 'epique') log('Une créature ÉPIQUE ! Rare de la croiser… son butin l’est aussi.', 'hero');
     if (P.shield) log('Peau de pierre : un bouclier de ' + P.shield + ' PV t’entoure.', 'hero');
+    if (PET) log(PET.name + ' (niv. ' + PET.lvl + ') se tient à tes côtés.', 'hero');
     if (E.rank === 'boss') sfx('boss');
     renderHud();
     last = performance.now();

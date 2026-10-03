@@ -61,6 +61,12 @@
       { k: '#1a1c2c', 2: '#4a3a6b', w: '#b8e0ff' }],
     donjon: [['....kkkkkkkk', '..kk22222222kk', '.k222kkkkkk222k', '.k22k111111k22k', 'k22k11111111k22k', 'k22k11k11k11k22k', 'k22k11111111k22k', 'k22k11k11k11k22k', 'k22k11111111k22k', 'k22k111y1111k22k', 'k22k11111111k22k', 'k22k11111111k22k', 'kkkkkkkkkkkkkkkk'],
       { k: '#1a1c2c', 2: '#8a8478', 1: '#5a3e25', y: '#e0b43a' }],
+    titan: [['', '....kkkkkkk', '...k1111111k', '..k111111111k', '.k11kkk1kkk11k', '.k11kyk1kyk11k', '.k11kkk1kkk11k', '.k11111111111k', '..k1k1k1k1k1k', '.k1kk1kk1kk1k', 'k1k.k1k.k1k.k1k', 'k1k.k1k.k1k.k1k', '.k...k...k...k'],
+      { k: '#1a1c2c', 1: '#7a5ac8', y: '#ffe040' }],
+    eclat: [['', '......kk', '.....k33k', '....k3113k', '....k3112k', '...k31112k', '...k31122k', '..k311122k', '..k311222k', '...k1122k', '...k1222k', '....k22k', '.....kk'],
+      { k: '#1a1c2c', 1: '#4fd0a0', 2: '#1f8a6a', 3: '#c8fff0' }],
+    coffre: [['', '', '..kkkkkkkkkkkk', '.k222222222222k', '.k2y22222222y2k', 'kkkkkkkkkkkkkkkk', 'k11111kyyk11111k', 'k11111kyyk11111k', 'k11111kkkk11111k', 'k11111111111111k', 'k22222222222222k', 'kkkkkkkkkkkkkkkk'],
+      { k: '#1a1c2c', 1: '#a8642a', 2: '#7a4418', y: '#f3d27a' }],
     the: [['', '', '......k.k', '.......k.k', '...kkkkkkkkk', '..k111111111kk', '..k122222221k.k', '..k122222221k.k', '..k112222211kk', '...k1111111k', '....kkkkkkk', '..kkkkkkkkkkk'],
       { k: '#1a1c2c', 1: '#e8ecf0', 2: '#8fce52' }]
   };
@@ -205,6 +211,7 @@
     $('title').hidden = true;
     $('app').hidden = false;
     if (!dailyShop(save)) tidyShop(save);
+    questsToday(save, questCtx());
     persist();
     state.sheet = null;
     buildHero();
@@ -267,6 +274,12 @@
     if (!sceneStatic) campBiome();
     var t = now / 1000, set = HERO_IMG.face;
     CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], null, save.meditation ? HERO_IMG.zen : null);
+    var cpet = save.pet && petById(save.pet);
+    if (cpet && petLevel(save, cpet.id)) { // le compagnon, sur le ponton à côté d'elle
+      var pf = petFrames(cpet), ps = SPECIES[cpet.species].size === 32 ? 24 : 16, px = CampScene.HERO.x - ps + 2, py = CampScene.HERO.y + 31 - ps + Math.round(Math.sin(t * 2) * 0.6);
+      layers.mid.fillStyle = 'rgba(0,0,0,0.3)'; layers.mid.fillRect(px + 2, CampScene.HERO.y + 30, ps - 4, 2);
+      layers.mid.drawImage(pf[Math.floor(now / 450) % pf.length], px, py, ps, ps);
+    }
     var tx = parallax.tx + Math.sin(t * 0.25) * 0.15, ty = parallax.ty + Math.cos(t * 0.2) * 0.1;
     parallax.x += (tx - parallax.x) * 0.06;
     parallax.y += (ty - parallax.y) * 0.06;
@@ -389,7 +402,14 @@
     var badges = ((save.cycle || 1) > 1 ? '<i class="sb-cyc" title="Cycle du monde">C' + romanCycle(save.cycle) + '</i>' : '') + (save.mutation && save.mutation.n ? '<i class="sb-mut" title="Mutations" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, save.mutation.n) - 1] + '">✦' + save.mutation.n + '</i>' : '');
     $('sb-badges').innerHTML = badges;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
-    $('sb-gold').textContent = save.gold;
+    $('sb-gold').textContent = save.gold.toLocaleString('fr-FR');
+    $('sb-eclats').textContent = (save.eclats || 0).toLocaleString('fr-FR');
+    var evs = eventsNow(), sbe = $('sb-event');
+    sbe.hidden = !evs.length;
+    sbe.innerHTML = evs.map(function (k) { return '<b>' + EVENTS[k].short + '</b><span>' + EVENTS[k].name + '</span>'; }).join('');
+    sbe.title = evs.map(function (k) { return EVENTS[k].desc; }).join(' ');
+    var qc = questsClaimable(save), bc = $('badge-camp');
+    bc.hidden = !qc; bc.textContent = qc;
     $('sb-items').textContent = albumItemsFound(save) + ' / ' + albumPool(save).length;
     var bp = $('badge-perso'), bs = $('badge-skills');
     bp.hidden = save.points <= 0; bp.textContent = save.points;
@@ -429,7 +449,9 @@
     save.gold += e.gold;
     var levels = gainXp(save, e.xp);
     save.expedition = null;
+    var qd = track(save, 'mission').concat(trackLoot(save, [loot]));
     persist();
+    quested(qd);
     Sfx.play(levels ? 'levelup' : 'pickup');
     notice(e.name + ' terminée : +' + e.gold + ' lucioles, +' + e.xp + ' XP' + (loot ? ', objet trouvé : ' + ITEMS[loot].name + ' (' + RARITIES[rarityOf(loot)].name + ')' : '') + (levels ? '. Niveau ' + save.level + ' !' : '.'));
     renderAll();
@@ -461,7 +483,9 @@
   function endMeditation(again, why) {
     var g = claimMeditation(save, again);
     if (!g) return;
+    var qd = g.ms >= 3600e3 ? track(save, 'meditation') : [];
     persist();
+    quested(qd);
     if (g.xp || g.gold) {
       Sfx.play(g.levels ? 'levelup' : 'pickup');
       notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' sur le nénuphar, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
@@ -477,7 +501,35 @@
     var daily = open.filter(function (d) { return dungeonState(save, d).day !== todayKey(); });
     return daily.length ? { d: daily[daily.length - 1], label: daily[daily.length - 1].name + ' · boss du jour' } : null;
   }
+  // ---------- Les quêtes du jour (quetes.js) ----------
+  function questCtx() { return { online: !!(window.Cloud && Cloud.id), clan: !!save.inClan }; }
+  function renderQuests() {
+    var qs = questsToday(save, questCtx()), r = questReward(save), cr = chestReward(save), box = $('quests');
+    var html = '<div class="adv-kicker">QUÊTES DU JOUR <small>· nouvelles dans ' + untilMidnight() + '</small></div><ul class="q-list">' + qs.list.map(function (q) {
+      var d = questDef(q.id); if (!d) return '';
+      var done = q.n >= d.n;
+      return '<li class="q' + (q.got ? ' is-got' : (done ? ' is-done' : '')) + '"><div class="q-txt"><b>' + d.name + '</b><small>' + questText(d) + '</small>' +
+        '<span class="q-bar"><i style="width:' + Math.min(100, q.n / d.n * 100) + '%"></i></span></div>' +
+        (q.got ? '<span class="q-ok" aria-label="Reçue">✓</span>' : (done ? '<button class="btn q-claim" data-quest="' + q.id + '">Réclamer</button>' : '<span class="q-n">' + q.n + ' / ' + d.n + '</span>')) + '</li>';
+    }).join('') + '</ul>' +
+      '<p class="q-reward">Chacune : <b>' + r.gold.toLocaleString('fr-FR') + '</b> lucioles · <b>' + clanXp(r.xp).toLocaleString('fr-FR') + '</b> XP · <b>' + r.eclats + '</b> éclats</p>';
+    var got = qs.list.filter(function (q) { return q.got; }).length;
+    html += '<div class="q-chest' + (qs.chest ? ' is-open' : (chestReady(save) ? ' is-ready' : '')) + '"><img src="' + ICON.coffre + '" alt=""><div><b>' + (qs.chest ? 'Coffre ouvert' : 'Le coffre du jour') + '</b><small>' +
+      (qs.chest ? 'Reviens demain pour trois nouvelles quêtes.' : 'Les trois quêtes faites (' + got + ' / 3) : un objet Rare ou Épique, ' + cr.eclats + ' éclats et ' + cr.gold.toLocaleString('fr-FR') + ' lucioles.') + '</small></div>' +
+      (chestReady(save) ? '<button class="btn" data-quest-chest>Ouvrir</button>' : '') + '</div>';
+    var evs = eventsNow(), nx = !evs.length && nextEvent();
+    html += evs.length ? '<p class="q-event is-on">' + evs.map(function (k) { return '<b>' + EVENTS[k].name + '</b> : ' + EVENTS[k].desc.replace(/^[^,]*, /, ''); }).join(' ') + '</p>'
+      : (nx ? '<p class="q-event">Prochain événement : <b>' + nx.ev.name + '</b> dans ' + (nx.ms > 86400e3 ? Math.round(nx.ms / 86400e3) + ' j' : Math.ceil(nx.ms / 3600e3) + ' h') + '.</p>' : '');
+    box.innerHTML = html;
+  }
+  // annonce les quêtes tout juste faites (hors combat)
+  function quested(done) {
+    if (!done || !done.length) return;
+    Sfx.play('glint');
+    notice('Quête du jour accomplie : ' + done.map(function (d) { return d.name; }).join(', ') + ' ! Ta récompense t’attend au camp.', true);
+  }
   function renderAdventure() {
+    renderQuests();
     renderMeditation();
     var hint = dungeonHint();
     $('adv-dungeon').innerHTML = hint ? '<button class="adv-link adv-dj" data-page="donjons" data-dj-go="' + hint.d.id + '">Donjon : ' + hint.label + ' ▶</button>' : '';
@@ -503,9 +555,15 @@
       el.className = 'dslot' + (it ? ' has-rar' : ' is-empty') + (id && state.selected === id ? ' is-selected' : '');
       el.style.setProperty('--rar', it ? RARITIES[rarityOf(id)].color : '');
       el.title = it ? it.name + ' — ' + Object.keys(it.stats).map(function (k) { return statName(k) + ' ' + fmt(it.stats[k]); }).join(', ') : sl.name + ' : libre';
-      el.innerHTML = it ? '<img src="' + iconUrls[id] + '" alt=""><span class="dname">' + it.name + '</span>' : '<span class="dlabel">' + sl.name.toUpperCase() + '</span>';
+      el.innerHTML = it ? '<img src="' + iconUrls[id] + '" alt="">' + (it.forge ? '<i class="fg-badge">+' + it.forge + '</i>' : '') + '<span class="dname">' + it.name + '</span>' : '<span class="dlabel">' + sl.name.toUpperCase() + '</span>';
     });
+    var pe = $('slot-pet'), pet = save.pet && petById(save.pet), pl = pet ? petLevel(save, pet.id) : 0;
+    pe.className = 'dslot pet-slot' + (pet ? ' has-pet' : ' is-empty') + (state.filter === 'pet' ? ' is-selected' : '');
+    pe.title = pet ? pet.name + ', niveau ' + pl + ' : ' + bonusText(petBonus(pet, pl)) : 'Compagnon : ' + (Object.keys(save.pets || {}).length ? 'aucun avec toi' : 'le petit d’un boss de donjon peut te suivre');
+    pe.innerHTML = pet ? '<img src="' + petIcon(pet) + '" alt=""><span class="dname">' + pet.name + ' · niv. ' + pl + '</span>' : '<span class="dlabel">COMPAGNON</span>';
   }
+  var petIcons = {};
+  function petIcon(p) { return petIcons[p.id] || (petIcons[p.id] = petFrames(p)[0].toDataURL()); }
 
   function renderLevel() {
     var need = xpForLevel(save.level);
@@ -609,6 +667,10 @@
     if (pr.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pr.dmgReduce), [pr.armor ? 'armure de la voie ' + pc(pr.armor) : '', pas.dmgReduce ? 'passifs du temple ' + pc(pas.dmgReduce) : ''].filter(Boolean).join(' + '));
     var others = ['riposte', 'lifesteal', 'shield', 'regenHp', 'flow', 'multiHit', 'execute', 'stunChance', 'bleedMult', 'poisonMult'].filter(function (k) { return pas[k]; });
     if (pr.mut && (pr.mut.hp || pr.mut.dmg || pr.mut.crit || pr.mut.dodge || pr.mut.spell)) row(STAT_ICON.vitalite, 'Mutation', [pr.mut.hp ? '+' + pc(pr.mut.hp) + ' PV' : '', pr.mut.dmg ? '+' + pc(pr.mut.dmg) + ' dégâts' : '', pr.mut.crit ? '+' + pc(pr.mut.crit) + ' critique' : '', pr.mut.dodge ? '+' + pc(pr.mut.dodge) + ' esquive' : '', pr.mut.spell ? '+' + pc(pr.mut.spell) + ' sorts' : ''].filter(Boolean).join(' · '), 'les traits choisis en mutant');
+    var counts = setCounts(save.equip), sets = Object.keys(counts).map(dungeonById).filter(function (d) { return d && setTier(counts[d.id]); });
+    if (sets.length) row(ICON.donjon, 'Panoplies', sets.map(function (d) { return counts[d.id] + ' / 4'; }).join(' · '), sets.map(function (d) { var b = {}; setOf(d).tiers.slice(0, setTier(counts[d.id])).forEach(function (t) { Object.keys(t).forEach(function (k) { b[k] = (b[k] || 0) + t[k]; }); }); return setName(d) + ' : ' + bonusText(b); }).join(' ; '));
+    var cpet = save.pet && petById(save.pet), cpl = cpet ? petLevel(save, cpet.id) : 0;
+    if (cpet && cpl) row(petIcon(cpet), 'Compagnon', cpet.name + ' · ' + cpl, bonusText(petBonus(cpet, cpl)) + ' ; il attaque tous les ' + PET_EVERY + ' tours (' + Math.round(petPower(cpl) * 100) + ' % de tes dégâts)');
     // les passifs des dalles apprises : leurs noms, et leurs effets en infobulle
     var passives = save.tree.map(nodeById).filter(function (n) { return n && n.passive; });
     $('combat-stats').innerHTML = '<h2>EN COMBAT <small>survole une case pour le détail</small></h2><ul class="cs-list">' + rows.join('') + '</ul>' +
@@ -660,15 +722,32 @@
     if (!had || fresh.length) persist();
     if (!fresh.length) return;
     Sfx.play('heart');
-    notice('Haut fait débloqué : ' + fresh.map(function (f) { return f.name; }).join(', ') + ' !', true);
+    notice(fresh.length > 3 ? fresh.length + ' hauts faits débloqués : ' + fresh.slice(0, 2).map(function (f) { return f.name; }).join(', ') + '… (Album, Hauts faits)' : 'Haut fait débloqué : ' + fresh.map(function (f) { return f.name; }).join(', ') + ' !', true);
   }
 
   function matchesFilter(it) {
     if (state.filter === 'tout') return true;
+    if (state.filter === 'pet') return false;
     if (state.filter === 'baton' || state.filter === 'kunai') return it.kind === state.filter;
     return it.slot === state.filter;
   }
+  // les compagnons trouvés, à la place des objets (onglet Compagnons)
+  function renderPets() {
+    var own = PETS.filter(function (p) { return petLevel(save, p.id) > 0; });
+    state.sellMode = false;
+    $('inv-sell-mode').hidden = true; $('sell-bar').hidden = true;
+    $('inventory').classList.remove('is-selling');
+    $('inventory').innerHTML = own.map(function (p) {
+      var on = save.pet === p.id;
+      return '<button class="item pet-item' + (on ? ' is-equipped' : '') + (state.selected === 'pet:' + p.id ? ' is-selected' : '') + '" data-pet="' + p.id + '" title="' + p.name + ' : ' + bonusText(petBonus(p, petLevel(save, p.id))) + '">' +
+        '<img src="' + petIcon(p) + '" alt=""><span>' + p.name + ' · niv. ' + petLevel(save, p.id) + '</span>' + (on ? '<b>AVEC TOI</b>' : '') + '</button>';
+    }).join('') + '<p class="muted inv-empty">' + (own.length ? own.length + ' / ' + PETS.length + ' compagnons trouvés. ' : '<b>Aucun compagnon pour l’instant.</b> ') +
+      'Au fond de chaque donjon, le petit du boss peut te suivre : ' + Math.round(PET_CHANCE.first * 100) + ' % la première fois, ' + Math.round(PET_CHANCE.daily * 100) + ' % au boss du jour. Le retrouver le fait grandir d’un niveau.</p>';
+    Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) { b.classList.toggle('is-active', b.dataset.filter === state.filter); });
+  }
   function renderInventory() {
+    if (state.filter === 'pet') { renderPets(); return; }
+    $('inv-sell-mode').hidden = false;
     var worn = function (id) { return save.equip[ITEMS[id].slot] === id ? 1 : 0; };
     var v = chosenVoie(save), fb = document.querySelector('#filters [data-filter="baton"]'), fk = document.querySelector('#filters [data-filter="kunai"]');
     fb.hidden = v === 'kunai' || v === 'ermite'; fk.hidden = v === 'baton' || v === 'ermite';
@@ -688,18 +767,19 @@
       var it = ITEMS[id], equipped = worn(id), picked = selling && state.sellSel.indexOf(id) >= 0;
       return '<button class="item rar-' + rarityOf(id) + (equipped ? ' is-equipped' : '') + (!selling && state.selected === id ? ' is-selected' : '') + (picked ? ' is-picked' : '') + '" style="' + rarStyle(id) + '" data-item="' + id + '"' + (selling && equipped ? ' disabled' : '') + ' title="' + it.name + ' (' + RARITIES[rarityOf(id)].name + ')' + (selling ? (equipped ? ' : équipé, pas à vendre' : ' : ' + sellPrice(id) + ' lucioles') : '') + '">' +
         (selling && !equipped ? '<i class="pick" aria-hidden="true">' + (picked ? '✓' : '') + '</i>' : '') +
-        '<img src="' + iconUrls[id] + '" alt=""><span>' + it.name + '</span>' + (equipped ? '<b>ÉQUIPÉ</b>' : '') + '</button>';
+        '<img src="' + iconUrls[id] + '" alt="">' + (it.forge ? '<i class="fg-badge">+' + it.forge + '</i>' : '') + '<span>' + it.name + '</span>' + (equipped ? '<b>ÉQUIPÉ</b>' : '') + '</button>';
     }).join('') : '<p class="muted inv-empty">Rien ici pour l’instant. Le butin tombe en combat et en mission, et l’Aïeule Gamako vend aussi des trésors. L’Album montre tout ce qui reste à découvrir.</p>';
     Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) { b.classList.toggle('is-active', b.dataset.filter === state.filter); });
   }
 
   // La barre de la vente en masse : cocher par rareté, le total, et vendre (deux clics)
   function renderSellBar(sellable) {
-    var n = state.sellSel.length, total = state.sellSel.reduce(function (s, id) { return s + sellPrice(id); }, 0);
+    var n = state.sellSel.length, total = state.sellSel.reduce(function (s, id) { return s + sellPrice(id); }, 0), shards = state.sellSel.reduce(function (s, id) { return s + salvageValue(id); }, 0);
     var pick = function (key, label) { return '<button class="tab" data-sell-pick="' + key + '">' + label + '</button>'; };
     $('sell-bar').innerHTML = '<div class="sell-picks">' + pick('commun', 'Communs') + pick('rare', 'Rares') + pick('tout', 'Tout (' + sellable.length + ')') + pick('aucun', 'Aucun') + '</div>' +
       '<div class="sell-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>' + total + '</b> lucioles</span>' +
-      '<button class="btn' + (state.sellArmed ? ' is-armed' : '') + '" data-sell-go' + (n ? '' : ' disabled') + '>' + (state.sellArmed ? 'Confirmer la vente' : 'Vendre') + '</button></div>';
+      '<span class="sell-go"><button class="btn' + (state.sellArmed ? ' is-armed' : '') + '" data-sell-go' + (n ? '' : ' disabled') + '>' + (state.sellArmed ? 'Confirmer la vente' : 'Vendre') + '</button>' +
+      '<button class="btn btn-ghost' + (state.salvageArmed ? ' is-armed' : '') + '" data-salvage-go' + (n ? '' : ' disabled') + ' title="Recycler à la forge : des éclats de jade, pour renforcer tes objets">' + (state.salvageArmed ? 'Confirmer : recycler' : 'Recycler · ' + shards + ' éclats') + '</button></span></div>';
   }
   function sellSelected() {
     var sold = state.sellSel.filter(function (id) { return owns(id) && save.equip[ITEMS[id].slot] !== id; });
@@ -707,12 +787,43 @@
     save.owned = save.owned.filter(function (x) { return sold.indexOf(x) < 0; });
     save.gold += total;
     if (sold.indexOf(state.selected) >= 0) state.selected = null;
-    state.sellSel = []; state.sellMode = false;
+    state.sellSel = []; state.sellMode = false; state.salvageArmed = false;
     persist(); Sfx.play('pickup'); renderAll();
     notice(sold.length + ' objet' + (sold.length > 1 ? 's' : '') + ' vendu' + (sold.length > 1 ? 's' : '') + ' : +' + total + ' lucioles.');
   }
 
+  // La forge d'un exemplaire : son niveau, ce que donne le suivant, et ce qu'il coûte
+  function forgeBlock(id) {
+    if (!forgeable(id)) return '';
+    var k = forgeOf(id), pips = '', it = ITEMS[id];
+    for (var i = 0; i < FORGE_MAX; i++) pips += '<i' + (i < k ? ' class="on"' : '') + '></i>';
+    if (k >= FORGE_MAX) return '<div class="forge is-max"><h3>FORGE <b>+' + k + '</b></h3><span class="fg-pips">' + pips + '</span><p>Forgé au plus haut : +' + Math.round(k * FORGE_STEP * 100) + ' % de stats.</p></div>';
+    var c = forgeCost(id), ok = (save.eclats || 0) >= c.eclats && save.gold >= c.gold;
+    var gain = Object.keys(it.raw).filter(function (s) { return it.raw[s] > 0; }).map(function (s) { return statName(s) + ' +' + (Math.round(it.raw[s] * (1 + FORGE_STEP * (k + 1))) - it.stats[s]); }).join(' · ');
+    return '<div class="forge"><h3>FORGE' + (k ? ' <b>+' + k + '</b>' : '') + ' <small>+' + Math.round(FORGE_STEP * 100) + ' % de stats par niveau</small></h3><span class="fg-pips">' + pips + '</span>' +
+      '<p>Au niveau +' + (k + 1) + ' : <span class="st-up">' + gain + '</span></p>' +
+      '<button class="btn fg-go" data-forge="' + id + '"' + (ok ? '' : ' disabled') + '>Forger +' + (k + 1) + ' · ' + c.eclats + ' éclats · ' + c.gold.toLocaleString('fr-FR') + ' lucioles</button>' +
+      (ok ? '' : '<small class="sc-miss">Il te manque ' + [(save.eclats || 0) < c.eclats ? (c.eclats - (save.eclats || 0)) + ' éclats (recycle des objets)' : '', save.gold < c.gold ? (c.gold - save.gold).toLocaleString('fr-FR') + ' lucioles' : ''].filter(Boolean).join(' et ') + '.</small>') + '</div>';
+  }
+  // La panoplie d'un Unique : ses trois paliers, et combien on en porte
+  function setBlock(id) {
+    var it = ITEMS[id], d = it && it.rarity === 'unique' && dungeonById(it.dungeon);
+    if (!d) return '';
+    var n = setCounts(save.equip)[d.id] || 0, k = setOf(d);
+    return '<div class="set-info"><h3>' + setName(d).toUpperCase() + ' <small>· ' + k.name + '</small></h3><p class="muted">Les Uniques de ' + d.name + ' : tu en portes ' + n + '.</p><ul>' +
+      k.tiers.map(function (b, i) { return '<li class="' + (n >= SET_AT[i] ? 'on' : '') + '"><b>' + SET_AT[i] + ' pièces</b><span>' + bonusText(b) + '</span></li>'; }).join('') + '</ul></div>';
+  }
+  function renderPetDetails() {
+    var pid = state.selected && String(state.selected).indexOf('pet:') === 0 ? state.selected.slice(4) : save.pet, p = pid && petById(pid), lv = p ? petLevel(save, p.id) : 0;
+    if (!p || !lv) { $('details').innerHTML = '<p class="muted">Choisis un compagnon pour voir ce qu’il apporte.</p>'; return; }
+    $('details').innerHTML = '<div class="det-head pet-head"><img class="px" src="' + petIcon(p) + '" alt=""><div><h3>' + p.name + '</h3><span class="muted">Compagnon · niveau ' + lv + ' / ' + PET_MAX_LEVEL + '</span></div></div>' +
+      '<p>' + p.desc + '</p><ul class="pet-fx"><li><b>Bonus</b><span>' + bonusText(petBonus(p, lv)) + (lv < PET_MAX_LEVEL ? ' <small>(au niveau ' + (lv + 1) + ' : ' + bonusText(petBonus(p, lv + 1)) + ')</small>' : '') + '</span></li>' +
+      '<li><b>En combat</b><span>tous les ' + PET_EVERY + ' tours, il bondit sur l’ennemi : ' + Math.round(petPower(lv) * 100) + ' % de tes dégâts (pas en duel ni à la guerre)</span></li></ul>' +
+      (lv < PET_MAX_LEVEL ? '<p class="muted">Le retrouver au fond de ' + p.d.name + ' le fait grandir d’un niveau.</p>' : '<p class="muted">Il est au plus haut : le retrouver encore donne des éclats.</p>') +
+      '<div class="modal-actions">' + (save.pet === p.id ? '<button class="btn btn-ghost" data-pet-off>Le laisser au camp</button>' : '<button class="btn" data-pet-on="' + p.id + '">L’emmener</button>') + '</div>';
+  }
   function renderDetails() {
+    if (state.filter === 'pet') { renderPetDetails(); return; }
     if (state.sellMode) { $('details').innerHTML = '<p class="muted">Touche les objets à vendre, ou coche-les par rareté. Les objets équipés restent.</p>'; return; }
     var id = state.selected, it = ITEMS[id];
     if (!it) { $('details').innerHTML = '<p class="muted">Choisis un objet pour voir ses effets. Les objets « ??? » se gagnent en combat, en mission ou à la boutique.</p>'; return; }
@@ -734,13 +845,13 @@
     $('details').innerHTML = '<div class="det-head rar-frame" style="' + rarStyle(id) + '"><img src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span class="muted">' + slotName + '</span>' + rarTag(id) + '</div></div>' +
       '<p class="det-stats">' + statLine(it.stats) + '</p><p>' + it.desc + '</p>' +
       (it.kind ? '<p class="st-up">Attaque de base : <b>' + baseSkill(it).name + '</b> — ' + baseSkill(it).desc + '</p>' : '') +
-      (diffs ? '<ul class="diff">' + diffs + '</ul>' : '') +
+      (diffs ? '<ul class="diff">' + diffs + '</ul>' : '') + setBlock(id) + forgeBlock(id) +
       '<div class="modal-actions">' +
       (it.slot === 'arme' && playerHermit ? '<p class="muted">Mode Ermite : pas d’arme, on se bat à mains nues. Quitte le mode Ermite pour reprendre une arme.</p>'
         : equipped && it.slot === 'arme' ? '<p class="muted">Arme en main : équipe-en une autre pour la changer.</p>'
         : it.slot === 'arme' && !weaponAllowed(save, it) ? '<p class="muted">Réservée à la ' + voieDef(it.kind).name + ' : la ' + voieDef(chosenVoie(save)).name + ' se bat ' + (chosenVoie(save) === 'kunai' ? 'à distance' : 'au corps à corps') + '.</p>'
         : '<button id="equip-btn" class="btn' + (equipped ? ' btn-ghost' : '') + '">' + (equipped ? 'Retirer' : 'Équiper') + '</button>') +
-      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre (' + sellPrice(id) + ' lucioles)</button>') + '</div>';
+      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre (' + sellPrice(id) + ' lucioles)</button><button id="salvage-btn" class="btn btn-ghost" title="Recycler à la forge">Recycler (+' + salvageValue(id) + ' éclats)</button>') + '</div>';
   }
 
   // « katana (corps à corps) », « shuriken (distance) »
@@ -1685,9 +1796,12 @@
       metric: function (e) { return e.succes + ' succès'; } },
     tour: { name: 'Tour', cmp: function (a, b) { return (b.tour || 0) - (a.tour || 0) || b.niveau - a.niveau; },
       metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + TOWER_FLOORS; } },
+    saison: { name: 'Saison', cmp: function (a, b) { return rankPts(b) - rankPts(a) || b.niveau - a.niveau; },
+      metric: function (e) { return rankPts(e).toLocaleString('fr-FR') + ' pts'; } },
     reputation: { name: 'Duels', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
       metric: function (e) { return (e.rep || 0) + ' réputation'; } }
   };
+  function rankPts(e) { return e.saison === (rank.saison ? rank.saison.id : seasonId()) ? e.pts || 0 : 0; } // les points de la saison en cours
   var RANK_VOIES = [{ id: 'toutes', short: 'Toutes' }].concat(VOIES, [{ id: 'aucune', short: 'Sans voie' }]);
   var portraitCache = {};
   // La grenouille d'un autre joueur, avec sa peau et son équipement (et le mode Ermite)
@@ -1716,12 +1830,13 @@
       if (!r.ok) throw new Error();
       return r.json();
     }).then(function (d) {
-      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.duels = d.duels; rank.loading = false;
+      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.duels = d.duels; rank.saison = d.saison || null; rank.loading = false;
       renderRank();
     }, function () { rank.loading = false; rank.error = 'Le classement n’a pas pu être chargé. Réessaie dans un instant.'; renderRank(); });
   }
   function rankedList() {
     var list = (rank.data || []).filter(function (e) { return rank.voie === 'toutes' || (rank.voie === 'aucune' ? !e.voie : e.voie === rank.voie); });
+    if (rank.sort === 'saison') list = list.filter(function (e) { return rankPts(e) > 0; }); // (celles qui ont joué ce mois-ci)
     return list.sort(RANK_SORTS[rank.sort].cmp);
   }
   function voieChip(e) {
@@ -1763,19 +1878,21 @@
     }
     if (rank.loading && !rank.data) { list.innerHTML = '<li class="rk-msg"><span>Les grenouilles se rassemblent…</span></li>'; return; }
     if (rank.error) { list.innerHTML = '<li class="rk-msg"><span>' + rank.error + '</span><button class="btn" data-rank-refresh>Réessayer</button></li>'; return; }
-    var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id), gifts = rank.sort === 'reputation' && rank.duels;
+    var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id), season = rank.sort === 'saison' && rank.saison;
+    var gifts = rank.sort === 'reputation' && rank.duels ? rank.duels.recompenses : (season ? rank.saison.recompenses : null);
     $('rank-sub').textContent = all.length + ' grenouille' + (all.length > 1 ? 's' : '') + ' · ' + rank.joueurs + ' joueur' + (rank.joueurs > 1 ? 's' : '') +
       (mine >= 0 ? ' — la tienne est ' + (mine === 0 ? '1re' : (mine + 1) + 'e') + ' en ' + S.name.toLowerCase() : '');
-    if (gifts) { note.hidden = false; note.innerHTML = 'Chaque lundi à minuit, les dix premières des duels reçoivent un cadeau — prochain dans <b>' + untilMs(rank.duels.prochain) + '</b>.'; }
+    if (rank.sort === 'reputation' && rank.duels) { note.hidden = false; note.innerHTML = 'Chaque lundi à minuit, les dix premières des duels reçoivent un cadeau — prochain dans <b>' + untilMs(rank.duels.prochain) + '</b>.'; }
+    if (season) { note.hidden = false; note.innerHTML = '<b>' + seasonName(rank.saison.id) + '</b> : quêtes, boss, donjons, étages de la tour, Titan… chaque exploit du mois rapporte des points (ta grenouille : <b>' + seasonPts(save).toLocaleString('fr-FR') + ' pts</b>). Fin dans <b>' + untilMs(rank.saison.fin) + '</b> : les dix premières reçoivent un cadeau, et les trois premières une peau qu’on ne trouve nulle part ailleurs.'; }
     list.innerHTML = ranked.slice(0, rank.limit).map(function (e, i) {
-      var gift = gifts && i < rank.duels.recompenses.length ? rank.duels.recompenses[i] : null;
+      var gift = gifts && i < gifts.length ? gifts[i] : null;
       return '<li class="rk-row' + (i < 3 ? ' top' + (i + 1) : '') + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-open' : '') + '">' +
         '<button class="rk-line" data-rank-frog="' + e.id + '" aria-expanded="' + (rank.sel === e.id) + '">' +
         '<span class="rk-pos">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
         '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
         voieChip(e) + '<span class="rk-metric">' + S.metric(e) + '</span>' + (gifts ? '<span class="rk-gift">' + (gift ? giftText(gift) : '') + '</span>' : '') + '</button>' +
         (rank.sel === e.id ? rankDetail(e) : '') + '</li>';
-    }).join('') || '<li class="rk-msg"><span>Aucune grenouille ici pour l’instant.</span></li>';
+    }).join('') || '<li class="rk-msg"><span>' + (season ? 'Personne n’a encore de points cette saison : chaque quête, boss, salle de donjon ou attaque du Titan en rapporte.' : 'Aucune grenouille ici pour l’instant.') + '</span></li>';
     foot.innerHTML = (ranked.length > rank.limit ? '<button class="btn" data-rank-more>Afficher la suite (' + (rank.limit + 1) + ' à ' + Math.min(ranked.length, rank.limit + RANK_PAGE) + ' sur ' + ranked.length + ')</button>' : '') +
       (mine >= rank.limit ? '<button class="btn btn-ghost" data-rank-mine>Aller à ma place (' + (mine + 1) + 'e)</button>' : '') +
       '<button class="btn btn-ghost" data-rank-refresh>Actualiser</button>';
@@ -1839,16 +1956,25 @@
     var h = Math.max(0, Math.floor((t - Date.now()) / 3600e3));
     return h >= 24 ? Math.floor(h / 24) + ' j ' + (h % 24) + ' h' : h + ' h';
   }
-  function giftText(g) { return g ? g.lucioles + ' lucioles' + (g.objet && ITEMS[g.objet] ? ' + ' + ITEMS[g.objet].name : '') : ''; }
+  function giftText(g) {
+    if (!g) return '';
+    return (g.lucioles || 0).toLocaleString('fr-FR') + ' lucioles' + (g.eclats ? ' · ' + g.eclats + ' éclats' : '') + (g.xpNiveau ? ' · ' + n1(g.xpNiveau) + ' niv. d’XP' : '') +
+      (g.objet && ITEMS[g.objet] ? ' + ' + ITEMS[g.objet].name : '') + (g.peau && PREMIUM_SKINS[g.peau] ? ' + la peau « ' + PREMIUM_SKINS[g.peau].name + ' »' : '');
+  }
   // Les cadeaux du lundi : ajoutés à la partie une seule fois, puis confirmés au serveur
   function applyGifts(list) {
     var fresh = (list || []).filter(function (g) { return save.gifts.indexOf(g.id) < 0; });
     fresh.forEach(function (g) {
       save.gold += g.lucioles || 0;
+      save.eclats = (save.eclats || 0) + (g.eclats || 0);
+      if (g.peau && PREMIUM_SKINS[g.peau] && save.skins.indexOf(g.peau) < 0) save.skins.push(g.peau);
       if (g.objet && ITEMS[g.objet]) { if (!owns(g.objet)) save.owned.push(g.objet); else save.gold += 150; }
       var xp = g.xpNiveau ? Math.round(xpForLevel(save.level) * g.xpNiveau) : 0, lv = xp ? gainXp(save, xp) : 0;
       save.gifts.push(g.id);
       if (g.source === 'guerre') notice('Guerre contre « ' + g.contre + ' » : ' + (g.resultat === 'victoire' ? 'victoire !' : (g.resultat === 'nulle' ? 'égalité.' : 'défaite…')) + ' Ta part de combattant : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else if (g.source === 'titan') notice('Le ' + (g.titan || 'Titan') + ' est tombé sous les coups de toutes les grenouilles ! Ta part : ' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else if (g.source === 'titan-semaine') notice('Le Titan de la semaine passée : ' + (g.rang ? 'tu finis ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' en dégâts' : 'merci d’avoir combattu') + ' ! +' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ', ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else if (g.source === 'saison') notice(seasonName(g.saison) + ' : tu finis ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' ! +' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ', ' + xp + ' XP' : '') + (g.peau && PREMIUM_SKINS[g.peau] ? ', et la peau « ' + PREMIUM_SKINS[g.peau].name + ' » (page Skins)' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else if (g.source === 'clan') notice('L’Alpha n° ' + (g.rang + 1) + ' de ton clan « ' + g.clan + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
     });
@@ -2006,9 +2132,10 @@
       if (dojo.data) { dojo.data.rep = r.rep; dojo.data.restants = r.restants; dojo.data[win ? 'victoires' : 'defaites']++; }
       dojo.foes = (dojo.foes || []).filter(function (c) { return c.id !== card.id; });
       var xp = win ? clanXp(Math.max(5, Math.round(xpForLevel(save.level) * 0.1))) : 0, levels = xp ? gainXp(save, xp) : 0;
-      if (xp) persist();
+      var qd = track(save, 'duel');
+      persist();
       if (levels) Sfx.play('levelup');
-      return '<p class="bt-rep ' + (r.delta >= 0 ? 'up' : 'down') + '">' + (r.delta >= 0 ? '+' : '−') + Math.abs(r.delta) + ' réputation <span>(' + r.rep + ' en tout)</span></p>' +
+      return questLine(qd) + '<p class="bt-rep ' + (r.delta >= 0 ? 'up' : 'down') + '">' + (r.delta >= 0 ? '+' : '−') + Math.abs(r.delta) + ' réputation <span>(' + r.rep + ' en tout)</span></p>' +
         (xp ? '<p>+' + xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' : '<p>' + escapeHtml(card.nom) + ' garde sa place. Change d’équipement ou de sorts, et retente ta chance !</p>') +
         '<p class="muted">Duels restants aujourd’hui : ' + r.restants + '.</p>';
     });
@@ -2118,7 +2245,7 @@
     clans.loading = true;
     Cloud.flush().then(function () { return clanApi('GET', ''); }).then(function (d) {
       clans.data = d; clans.loading = false; clans.error = '';
-      setClanBonus(d.bonus);
+      setClanBonus(d.bonus); save.inClan = !!d.clan;
       if (d.exclu) notice('Ta grenouille a été exclue du clan « ' + d.exclu + ' » par son chef.', true);
       applyGifts(d.cadeaux);
       if (state.page === 'clans') renderClans();
@@ -2133,7 +2260,7 @@
   }
   function refreshClan() { // à l'arrivée en jeu : les bonus du clan à jour, et ses cadeaux
     if (!Cloud.id) return;
-    clanApi('GET', '').then(function (d) { clans.data = d; setClanBonus(d.bonus); applyGifts(d.cadeaux); }, function () {});
+    clanApi('GET', '').then(function (d) { clans.data = d; setClanBonus(d.bonus); save.inClan = !!d.clan; applyGifts(d.cadeaux); }, function () {});
   }
   // le butin : le trésor, les deux bonus (le chef les améliore) et les dons
   var BONUS_INFO = {
@@ -2288,8 +2415,9 @@
           var rc = res.recompense || { lucioles: 0, xpNiveau: 0 }, gold = clanGold(rc.lucioles), xp = clanXp(Math.round(xpForLevel(save.level) * rc.xpNiveau)), levels = xp ? gainXp(save, xp) : 0;
           var loot = rollLoot(save, lootTier(save, currentWorld()), 0.35, 1);
           save.gold += gold; if (loot) save.owned.push(loot);
+          var qd = track(save, 'raid').concat(trackLoot(save, [loot]));
           persist(); Sfx.play(levels ? 'levelup' : (loot ? 'pickup' : 'point'));
-          return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts à l’Alpha</p>' +
+          return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts à l’Alpha</p>' + questLine(qd) +
             '<p>Pour ton assaut : +' + fmtN(gold) + ' lucioles · +' + fmtN(xp) + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
             (loot ? '<p class="bt-loot" style="' + rarStyle(loot) + '"><img src="' + itemIconUrl(loot) + '" alt=""> Butin de l’assaut : <b>' + ITEMS[loot].name + '</b> <em>' + RARITIES[rarityOf(loot)].name + '</em></p>' : '') +
             (res.vaincu !== null ? '<p class="bt-unlock">L’Alpha n° ' + (res.vaincu + 1) + ' est tombé ! Chaque grenouille du clan qui l’a attaqué reçoit sa part, et un Alpha plus fort arrive.</p>'
@@ -2319,6 +2447,100 @@
   }
   function clanAction(p) { // une action, puis on recharge le clan
     return p.then(function () { loadClans(); }, function (e) { notice(e.message); });
+  }
+
+  // ---------- Le Titan de la semaine (server/api.js : /api/titan) ----------
+  // Le même Titan pour toutes les grenouilles, qui change chaque lundi : ses PV sont partagés. À gauche, le Titan dans sa
+  // tempête ; à droite, ses PV, tes attaques du jour, et les plus grands coups de la semaine (leurs cadeaux du lundi).
+  var titan = { data: null, loading: false, error: '', bg: -1 };
+  var titanApi = function (method, path, body) {
+    return fetch('/api/titan/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
+  };
+  function openTitan() { renderTitan(); if (Cloud.id) loadTitan(); }
+  function loadTitan() {
+    if (!Cloud.id) return;
+    titan.loading = true;
+    Cloud.flush().then(function () { return titanApi('GET', ''); }).then(function (d) {
+      titan.data = d; titan.loading = false; titan.error = '';
+      applyGifts(d.cadeaux);
+      $('badge-titan').hidden = !(d.restants > 0);
+      if (state.page === 'titan') renderTitan();
+    }, function (e) { titan.loading = false; titan.error = e.message; if (state.page === 'titan') renderTitan(); });
+  }
+  // le décor : une mer démontée sous l'orage, et le Titan qui en sort, immense
+  function drawTitanBg(idx) {
+    var c = $('titan-bg');
+    if (titan.bg === idx && c.width === 320) return;
+    titan.bg = idx; c.width = 320; c.height = 180;
+    var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
+    g.addColorStop(0, '#0a0814'); g.addColorStop(0.55, '#1c1630'); g.addColorStop(1, '#0a1220');
+    x.fillStyle = g; x.fillRect(0, 0, 320, 180);
+    for (var i = 0; i < 60; i++) { x.fillStyle = 'rgba(90, 80, 140, ' + (0.08 + hash(i, 1, 21) * 0.12) + ')'; x.fillRect(Math.round(hash(i, 2, 21) * 320), Math.round(hash(i, 3, 21) * 90), 10 + Math.round(hash(i, 4, 21) * 30), 3); }
+    var bolt = [[212, 0], [204, 22], [214, 26], [198, 58], [210, 62], [192, 98]];
+    x.strokeStyle = 'rgba(220, 230, 255, 0.85)'; x.lineWidth = 1; x.beginPath(); bolt.forEach(function (p, k) { if (k) x.lineTo(p[0], p[1]); else x.moveTo(p[0], p[1]); }); x.stroke();
+    var en = titanOf(idx, 0, save.level), s = SPECIES[en.species], img = stringsToCanvas(s.frames[0], Object.assign({}, s.pal, en.pal)), size = s.size === 32 ? 128 : 96;
+    var halo = x.createRadialGradient(110, 100, 10, 110, 100, 110); halo.addColorStop(0, 'rgba(140, 100, 220, 0.35)'); halo.addColorStop(1, 'rgba(140, 100, 220, 0)');
+    x.fillStyle = halo; x.fillRect(0, 0, 320, 180);
+    x.imageSmoothingEnabled = false; x.drawImage(img, 110 - size / 2, 150 - size, size, size);
+    for (var y = 132; y < 180; y += 2) for (var k2 = 0; k2 < 6; k2++) { x.fillStyle = y < 150 ? 'rgba(40, 60, 100, 0.7)' : 'rgba(20, 34, 60, 0.9)'; x.fillRect(Math.round(hash(y, k2, 23) * 320), y, 18 + Math.round(hash(y, k2, 24) * 30), 2); }
+    x.fillStyle = 'rgba(14, 26, 48, 0.75)'; x.fillRect(0, 150, 320, 30);
+    for (var w = 0; w < 40; w++) { x.fillStyle = 'rgba(200, 220, 255, 0.35)'; x.fillRect(Math.round(hash(w, 5, 25) * 320), 140 + Math.round(hash(w, 6, 25) * 36), 4, 1); }
+    for (var rn = 0; rn < 70; rn++) { x.fillStyle = 'rgba(160, 180, 230, 0.25)'; x.fillRect(Math.round(hash(rn, 7, 26) * 320), Math.round(hash(rn, 8, 26) * 180), 1, 4); }
+  }
+  function renderTitan() {
+    var box = $('titan-body');
+    drawTitanBg(titan.data ? titan.data.titan.idx : 0);
+    if (!Cloud.id) {
+      box.innerHTML = '<div class="panel cl-center"><h2>JOUE AVEC UN COMPTE</h2><p>Le Titan de la semaine est le même pour toutes les grenouilles de tous les joueurs : crée un compte depuis l’accueil pour le combattre avec elles.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
+      return;
+    }
+    var d = titan.data;
+    if (!d) { box.innerHTML = '<div class="panel cl-center"><p>' + (titan.error ? escapeHtml(titan.error) + ' <button class="btn btn-ghost" data-titan-reload>Réessayer</button>' : 'Le Titan sort des flots…') + '</p></div>'; return; }
+    var t = d.titan, en = titanOf(t.idx, t.rang, save.level), pct = Math.max(0, t.pv / t.pvMax * 100), pips = '';
+    for (var i = 0; i < d.max; i++) pips += '<i' + (i < d.restants ? ' class="on"' : '') + '></i>';
+    var html = '<header class="panel tt-head"><span class="tt-kicker">LE TITAN DE LA SEMAINE' + (t.vaincus ? ' · ' + t.vaincus + ' déjà tombé' + (t.vaincus > 1 ? 's' : '') : '') + ' · un autre Titan dans ' + untilMs(d.fin) + '</span>' +
+      '<h1>' + en.name.toUpperCase() + '</h1><p>Toutes les grenouilles de tous les joueurs le frappent ensemble : ses PV sont partagés. Quand il tombe, chacune de celles qui l’ont frappé reçoit sa part, et un Titan plus fort se dresse.</p>' +
+      '<div class="cl-hp tt-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(t.pv) + ' / ' + fmtN(t.pvMax) + ' PV</em></div></header>';
+    html += '<div class="tt-cols"><section class="panel tt-me"><h2>TES ATTAQUES</h2>' +
+      '<div class="tt-stats"><span><b>' + fmtN(d.mesDegats) + '</b>dégâts cette semaine</span><span><b>' + (d.place ? nth(d.place) : '—') + '</b>' + (d.place ? 'sur ' + d.classes : 'pas encore classée') + '</span></div>' +
+      '<div class="dm-duels"><span>Attaques du jour : <b>' + d.restants + ' / ' + d.max + '</b></span><span class="pips">' + pips + '</span></div>' +
+      '<p class="cl-help">' + d.tours + ' tours pour lui arracher le plus de PV possible. Chaque attaque rapporte des lucioles, de l’XP et des éclats de jade : plus tu fais mal, plus elle rapporte. Ton compagnon frappe avec toi.</p>' +
+      (d.maPart ? '<p class="cl-part is-in">Ta part est assurée sur ce Titan : ' + fmtN(d.maPart) + ' dégâts.</p>' : '<p class="cl-part">Frappe ce Titan au moins une fois pour avoir ta part quand il tombera.</p>') +
+      '<button class="btn" data-titan-attack' + (d.restants > 0 ? '' : ' disabled') + '>' + (d.restants > 0 ? 'Attaquer le Titan ▶ · ' + d.restants + ' / ' + d.max : 'Reviens demain') + '</button></section>';
+    html += '<section class="panel tt-top"><h2>LES PLUS GRANDS COUPS DE LA SEMAINE</h2>' + (d.top.length ? '<ol class="tt-list">' + d.top.map(function (e, k) {
+      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
+        '<span class="tt-dmg">' + fmtN(e.degats) + '<small>dégâts</small></span><span class="tt-gift">' + giftText(d.recompenses[k]) + '</span></li>';
+    }).join('') + '</ol>' : '<p class="muted">Personne ne l’a encore frappé cette semaine : sois la première !</p>') +
+      '<p class="cl-help">Lundi à minuit, les dix premières reçoivent le cadeau de leur place ; toutes les autres grenouilles qui l’ont frappé : ' + giftText(d.part) + '.</p></section></div>';
+    box.innerHTML = html;
+  }
+  // L'attaque : quelques tours contre ses PV partagés, dans son pays
+  function titanFight(d) {
+    var t = d.titan, en = titanOf(t.idx, t.rang, save.level);
+    var fight = {
+      kind: 'titan', title: 'Le Titan · ' + en.name, biomeIndex: en.biome, turns: d.tours, done: 0,
+      stats: { total: 0, hits: 0, crits: 0, best: 0, taken: 0 }, intro: en.name + ' se dresse au-dessus de toi : ' + d.tours + ' tours pour lui arracher le plus de PV possible !',
+      enemy: Object.assign({}, en, { maxHp: t.pvMax, hp0: t.pv }),
+      settle: function () {
+        fight.settled = true;
+        return titanApi('POST', '/attaque', { degats: fight.stats.total }).then(function (res) {
+          d.restants = res.restants; d.titan.pv = res.pv; d.titan.pvMax = res.pvMax; d.titan.rang = res.rang; d.mesDegats = res.total;
+          var rc = res.recompense || { lucioles: 0, xpNiveau: 0, eclats: 0 }, gold = clanGold(rc.lucioles), xp = clanXp(Math.round(xpForLevel(save.level) * rc.xpNiveau)), levels = xp ? gainXp(save, xp) : 0;
+          var loot = rollLoot(save, lootTier(save, currentWorld()), 0.4, 1);
+          save.gold += gold; save.eclats = (save.eclats || 0) + (rc.eclats || 0); if (loot) save.owned.push(loot);
+          var qd = track(save, 'titan').concat(trackLoot(save, [loot]));
+          save.counts.titan = (save.counts.titan || 0) + 1;
+          persist(); Sfx.play(levels ? 'levelup' : (loot ? 'pickup' : 'point'));
+          return '<p class="bt-rep up">' + fmtN(res.degats) + ' dégâts au Titan</p>' + questLine(qd) +
+            '<p>Pour ton attaque : +' + fmtN(gold) + ' lucioles · +' + fmtN(xp) + ' XP · +' + (rc.eclats || 0) + ' éclats' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+            (loot ? '<p class="bt-loot" style="' + rarStyle(loot) + '"><img src="' + itemIconUrl(loot) + '" alt=""> Butin : <b>' + ITEMS[loot].name + '</b> <em>' + RARITIES[rarityOf(loot)].name + '</em></p>' : '') +
+            (res.vaincu !== null ? '<p class="bt-unlock">Le Titan est tombé ! Chaque grenouille qui l’a frappé reçoit sa part, et un Titan plus fort se dresse.</p>' : '<p>Il lui reste ' + fmtN(res.pv) + ' PV sur ' + fmtN(res.pvMax) + '.</p>') +
+            '<p class="muted">Attaques restantes aujourd’hui : ' + res.restants + '.</p>';
+        });
+      }
+    };
+    return fight;
   }
 
   // ---------- La Tour des Cent Sages ----------
@@ -2358,6 +2580,7 @@
     var swap = r.item && !itemAvailable(save, r.item) ? itemPrice(r.item) : 0; // pas ton arme : sa valeur en lucioles
     if (swap) save.gold += swap; else if (r.item && !owns(r.item)) save.owned.push(r.item);
     if (card.boss) albumKill(save, 's-' + f);
+    var qd = track(save, 'tower').concat(card.boss ? track(save, 'boss') : []);
     persist();
     Sfx.play(levels ? 'levelup' : 'pickup');
     var skin = f === TOWER_TOP && save.skins.indexOf('ancetre') < 0; // au sommet des Ancêtres : la peau du Premier Crapaud
@@ -2367,7 +2590,7 @@
     return '<p>Étage ' + f + ' conquis ! +' + r.gold + ' lucioles · +' + r.xp + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
       (r.item ? '<p class="bt-loot" style="' + rarStyle(r.item) + '"><img src="' + iconUrls[r.item] + '" alt=""> ' + (isAncestor(f) ? 'Relique du Grand Ancêtre' : 'Trésor du Grand Sage') + ' : <b>' + ITEMS[r.item].name + '</b>' + (swap ? ' — ce n’est pas ton arme : les Sages te donnent <b>' + swap + ' lucioles</b> à la place.' : '') + '</p>' : '') +
       (f === TOWER_FLOORS ? '<p class="bt-unlock">Tu as conquis le sommet de la tour. Le Premier Sage s’incline… et montre le ciel : au-dessus, dans la nuit, la <b>Tour des Ancêtres</b> s’éveille. 500 étages.</p>' : '') +
-      (f === TOWER_TOP ? '<p class="bt-unlock">Le Premier Crapaud s’incline devant toi. Tu as conquis la Tour des Ancêtres' + (skin ? ', et sa peau est à toi : <b>Premier Crapaud</b> (page Skins).' : '.') + '</p>' : '');
+      (f === TOWER_TOP ? '<p class="bt-unlock">Le Premier Crapaud s’incline devant toi. Tu as conquis la Tour des Ancêtres' + (skin ? ', et sa peau est à toi : <b>Premier Crapaud</b> (page Skins).' : '.') + '</p>' : '') + questLine(qd);
   }
   function openTower() {
     if (!tower.mode) tower.mode = save.tower >= TOWER_FLOORS ? 'ancetres' : 'sages';
@@ -2504,12 +2727,16 @@
     var uq = Math.random() < rw.unique * (1 + playerMutBonus.loot) ? rollUnique(save, d) : null;
     if (uq) save.owned.push(uq);
     save.dungeons[d.id] = { room: daily ? st.room : r, day: daily ? todayKey() : st.day };
+    var pet = r === DUNGEON_ROOMS ? petDrop(save, d, daily) : null;
+    var qd = track(save, 'room').concat(r === DUNGEON_ROOMS || r === 5 ? track(save, 'boss') : [], trackLoot(save, [loot, uq]));
+    setPlayer(save);
     persist();
     Sfx.play(uq ? 'glint' : (levels ? 'levelup' : 'pickup'));
     var line = function (id, label) { return '<p class="bt-loot" style="' + rarStyle(id) + '"><img src="' + itemIconUrl(id) + '" alt=""> ' + label + ' : <b>' + ITEMS[id].name + '</b> <em>' + RARITIES[rarityOf(id)].name + '</em></p>'; };
     return '<p>' + (r === DUNGEON_ROOMS ? (daily ? 'Le boss tombe encore !' : '<b>Le donjon est vidé !</b> Son boss se redéfie une fois par jour.') : 'Salle ' + r + ' vidée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
       (gap < 1 ? '<p class="bt-gap">XP réduite à ' + Math.round(gap * 100) + ' % : tu es bien plus fort que ce donjon.</p>' : '') +
-      (loot ? line(loot, 'Butin') : '') + (uq ? line(uq, 'OBJET UNIQUE') : '');
+      (loot ? line(loot, 'Butin') : '') + (uq ? line(uq, 'OBJET UNIQUE') : '') +
+      (pet ? '<p class="bt-loot bt-pet"><img src="' + petIcon(pet.pet) + '" alt=""> ' + (pet.max ? pet.pet.name + ' est déjà au plus haut : <b>+' + pet.eclats + ' éclats</b>.' : (pet.up ? '<b>' + pet.pet.name + '</b> grandit : niveau ' + pet.lvl + ' !' : 'Le petit du boss te suit : <b>' + pet.pet.name + '</b> devient ton compagnon !' + (save.pet === pet.pet.id ? ' Il est déjà à tes côtés.' : ' (page Personnage, case Compagnon)'))) + '</p>' : '') + questLine(qd);
   }
 
   // ---------- L'Album : un livre à feuilleter ----------
@@ -2667,7 +2894,7 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
@@ -2676,6 +2903,7 @@
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
     if (page === 'clans') openClans();
+    if (page === 'titan') openTitan();
     if (page === 'skins') openSkins();
     if (page === 'tower') openTower();
     if (page === 'album') renderAlbum();
@@ -2713,9 +2941,11 @@
     }
     // quitter un assaut : ses dégâts comptent quand même (sans coup porté, l'assaut n'est pas perdu) ; quitter un combat de guerre : une défaite
     if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadClans(); }, function () {});
+    if (fight.kind === 'titan' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’attaque : tes dégâts comptent quand même.'); loadTitan(); }, function () {});
+    if (fight.kind === 'titan') loadTitan();
     if (fight.kind === 'guerre' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté le combat : il compte comme une défaite.'); loadClans(); }, function () {});
     var atClan = fight.kind === 'raid' || fight.kind === 'guerre';
-    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map'))));
+    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (fight.kind === 'titan' ? 'titan' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map')))));
     startTick();
   }
 
@@ -2787,6 +3017,8 @@
       clanAction(clanApi('POST', '/exclure', { membre: kid }));
       return;
     }
+    if (t.hasAttribute('data-titan-attack')) { if (titan.data && titan.data.restants > 0) { Sfx.play('click'); startFight(titanFight(titan.data)); } return; }
+    if (t.hasAttribute('data-titan-reload')) { titan.error = ''; loadTitan(); return; }
     if (t.hasAttribute('data-clan-raid')) { if (clans.data && clans.data.raids > 0) { Sfx.play('click'); startFight(raidFight(clans.data)); } return; }
     if (t.dataset.warDeclare) { // déclarer la guerre : un premier clic arme le bouton, le second confirme
       var cib = t.dataset.warDeclare;
@@ -2854,23 +3086,73 @@
       if (state.sellMode) { // en mode vente : cocher / décocher, sans ouvrir la fiche
         var si = state.sellSel.indexOf(t.dataset.item);
         if (si >= 0) state.sellSel.splice(si, 1); else state.sellSel.push(t.dataset.item);
-        state.sellArmed = false; Sfx.play('click'); renderInventory(); return;
+        state.sellArmed = false; state.salvageArmed = false; Sfx.play('click'); renderInventory(); return;
       }
       state.selected = t.dataset.item; renderAll(); return;
     }
-    if (t.id === 'inv-sell-mode') { state.sellMode = !state.sellMode; state.sellSel = []; state.sellArmed = false; Sfx.play('click'); renderInventory(); renderDetails(); return; }
+    if (t.id === 'inv-sell-mode') { state.sellMode = !state.sellMode; state.sellSel = []; state.sellArmed = false; state.salvageArmed = false; Sfx.play('click'); renderInventory(); renderDetails(); return; }
     if (t.dataset.sellPick) {
       var key = t.dataset.sellPick, visible = Array.prototype.map.call(document.querySelectorAll('#inventory .item:not([disabled])'), function (b) { return b.dataset.item; });
       state.sellSel = key === 'aucun' ? [] : visible.filter(function (id) { return key === 'tout' || rarityOf(id) === key; });
-      state.sellArmed = false; Sfx.play('click'); renderInventory(); return;
+      state.sellArmed = false; state.salvageArmed = false; Sfx.play('click'); renderInventory(); return;
     }
     if (t.hasAttribute('data-sell-go')) {
       if (!state.sellSel.length) return;
-      if (!state.sellArmed) { state.sellArmed = true; renderInventory(); return; }
+      if (!state.sellArmed) { state.sellArmed = true; state.salvageArmed = false; renderInventory(); return; }
       state.sellArmed = false; sellSelected(); return;
     }
+    if (t.dataset.slot === 'pet') { state.filter = 'pet'; state.selected = save.pet ? 'pet:' + save.pet : null; renderAll(); return; }
     if (t.dataset.slot) { var sid = save.equip[t.dataset.slot]; if (sid) state.selected = sid; state.filter = t.dataset.slot; renderAll(); return; }
-    if (t.dataset.filter) { state.filter = t.dataset.filter; renderInventory(); return; }
+    if (t.dataset.pet) { state.selected = 'pet:' + t.dataset.pet; renderAll(); return; }
+    if (t.dataset.petOn) { if (petLevel(save, t.dataset.petOn)) { save.pet = t.dataset.petOn; setPlayer(save); persist(); Sfx.play('pickup'); renderAll(); notice(petById(save.pet).name + ' te suit désormais, au camp comme au combat.'); } return; }
+    if (t.hasAttribute('data-pet-off')) { save.pet = null; setPlayer(save); persist(); renderAll(); return; }
+    if (t.dataset.quest) {
+      var qg = claimQuest(save, t.dataset.quest);
+      if (qg) { persist(); Sfx.play(qg.levels ? 'levelup' : 'pickup'); notice('Quête faite : +' + qg.gold.toLocaleString('fr-FR') + ' lucioles, +' + qg.xp.toLocaleString('fr-FR') + ' XP, +' + qg.eclats + ' éclats' + (qg.levels ? '. Niveau ' + save.level + ' !' : '.')); renderAll(); }
+      return;
+    }
+    if (t.hasAttribute('data-quest-chest')) {
+      var cg = claimChest(save);
+      if (cg) { persist(); Sfx.play('levelup'); notice('Le coffre du jour : ' + ITEMS[cg.item].name + ' (' + RARITIES[rarityOf(cg.item)].name + '), +' + cg.gold.toLocaleString('fr-FR') + ' lucioles, +' + cg.xp.toLocaleString('fr-FR') + ' XP, +' + cg.eclats + ' éclats' + (cg.levels ? '. Niveau ' + save.level + ' !' : '.')); renderAll(); }
+      return;
+    }
+    if (t.dataset.forge) {
+      var fid = t.dataset.forge, wasOn = SLOTS.some(function (s) { return save.equip[s.id] === fid; });
+      if (!forgeItem(save, fid)) return;
+      var fq = track(save, 'forge');
+      setPlayer(save); persist(); if (wasOn) buildHero(); Sfx.play('equip'); renderAll();
+      notice(ITEMS[fid].name + ' passe à +' + forgeOf(fid) + ' : ses stats gagnent ' + Math.round(FORGE_STEP * 100) + ' %.');
+      quested(fq);
+      return;
+    }
+    if (t.id === 'salvage-btn') {
+      var sv = salvageItems(save, [state.selected]);
+      if (!sv.n) return;
+      state.selected = null;
+      var sq = track(save, 'recycle', sv.n);
+      persist(); Sfx.play('pickup'); renderAll();
+      notice('Recyclé à la forge : +' + sv.eclats + ' éclats de jade.');
+      quested(sq);
+      return;
+    }
+    if (t.hasAttribute('data-salvage-go')) {
+      if (!state.sellSel.length) return;
+      if (!state.salvageArmed) { state.salvageArmed = true; state.sellArmed = false; renderInventory(); return; }
+      var sv2 = salvageItems(save, state.sellSel);
+      state.salvageArmed = false; state.sellSel = []; state.sellMode = false; state.selected = null;
+      var sq2 = track(save, 'recycle', sv2.n);
+      persist(); Sfx.play('pickup'); renderAll();
+      notice(sv2.n + ' objet' + (sv2.n > 1 ? 's' : '') + ' recyclé' + (sv2.n > 1 ? 's' : '') + ' : +' + sv2.eclats + ' éclats de jade.');
+      quested(sq2);
+      return;
+    }
+    if (t.dataset.filter) { // (l'onglet des compagnons montre le sien)
+      state.filter = t.dataset.filter;
+      var onPet = String(state.selected).indexOf('pet:') === 0;
+      if (state.filter === 'pet' && !onPet) state.selected = save.pet ? 'pet:' + save.pet : null;
+      else if (state.filter !== 'pet' && onPet) state.selected = null;
+      renderAll(); return;
+    }
     if (t.dataset.view) { state.view = t.dataset.view; renderAll(); return; }
     if (t.dataset.mastery) {
       var mx = t.dataset.mastery, mr = save.mastery[mx] || 0, mc = masteryCost(mr);
@@ -2982,7 +3264,7 @@
       var it = ITEMS[state.selected];
       if (it.slot === 'arme' && !weaponAllowed(save, it)) return;
       save.equip[it.slot] = save.equip[it.slot] === state.selected ? null : state.selected;
-      persist(); buildHero();
+      setPlayer(save); persist(); buildHero();
       if (it.slot === 'arme') state.view = 'attaque'; else if (state.view === 'attaque') state.view = 'face';
       renderAll();
     }
@@ -3106,6 +3388,7 @@
       else { save = newSave(); save.hero = { name: frog.nom, skin: frog.peau }; refreshShop(save); save.notice = welcome(frog.nom); } // grenouille toute neuve
       setPlayer(save); persist(); enterGame();
       loadDojo(); // les cadeaux du lundi, s'il y en a
+      loadTitan(); // le Titan de la semaine (ses cadeaux, et s'il reste des attaques aujourd'hui)
       refreshClan(); // les bonus du clan à jour
     }, function (e) { location.href = e.message === 'connexion' ? '/?connexion' : '/?grenouilles'; });
   }
