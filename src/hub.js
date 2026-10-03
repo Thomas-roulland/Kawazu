@@ -209,15 +209,14 @@
 
   // ---------- Les nouveautés : une fenêtre, une fois par mise à jour (NEWS.id), pour celles qui ont déjà joué ----------
   var NEWS = {
-    id: '2026-10',
+    id: '2026-10-3',
     list: [
-      ['coffre', 'camp', 'Les quêtes du jour', 'Trois quêtes chaque jour au camp, et un coffre quand elles sont faites : lucioles, XP, éclats et un objet Rare ou Épique.'],
-      ['eclat', 'perso', 'La forge', 'Recycle les objets dont tu ne veux plus en éclats de jade, et renforce les autres jusqu’à +10 (+3 % de stats par niveau).'],
-      ['donjon', 'donjons', 'Panoplies et compagnons', 'Les Uniques d’un même donjon forment une panoplie (bonus à 2, 3 et 4 pièces). Au fond des donjons, le petit du boss peut te suivre et se battre avec toi.'],
-      ['titan', 'titan', 'Le Titan de la semaine', 'Un boss géant, le même pour tous les joueurs, aux PV partagés : 3 attaques par jour, une part pour chacun quand il tombe.'],
-      ['rank', 'rank', 'Les saisons', 'Chaque mois, une saison de classement : les dix premières reçoivent un cadeau, les trois premières une peau de champion.'],
-      ['camp', 'camp', 'Les événements', 'Le week-end, l’XP est multipliée par 1,5 ; le mercredi, les objets tombent plus souvent.'],
-      ['donjons', 'map', 'Le Royaume sous la Terre', 'Après l’Archipel des Brumes, six terres sous le monde et le Ver du Cœur du Monde.']
+      ['perso', 'perso', 'Les voies rééquilibrées', 'L’Ermite rattrape les deux autres (ses mains grandissent avec ses objets) ; le Lancer domine moins les duels ; en fin de jeu, les Armes et le Lancer tiennent mieux face aux monstres.'],
+      ['eclat', 'forge', 'Forge et Uniques', 'La forge donne +3 % par niveau, les Uniques ×2,3 (les tiens ont été recalculés). Recycler un objet renforcé rend la moitié de ce que tu y as mis.'],
+      ['donjon', 'donjons', 'Les donjons', 'Plus durs et mieux payés. Un monstre vaincu ne revient pas ; battu, tu le retentes une heure plus tard. Le compagnon te suit à coup sûr et grandit avec des éclats.'],
+      ['donjons', 'map', 'Archipel et Royaume', 'Leurs gardiens et leurs boss sont bien plus coriaces. Dans les cycles, toutes les terres ont la force de la dernière.'],
+      ['tour', 'tower', 'Tour et méditation', 'Quand tu dépasses de loin le sage ou ta terre, l’XP fond, comme sur la carte. Le week-end donne XP ×1,5.'],
+      ['rank', 'perso', 'Aura et titres', 'Chaque mutation fait grandir une aura autour de ta grenouille (masquable) et t’apporte un titre à choisir ; au classement, les mutations passent d’abord.']
     ]
   };
   function showNews() {

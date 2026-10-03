@@ -41,6 +41,7 @@ function serveStatic(req, res, url) {
   let rel = decodeURIComponent(url.pathname);
   if (rel === '/') rel = '/index.html';
   if (rel === '/jeu') rel = '/jeu.html';
+  if (rel === '/patch') rel = '/patch.html'; // les notes de mise à jour
   const file = path.join(ROOT, rel);
   // jamais en dehors du dossier du jeu, jamais les données du serveur
   if (!file.startsWith(ROOT + path.sep) || file.startsWith(DATA + path.sep)) { res.writeHead(403); return res.end(); }

@@ -1,4 +1,7 @@
 {
   "regions": ["lhr1"],
-  "rewrites": [{ "source": "/api/:path*", "destination": "/api?route=:path*" }]
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api?route=:path*" },
+    { "source": "/patch", "destination": "/patch.html" }
+  ]
 }

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kawazu — Notes de mise à jour</title>
+<meta name="description" content="Kawazu, le grand rééquilibrage du 3 octobre 2026 : les voies, la forge, les donjons, l’Archipel et le Royaume, l’XP.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&amp;text=0123456789%25%C3%97%2B%E2%88%92%E2%86%92.,&amp;display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1310; --panel: #1a241f; --panel-2: #141c18; --line: #33443a; --line-2: #3d5145;
+    --text: #e8efe0; --muted: #a9b8a6; --soft: #c9d6c4; --gold: #e0b43a; --gold-2: #f3d27a;
+    --up: #8fce52; --down: #f0a090; --armes: #8fce52; --lancer: #9cc7e0; --ermite: #e0b43a;
+    --pixel: 'Press Start 2P', ui-monospace, monospace;
+    --body: 'Silkscreen', 'Pixelify Sans', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font-family: var(--body); font-size: 18px; line-height: 1.45; background: radial-gradient(ellipse at 50% -10%, #1f2e25, var(--bg) 60%) fixed; }
+  a { color: var(--gold-2); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 20px; border-bottom: 2px solid var(--line); }
+  .brand { font-family: var(--pixel); font-size: 12px; color: var(--gold); letter-spacing: 2px; }
+  h1 { margin: 10px 0 6px; font-family: var(--pixel); font-weight: 400; font-size: clamp(18px, 3.6vw, 28px); line-height: 1.35; color: #f4f4e8; }
+  .date { color: var(--muted); }
+  .play { display: inline-block; padding: 12px 18px; font-family: var(--pixel); font-size: 11px; color: #2a1d0c; text-decoration: none; background: linear-gradient(var(--gold-2), var(--gold)); box-shadow: 0 0 0 2px #120c07, 0 4px 0 #8a6f1f; }
+  .play:hover { filter: brightness(1.08); }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; }
+  nav.toc a { padding: 6px 10px; font-size: 15px; text-decoration: none; color: var(--soft); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+  nav.toc a:hover { color: #fff; box-shadow: inset 0 0 0 1px var(--gold); }
+  section { margin-top: 36px; }
+  h2 { margin: 0 0 6px; font-family: var(--pixel); font-weight: 400; font-size: 14px; line-height: 1.5; color: var(--gold-2); }
+  h3 { margin: 22px 0 8px; font-family: var(--pixel); font-weight: 400; font-size: 10px; line-height: 1.8; letter-spacing: 1px; color: var(--muted); }
+  p { margin: 8px 0; color: var(--soft); }
+  .lead { color: var(--text); }
+  .table { overflow-x: auto; margin: 10px 0; background: var(--panel); box-shadow: inset 0 0 0 2px var(--line), 0 6px 16px rgba(0, 0, 0, 0.35); }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--pixel); font-weight: 400; font-size: 9px; letter-spacing: 1px; color: var(--muted); background: var(--panel-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: center; white-space: nowrap; }
+  .old { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(240, 160, 144, 0.6); }
+  .new { color: #fff; font-weight: 600; }
+  .up { color: var(--up); } .down { color: var(--down); }
+  .arrow { color: var(--muted); padding: 0 4px; }
+  .v { display: inline-block; padding: 2px 8px; font-family: var(--pixel); font-size: 9px; color: #0d1310; white-space: nowrap; }
+  .v.armes { background: var(--armes); } .v.lancer { background: var(--lancer); } .v.ermite { background: var(--ermite); }
+  tr.total td { background: rgba(224, 180, 58, 0.08); font-weight: 600; }
+  .note { font-size: 15px; color: var(--muted); }
+  ul { margin: 8px 0; padding-left: 22px; color: var(--soft); }
+  li { margin: 6px 0; }
+  li b, p b { color: var(--text); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+  .card { padding: 14px 16px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--line), inset 3px 0 0 var(--gold); }
+  .card b { display: block; margin-bottom: 4px; font-family: var(--pixel); font-weight: 400; font-size: 9px; line-height: 1.6; color: var(--gold-2); }
+  .card span { font-size: 16px; color: var(--soft); }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 2px solid var(--line); font-size: 15px; color: var(--muted); }
+  @media (max-width: 600px) {
+    body { font-size: 16px; } table { font-size: 14px; } th, td { padding: 8px 6px; }
+    td.num .old { display: block; } td.num .arrow { display: none; } /* avant au-dessus, après dessous : les colonnes tiennent */
+    th .v { padding: 2px 4px; font-size: 7px; } td:first-child { min-width: 104px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="brand">KAWAZU · NINJA DU MARAIS</div>
+      <h1>Notes de mise à jour</h1>
+      <div class="date">3 octobre 2026 · le grand rééquilibrage</div>
+    </div>
+    <a class="play" href="index.html">Jouer ▶</a>
+  </header>
+
+  <nav class="toc" aria-label="Sommaire">
+    <a href="#voies">Les voies</a><a href="#equipement">Forge et Uniques</a><a href="#monde">Le monde et l’XP</a>
+    <a href="#donjons">Les donjons</a><a href="#ligne">En ligne</a><a href="#voir">À voir</a>
+  </nav>
+
+  <p class="lead">Des joueurs finissaient l’histoire en tuant tout d’un seul coup, et une voie était presque injouable en
+    duel. Tout a été mesuré au simulateur du jeu (des milliers de combats, avec les vraies règles) avant et après chaque
+    changement.</p>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="voies">
+    <h2>Les voies</h2>
+    <p>Aucune voie ne doit en écraser une autre. Avant, l’Ermite décrochait dès le niveau 80 (ses mains nues ne
+      grandissaient pas avec l’équipement) et le Lancer dominait les duels.</p>
+
+    <h3>CE QUI CHANGE</h3>
+    <div class="table"><table>
+      <thead><tr><th>Voie</th><th>Quoi</th><th>Avant</th><th>Après</th></tr></thead>
+      <tbody>
+        <tr><td><span class="v armes">ARMES</span></td><td>PV contre les monstres, en fin de jeu</td><td class="old">—</td><td class="new">jusqu’à +50 % <span class="note">(montent du niveau 120 au niveau 200 ; pas en duel)</span></td></tr>
+        <tr><td><span class="v lancer">LANCER</span></td><td>Agilité par point réparti</td><td class="old">×2</td><td class="new">×1,85</td></tr>
+        <tr><td><span class="v lancer">LANCER</span></td><td>PV contre les monstres, en fin de jeu</td><td class="old">—</td><td class="new">jusqu’à +30 % <span class="note">(du niveau 120 au niveau 200 ; pas en duel)</span></td></tr>
+        <tr><td><span class="v ermite">ERMITE</span></td><td>Esprit des mains nues</td><td class="old">3 + niveau ÷ 4 <span class="note">(40 au niveau 150)</span></td><td class="new">celui d’une arme du rang, de la rareté et de la forge de ses autres objets <span class="note">(environ 240 au niveau 150)</span></td></tr>
+        <tr><td><span class="v ermite">ERMITE</span></td><td>Dégâts au-delà du niveau 150</td><td class="old">—</td><td class="new">+0,2 % par niveau contre les monstres, +1,2 % par niveau en duel et à la guerre</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>EN DUEL · PART DE VICTOIRES</h3>
+    <div class="table"><table>
+      <thead><tr><th>Phase du jeu</th><th class="num"><span class="v armes">ARMES</span></th><th class="num"><span class="v lancer">LANCER</span></th><th class="num"><span class="v ermite">ERMITE</span></th></tr></thead>
+      <tbody>
+        <tr><td>Début (niveaux 30 à 90)</td><td class="num"><span class="old">48 %</span><span class="arrow">→</span><span class="new">45 %</span></td><td class="num"><span class="old">65 %</span><span class="arrow">→</span><span class="new">50 %</span></td><td class="num"><span class="old">38 %</span><span class="arrow">→</span><span class="new">55 %</span></td></tr>
+        <tr><td>Milieu (100 à 180)</td><td class="num"><span class="old">72 %</span><span class="arrow">→</span><span class="new">59 %</span></td><td class="num"><span class="old">64 %</span><span class="arrow">→</span><span class="new">44 %</span></td><td class="num"><span class="old">14 %</span><span class="arrow">→</span><span class="new">48 %</span></td></tr>
+        <tr><td>Fin (190 à 280)</td><td class="num"><span class="old">72 %</span><span class="arrow">→</span><span class="new">50 %</span></td><td class="num"><span class="old">76 %</span><span class="arrow">→</span><span class="new">56 %</span></td><td class="num"><span class="old">1 %</span><span class="arrow">→</span><span class="new">43 %</span></td></tr>
+        <tr class="total"><td>Tout le jeu</td><td class="num"><span class="old">66 %</span><span class="arrow">→</span><span class="new">52 %</span></td><td class="num"><span class="old">69 %</span><span class="arrow">→</span><span class="new">50 %</span></td><td class="num"><span class="old">15 %</span><span class="arrow">→</span><span class="new">48 %</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Chaque duel est joué dans les deux sens (celui qui commence a un avantage), tous les 10 niveaux de 30 à 280.</p>
+
+    <h3>CONTRE LES MONSTRES · FIN DU JEU (NIVEAUX 150 À 270)</h3>
+    <div class="table"><table>
+      <thead><tr><th></th><th class="num"><span class="v armes">ARMES</span></th><th class="num"><span class="v lancer">LANCER</span></th><th class="num"><span class="v ermite">ERMITE</span></th></tr></thead>
+      <tbody>
+        <tr><td>Combats durs gagnés (boss de la terre, salle 8 d’un donjon)</td><td class="num"><span class="old">23 %</span><span class="arrow">→</span><span class="new">62 %</span></td><td class="num"><span class="old">44 %</span><span class="arrow">→</span><span class="new">61 %</span></td><td class="num"><span class="old">31 %</span><span class="arrow">→</span><span class="new">72 %</span></td></tr>
+        <tr><td>Tours pour tuer un monstre ordinaire</td><td class="num"><span class="old">5,1</span><span class="arrow">→</span><span class="new">5,1</span></td><td class="num"><span class="old">4,5</span><span class="arrow">→</span><span class="new">4,8</span></td><td class="num"><span class="old">10,8</span><span class="arrow">→</span><span class="new">7,0</span></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Avec l’équipement de référence (des Rares de son rang), contre les monstres d’aujourd’hui. Chaque voie garde son style :
+      les Armes et le Lancer tuent plus vite, l’Ermite plus lentement mais il tient mieux les longs combats grâce à ses soins.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="equipement">
+    <h2>Forge et Uniques</h2>
+    <p>La forge et les Uniques se multipliaient avec la rareté : en fin de jeu, l’équipement faisait presque tous les dégâts,
+      et un monstre tombait avant d’avoir joué.</p>
+    <div class="table"><table>
+      <thead><tr><th>Quoi</th><th>Avant</th><th>Après</th></tr></thead>
+      <tbody>
+        <tr><td>Forge, par niveau</td><td class="old">+5 % de stats (+50 % à +10)</td><td class="new">+3 % de stats (+30 % à +10)</td></tr>
+        <tr><td>Uniques (Épique : ×2,1)</td><td class="old">×2,6</td><td class="new">×2,3 <span class="note">— les Uniques déjà trouvés ont été recalculés une fois</span></td></tr>
+        <tr><td>Recycler un objet renforcé</td><td class="old">la moitié des éclats mis dans sa forge</td><td class="new">la moitié de tout : éclats et lucioles, essais ratés compris</td></tr>
+      </tbody>
+    </table></div>
+    <p>Sur la terre 29, avec tout l’équipement en Unique +10 : un monstre tombe en <b>1,5 tour</b> au lieu de 0,9, un boss en
+      <b>4,2 tours</b> au lieu de 1,6.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="monde">
+    <h2>Le monde et l’XP</h2>
+    <div class="table"><table>
+      <thead><tr><th>Quoi</th><th>Avant</th><th>Après</th></tr></thead>
+      <tbody>
+        <tr><td>Archipel des Brumes et Royaume sous la Terre</td><td class="old">boss gagnés à 77-97 %</td><td class="new">25-60 % <span class="note">(gardiens et boss plus coriaces ; les monstres ordinaires restent du gibier)</span></td></tr>
+        <tr><td>Tour des Ancêtres</td><td class="old">toute l’XP de l’étage, même 60 niveaux au-dessus du sage</td><td class="new">l’XP fond au-delà de 5 niveaux d’avance, comme sur la carte (−12 % par niveau)</td></tr>
+        <tr><td>Méditation, 10 h</td><td class="old">1,2 niveau, quel que soit ton niveau</td><td class="new">1,2 niveau à la hauteur de ta terre ; 0,09 si tu la dépasses de 40 niveaux</td></tr>
+        <tr><td>Week-end de l’XP</td><td class="old">XP ×2</td><td class="new">XP ×1,5, jusqu’à dimanche minuit (compte à rebours) ; méditation et missions au prorata</td></tr>
+        <tr><td>Cycles (NG+)</td><td class="old">monstres à ton niveau, force du milieu du Continent (tout à 100 %)</td><td class="new">force de la dernière terre dès le Marais-Brume</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="donjons">
+    <h2>Les donjons</h2>
+    <ul>
+      <li><b>Plus durs, mieux payés</b> : environ 1,7 fois plus d’XP, et le boss donne toujours un Unique.</li>
+      <li><b>Un seul passage</b> : un monstre vaincu ne revient pas, un donjon fini est <b>nettoyé</b> (plus de boss du jour).
+        Battu, tu retentes le même monstre une heure plus tard.</li>
+      <li><b>Compagnons</b> : le petit du boss te suit à coup sûr ; tu le fais grandir en le <b>nourrissant d’éclats</b>.
+        Ceux que tu avais manqués t’ont rejoint.</li>
+      <li>Les donjons restent ouverts après une mutation ; leurs cartes sont <b>animées</b>.</li>
+    </ul>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="ligne">
+    <h2>En ligne</h2>
+    <p>Des actions faites au même instant par plusieurs joueurs s’effaçaient les unes les autres. C’est réparé et testé
+      avec des joueurs simultanés :</p>
+    <div class="table"><table>
+      <thead><tr><th>Au même instant</th><th>Avant</th><th>Après</th></tr></thead>
+      <tbody>
+        <tr><td>12 coups sur le Titan</td><td class="old">1 seul compté, personne n’avait sa part</td><td class="new">les 12, il tombe une fois, chacune sa part</td></tr>
+        <tr><td>9 grenouilles rejoignent un clan</td><td class="old">4 sur 9</td><td class="new">les 9</td></tr>
+        <tr><td>10 dons de 100 lucioles</td><td class="old">100 au trésor</td><td class="new">1 000</td></tr>
+        <tr><td>10 messages, 10 coups sur l’Alpha</td><td class="old">1 seul gardé</td><td class="new">tous</td></tr>
+        <tr><td>6 défis à la même grenouille</td><td class="old">2 lignes de journal sur 6</td><td class="new">les 6</td></tr>
+        <tr><td>Double clic sur une attaque</td><td class="old">compté plusieurs fois</td><td class="new">une seule fois</td></tr>
+      </tbody>
+    </table></div>
+    <p>Et un <b>journal</b> de chaque grenouille (combats, XP et d’où elle vient, forge…) pour suivre l’équilibre sur de
+      vraies parties ; chacun peut exporter le sien depuis la fenêtre Sauvegarde.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="voir">
+    <h2>À voir</h2>
+    <div class="cards">
+      <div class="card"><b>AURA DE MUTATION</b><span>Un cercle de lumière, des étincelles, une colonne, des éclats en orbite, une couronne : plus présente à chaque mutation. Masquable.</span></div>
+      <div class="card"><b>TITRES</b><span>L’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle : un au choix, affiché au classement.</span></div>
+      <div class="card"><b>CLASSEMENT</b><span>Les mutations passent d’abord : une grenouille mutée devant toutes les autres, quel que soit son niveau.</span></div>
+      <div class="card"><b>BOUCLIER</b><span>En combat, sa barre bleue sous les PV, qui fond sous les coups.</span></div>
+      <div class="card"><b>FICHE D’OBJET</b><span>En bas, l’objet que tu portes à la même place, pour comparer d’un coup d’œil.</span></div>
+      <div class="card"><b>CAMP</b><span>La cabane animée de ton biome, et ton compagnon un peu à l’écart.</span></div>
+    </div>
+  </section>
+
+  <footer>
+    Chiffres mesurés au simulateur du jeu, avec ses vraies règles ; en jeu, ton deck et ton équipement font varier les
+    résultats. <a href="index.html">Retour au jeu</a>
+  </footer>
+</div>
+</body>
+</html>

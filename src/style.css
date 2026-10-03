@@ -1996,3 +1996,7 @@ h1 { line-height: 1.3; }
 .mu-titles { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .mu-titles small { color: var(--muted); font-size: 13px; }
 .mu-titles .tab { padding: 3px 8px; font-size: 13px; }
+
+/* ---------- Les nouveautés : le lien vers les notes de mise à jour ---------- */
+.news-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.news-foot .btn-ghost { text-decoration: none; }
