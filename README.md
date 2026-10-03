@@ -77,13 +77,14 @@ Menu latéral en bois, en trois groupes : **ta grenouille** (Camp, Personnage, L
 du clavier, la sauvegarde, le son (touche M). Les barres de défilement sont cachées sur petit écran et tactile, fines et
 aux couleurs du jeu ailleurs ; les chiffres sont en Silkscreen (le 5 et le 8 ne se confondent plus).
 Les **lucioles** sont la monnaie du jeu, les **éclats de jade** le métal de la forge ; les deux s’affichent sous la
-grenouille, avec l’événement en cours (le week-end double XP).
+grenouille, avec l’événement en cours (le week-end de l’XP).
 
 - **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre (son compagnon un peu à
   l’écart) ; le décor animé, la cabane et son ponton, prend l’ambiance du biome où l’on en est (lagune, saules
   d’automne, grotte, ruines englouties, sommet enneigé…), et un panneau « Aventure » pour reprendre le monde en cours.
   **Méditation** : la grenouille s’assoit sur un nénuphar, les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
-  de l’XP d’un combat de son niveau ; 10 h au plus). On récolte en la faisant se lever ou en revenant (elle continue
+  de l’XP d’un combat de son niveau ; 10 h au plus ; calée sur la terre où l’on en est : une grenouille qui dépasse
+  de loin ses monstres y gagne bien moins, comme contre eux). On récolte en la faisant se lever ou en revenant (elle continue
   alors de méditer) ; un combat ou une mission la fait se lever.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
   (tête, arme, écharpe, **ceinture**, anneau : l'écharpe et la ceinture changent de couleur sur le sprite),
@@ -180,7 +181,7 @@ grenouille, avec l’événement en cours (le week-end double XP).
   temple, sorts, équipement), de plus en plus fort (niveau 3 au 1er étage, 145 au 100e). Au-dessus, une fois les Cent
   Sages conquis : **la Tour des Ancêtres**, 500 étages de plus (101 à 600), **de nuit** (quatre ciels d’encre, de lune
   rouge ou d’aurore, pagode laquée de noir et de violet aux fenêtres d’esprits, cascades spectrales). Ses Ancêtres
-  montent jusqu’au niveau 300 et frappent de plus en plus fort (+0,4 % par étage) ; bien plus de lucioles et d’XP ;
+  montent jusqu’au niveau 300 et frappent de plus en plus fort (+0,4 % par étage) ; bien plus de lucioles et d’XP (réduite, comme sur la carte, quand on dépasse le sage de plus de 5 niveaux) ;
   tous les 10 étages un Ancêtre majeur, tous les 50 un **Grand Ancêtre** qui garde une **Relique** (dix Légendaires
   qu’on ne trouve que là : bandeaux, capes, anneaux, ceintures) ; au 600e, **le Premier Crapaud**, et sa peau d’obsidienne
   striée d’or (le skin « Premier Crapaud », jamais en boutique). Une bascule passe d’une tour à l’autre. Tous les 10 étages, un
@@ -269,7 +270,7 @@ grenouille, avec l’événement en cours (le week-end double XP).
   fond. Leurs **douze créatures n’existent nulle part ailleurs** (gargouille, mimique, spectre, liche, golem runique,
   minotaure, chimère, basilic, feu-follet, crâne flottant, hydre, œil flottant), et leurs **objets Uniques** non plus :
   dix modèles par donjon, à ses couleurs et à ses noms (« Couperet des Gargouilles »), une rareté vert rayonnant plus
-  forte qu’un Épique (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
+  forte qu’un Épique (×2,3 au lieu de ×2,1 ; ×2,6 jusqu’au 4 octobre 2026, les anciens ont été recalculés une fois) (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
   arrivant à leur niveau avec des objets Rares, les salles du milieu se perdent souvent et le boss ne tombe qu’une fois
   sur trois ou quatre) et bien payés : une salle rapporte près d’un cinquième de niveau, le gardien un tiers, le boss
   presque un niveau. **Un seul passage** : un monstre vaincu ne revient pas, un donjon fini est **nettoyé** ; battu,
@@ -321,7 +322,9 @@ grenouille, avec l’événement en cours (le week-end double XP).
   **Dix nouvelles créatures** (`src/royaume.js`) : la taupe mineuse et son casque, le ver des galeries, le champignon
   errant, l’escargot luisant, l’axolotl, la baudroie et sa lumière, le golem de cristal, le scarabée-rhinocéros, la statue
   gardienne, et le **Ver du Cœur du Monde**, le dernier boss. Leur butin a ses propres armes et formes (Pic, Trident, Lame,
-  Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel.
+  Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel. (Depuis le 4 octobre 2026, leurs gardiens et leurs boss sont relevés, LATE_POWER : ils
+  tombaient presque à coup sûr ; leurs boss se gagnent maintenant à 35-58 % avec l’équipement du réglage, comme chez les
+  Colosses, et leurs monstres ordinaires restent du gibier.)
 - **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ver du Cœur du Monde, au fond du
   Royaume sous la Terre), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), et **toutes les terres ont la force
@@ -347,14 +350,14 @@ grenouille, avec l’événement en cours (le week-end double XP).
   méditation, duels, le Titan, l’Alpha du clan…), tirées d’après la date. Chacune rapporte des lucioles, un peu d’XP et
   des éclats de jade ; les trois faites, le **coffre du jour** s’ouvre (un objet Rare ou Épique de sa terre, et plus
   d’éclats). Un badge sur « Camp » dit quand une récompense attend (`src/quetes.js`).
-- **Les événements** : le **week-end double XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte deux fois
-  plus, jusqu’à dimanche minuit : le menu affiche le temps qui reste et la bannière s’éteint d’elle-même ; une
-  méditation ou une mission ne compte double que pour ses heures passées pendant le week-end) et le **mercredi du
+- **Les événements** : le **week-end de l’XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte **50 % de
+  plus** (×2 jusqu’au 4 octobre 2026), jusqu’à dimanche minuit : le menu affiche le temps qui reste et la bannière s’éteint d’elle-même ; une
+  méditation ou une mission n’a le bonus que pour ses heures passées pendant le week-end) et le **mercredi du
   butin** (+50 % de chances d’objet). Le camp annonce le prochain.
 - **La forge** (`src/forge.js`), une page à elle : l’atelier, son four et son enclume. À gauche, les objets à forger
   (ceux qu’on porte d’abord) ; au milieu, l’objet sur l’enclume, ce que donne le niveau suivant, son prix et ses chances ;
   à droite, le **recyclage en masse** (par rareté, ou objet par objet) en éclats de jade. Renforcer un objet de +1 à
-  **+10** (+5 % de stats par niveau) coûte de plus en plus d’éclats et de lucioles, et **peut rater à partir de +4**
+  **+10** (+3 % de stats par niveau, +30 % à +10) coûte de plus en plus d’éclats et de lucioles, et **peut rater à partir de +4**
   (90 %, puis 80 %… 30 % pour +10 : les éclats sont perdus, l’objet garde son niveau). **Recycler un objet renforcé
   rend la moitié de tout ce qu’on a mis dans sa forge**, éclats et lucioles, essais ratés compris (noté à chaque essai).
 - **En combat**, le bouclier (passif « Peau de pierre ») a sa barre bleue sous les PV, qui fond sous les coups.

@@ -32,7 +32,7 @@ var playerLevel = 1;
 // mis à jour chaque fois que le jeu lit le clan
 var clanBonus = { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 };
 // (et ceux de la mutation : voir mutationBonus ; des panoplies et du compagnon : voir gearBonus dans forge.js ; et les
-// événements de la semaine, le week-end double XP : voir eventMult dans quetes.js)
+// événements de la semaine, le week-end de l'XP : voir eventMult dans quetes.js)
 var playerGearBonus = { xp: 0, gold: 0, loot: 0 };
 function eventBoost(key) { return typeof eventMult === 'function' ? eventMult(key) : 1; }
 function clanXp(n, ev) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp + playerGearBonus.xp) * (ev === undefined ? eventBoost('xp') : ev)); }
@@ -985,7 +985,8 @@ var RARITY_IDS = ['commun', 'rare', 'epique'];
 RARITIES.legendaire = { name: 'Légendaire', color: '#ff8c1a', mult: 1, extra: 0, price: 6 };
 // Unique : une rareté vert rayonnant, plus forte qu'un Épique, qu'on ne trouve que dans les Donjons (donjons.js) ;
 // chaque exemplaire porte le nom de son donjon
-RARITIES.unique = { name: 'Unique', color: '#3aff7a', mult: 2.6, extra: 3, price: 5 };
+RARITIES.unique = { name: 'Unique', color: '#3aff7a', mult: 2.3, extra: 3, price: 5 }; // (×2,6 jusqu'au 4 octobre 2026 : avec la forge, ils écrasaient le jeu)
+var UNIQUE_VERSION = 2, UNIQUE_OLD = 2.6; // les Uniques tirés avant ce changement sont recalculés une fois (save.uniq)
 var ITEM_RARITIES = RARITY_IDS.concat(['unique', 'legendaire']); // pour ranger les objets
 var LEGEND_CHANCE = { 0: 0.003, 1: 0.008, 2: 0.02 }; // par victoire sur le Continent : monstre commun, boss ou rare, épique
 function mkLegend(slot, name, stats, accent, desc) {
@@ -1043,7 +1044,7 @@ function registerItem(id, inst) {
   return true;
 }
 // La forge (forge.js) : un exemplaire se renforce de +1 à +FORGE_MAX, chaque niveau ajoutant FORGE_STEP de ses stats
-var FORGE_MAX = 10, FORGE_STEP = 0.05;
+var FORGE_MAX = 10, FORGE_STEP = 0.03; // (+3 % par niveau, +30 % à +10 ; c'était +5 % : la forge s'empilait avec la rareté)
 // Un nouvel exemplaire d'un modèle : ses stats tirées selon la rareté
 function rollItem(save, base, rar) {
   var b = ITEMS[base], R = RARITIES[rar], stats = {}, plus = Math.max(0, (save.cycle || 1) - 1), boost = 1 + CYCLE.loot * plus;
@@ -1145,7 +1146,8 @@ function newSave() {
     clanBonus: { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 }, // les bonus de son clan
     album: { monstres: {}, objets: [], paliers: [] }, // bestiaire (id -> victoires), objets découverts, paliers réclamés
     battle: { auto: false, speed: 1 },
-    gear: GEAR_VERSION // la version de la courbe des objets du Continent (voir rescaleGear)
+    gear: GEAR_VERSION, // la version de la courbe des objets du Continent (voir rescaleGear)
+    uniq: UNIQUE_VERSION // la version de la force des Uniques
   };
 }
 
@@ -1192,6 +1194,17 @@ function parseSave(data) {
     var rescaled = 0, from = data.gear || 1;
     Object.keys(data.items).forEach(function (id) { if (rescaleGear(data.items[id], from)) rescaled++; });
     if (rescaled && save.hero && !save.notice) save.notice = 'Les objets ont été rééquilibrés : chaque nouvelle terre du Continent et chaque rareté (Rare, Épique) donnent maintenant de vrais gains. ' + (rescaled > 1 ? 'Tes ' + rescaled + ' objets ont été recalculés' : 'Ton objet a été recalculé') + ' à la hausse.';
+  }
+  // les Uniques tirés quand ils valaient ×2,6 : leurs stats passent à ×2,3, une fois
+  if (data.items && typeof data.items === 'object' && (data.uniq || 1) < UNIQUE_VERSION) {
+    var uniqs = 0;
+    Object.keys(data.items).forEach(function (id) {
+      var it = data.items[id];
+      if (!it || it.rar !== 'unique' || !it.stats || typeof it.stats !== 'object') return;
+      Object.keys(it.stats).forEach(function (k) { if (typeof it.stats[k] === 'number' && it.stats[k] > 0) it.stats[k] = Math.max(1, Math.round(it.stats[k] * RARITIES.unique.mult / UNIQUE_OLD)); });
+      uniqs++;
+    });
+    if (uniqs && save.hero && !save.notice) save.notice = 'Rééquilibrage : les Uniques valent ×2,3 au lieu de ×2,6 (' + (uniqs > 1 ? 'tes ' + uniqs + ' Uniques ont été recalculés' : 'ton Unique a été recalculé') + '), et la forge donne +3 % de stats par niveau au lieu de +5 %. Avec la rareté, elles s’empilaient au point de tuer tout d’un seul coup.';
   }
   if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) {
     var di = data.items[id];

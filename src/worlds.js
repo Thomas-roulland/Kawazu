@@ -39,6 +39,10 @@ var CONTINENT_RAMP = 0.8;
 // dans un cycle (NG+), toutes les terres ont la force de la toute dernière à niveau égal : on y revient avec l'équipement
 // de la fin du monde, et les monstres doivent tenir tête dès la première terre (réglé au simulateur)
 var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS;
+// L'Archipel et le Royaume : leur force suit la pente du Continent, mais l'équipement grandit bien plus vite ; sans ce
+// renfort, leurs boss tombaient presque à coup sûr (77 à 97 %, contre 37 à 80 % ailleurs) ; avec, 35 à 58 %. Réglé au
+// simulateur (terres.js) ; pas dans les cycles, réglés à part.
+var LATE_POWER = { archipel: { hp: 1.4, dmg: 1.2 }, royaume: { hp: 1.45, dmg: 1.25 } };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {
@@ -57,6 +61,8 @@ function makeEnemy(w, level, variant, rank, title) {
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1, gk = cyc ? 0.5 : 1; hpX *= Math.pow(GP.hp * bb, gk); dmgX *= Math.pow(GP.dmg * Math.sqrt(bb), gk); } // (dans un cycle, déjà au plus fort : le surplus des géants est adouci)
+  var lp = cyc ? null : LATE_POWER[isleOf(w).id]; // (dans un cycle, la force des terres est déjà réglée à part : CYCLE_FLOOR, CYCLE.power)
+  if (lp) { var lk = (rank || 'normal') === 'normal' ? 0.5 : 1; hpX *= Math.pow(lp.hp, lk); dmgX *= Math.pow(lp.dmg, lk); } // (les ordinaires, le gibier du farm, la moitié du renfort)
   if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
@@ -227,11 +233,21 @@ function titanOf(idx, rang, heroLevel) {
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.
 var MEDITATION_MAX_H = 10;
-function meditationRates(level) { return { xp: Math.round(xpForLevel(level) * 0.12), gold: Math.round(0.6 * (6 + 3 * level)) }; } // par heure : ~1/8 de niveau
+// par heure : ~1/8 de niveau, calé sur la terre où l'on en est (le niveau de ses monstres) ; une grenouille qui la
+// dépasse de loin gagne bien moins, comme contre ses monstres (sinon elle montait de 1,2 niveau par jour sans jouer)
+function frontierLevel(save) {
+  var cur = 0;
+  for (var i = 0; i < BIOMES.length; i++) if (worldUnlocked(save, i)) cur = i;
+  return (save.cycle || 1) > 1 ? save.level : stageLevel(cur, Math.min(STAGES, (save.progress[cur] || 0) + 1)); // (dans un cycle, les monstres sont à son niveau)
+}
+function meditationRates(save) {
+  var f = frontierLevel(save);
+  return { xp: Math.round(xpForLevel(Math.min(save.level, f)) * 0.12 * xpGapMult(save.level, f)), gold: Math.round(0.6 * (6 + 3 * save.level)) };
+}
 function meditationGain(save, now) {
   var m = save.meditation;
   if (!m) return null;
-  var ms = Math.max(0, Math.min(MEDITATION_MAX_H * 3600e3, (now || Date.now()) - m.since)), h = ms / 3600e3, r = meditationRates(save.level);
+  var ms = Math.max(0, Math.min(MEDITATION_MAX_H * 3600e3, (now || Date.now()) - m.since)), h = ms / 3600e3, r = meditationRates(save);
   return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: clanXp(Math.floor(r.xp * h), eventBoostOver('xp', m.since, m.since + ms)), gold: clanGold(Math.floor(r.gold * h)) }; // avec les bonus du clan (et l'XP double pour les heures du week-end seulement)
 }
 // Récolte ce qui a été gagné ; again : elle continue de méditer (au retour), sinon elle se lève

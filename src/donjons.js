@@ -238,6 +238,10 @@ function dungeonFoe(d, r) {
   var deep = boss ? 1 : r - 1; // de salle en salle, un peu plus coriace
   e.maxHp = Math.round(e.maxHp * DUNGEON_POWER.hp * (1 + DUNGEON_POWER.roomHp * deep) * (boss ? (w < ISLAND_WORLDS ? DUNGEON_POWER.isleBoss : DUNGEON_POWER.boss) : (w < ISLAND_WORLDS ? DUNGEON_POWER.isleRoom : 1)));
   e.dmg = Math.round(e.dmg * DUNGEON_POWER.dmg * (1 + DUNGEON_POWER.roomDmg * deep) * (boss ? DUNGEON_POWER.bossDmg : 1));
+  // (les donjons de l'Archipel et du Royaume étaient relevés à part avant que leurs terres le soient, LATE_POWER, worlds.js :
+  // on retire ce renfort des terres pour garder leur force d'avant)
+  var lp = playerCycle > 1 ? null : LATE_POWER[isleOf(w).id], lk = boss ? 1 : 0.5;
+  if (lp) { e.maxHp = Math.round(e.maxHp / Math.pow(lp.hp, lk)); e.dmg = Math.round(e.dmg / Math.pow(lp.dmg, lk)); }
   var ib = DUNGEON_ISLE[isleOf(w).id]; // (l'Archipel, plus doux que ses voisines : ses donjons sont relevés)
   if (ib) { e.maxHp = Math.round(e.maxHp * ib.hp); e.dmg = Math.round(e.dmg * ib.dmg); }
   e.dungeon = d.id; e.room = r;

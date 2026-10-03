@@ -212,11 +212,11 @@
     id: '2026-10',
     list: [
       ['coffre', 'camp', 'Les quêtes du jour', 'Trois quêtes chaque jour au camp, et un coffre quand elles sont faites : lucioles, XP, éclats et un objet Rare ou Épique.'],
-      ['eclat', 'perso', 'La forge', 'Recycle les objets dont tu ne veux plus en éclats de jade, et renforce les autres jusqu’à +10 (+5 % de stats par niveau).'],
+      ['eclat', 'perso', 'La forge', 'Recycle les objets dont tu ne veux plus en éclats de jade, et renforce les autres jusqu’à +10 (+3 % de stats par niveau).'],
       ['donjon', 'donjons', 'Panoplies et compagnons', 'Les Uniques d’un même donjon forment une panoplie (bonus à 2, 3 et 4 pièces). Au fond des donjons, le petit du boss peut te suivre et se battre avec toi.'],
       ['titan', 'titan', 'Le Titan de la semaine', 'Un boss géant, le même pour tous les joueurs, aux PV partagés : 3 attaques par jour, une part pour chacun quand il tombe.'],
       ['rank', 'rank', 'Les saisons', 'Chaque mois, une saison de classement : les dix premières reçoivent un cadeau, les trois premières une peau de champion.'],
-      ['camp', 'camp', 'Les événements', 'Le week-end, l’XP est doublée ; le mercredi, les objets tombent plus souvent.'],
+      ['camp', 'camp', 'Les événements', 'Le week-end, l’XP est multipliée par 1,5 ; le mercredi, les objets tombent plus souvent.'],
       ['donjons', 'map', 'Le Royaume sous la Terre', 'Après l’Archipel des Brumes, six terres sous le monde et le Ver du Cœur du Monde.']
     ]
   };
@@ -516,7 +516,7 @@
     var loot = rollLoot(save, lootTier(save, e.w), e.item);
     if (loot) save.owned.push(loot);
     var ex = EXPEDITIONS.filter(function (x) { return x.id === e.id; })[0], t0 = e.start || (ex ? e.endsAt - ex.secs * 1000 : e.endsAt);
-    e.gold = clanGold(e.gold); e.xp = clanXp(e.xp, eventBoostOver('xp', t0, e.endsAt)); // avec les bonus du clan (l'XP double pour le temps passé pendant le week-end)
+    e.gold = clanGold(e.gold); e.xp = clanXp(e.xp, eventBoostOver('xp', t0, e.endsAt)); // avec les bonus du clan (le bonus du week-end pour le temps passé pendant le week-end)
     save.gold += e.gold;
     var levels = gainXp(save, e.xp, 'mission');
     save.expedition = null;
@@ -539,7 +539,7 @@
   // ---------- Méditation au camp ----------
   var hmm = function (ms) { var m = Math.floor(ms / 60000); return m >= 60 ? Math.floor(m / 60) + ' h ' + ('0' + m % 60).slice(-2) : m + ' min'; };
   function renderMeditation() {
-    var box = $('meditation'), r = meditationRates(save.level), g = meditationGain(save);
+    var box = $('meditation'), r = meditationRates(save), g = meditationGain(save);
     if (!g) {
       box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu sur le nénuphar : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
         (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer sur le nénuphar</button>');
@@ -2854,8 +2854,8 @@
   function settleTower(f, card, win) {
     if (!win) return '<p>' + escapeHtml(card.nom) + ' reste debout. Monte de niveau, change d’équipement ou de sorts, et reviens !</p>';
     if (f <= save.tower) return '<p>Épreuve réussie à nouveau. L’étage était déjà conquis : pas de nouvelle récompense.</p>';
-    var r = towerRewards(f), levels;
-    r = Object.assign({}, r, { gold: clanGold(r.gold), xp: clanXp(r.xp) }); // avec les bonus du clan
+    var r = towerRewards(f), levels, tgap = xpGapMult(save.level, towerLevel(f));
+    r = Object.assign({}, r, { gold: clanGold(r.gold), xp: clanXp(r.xp * tgap) }); // avec les bonus du clan, moins d'XP si on dépasse bien le sage
     save.tower = f;
     save.gold += r.gold;
     levels = gainXp(save, r.xp, 'tour');
@@ -2928,7 +2928,7 @@
         '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(hp, me.maxHp) + '">' + hp + '</b></li><li><span>Dégâts</span><b class="' + cmp(dmg, me.dmg) + '">' + Math.round(dmg) + '</b></li><li><span>Agilité</span><b class="' + cmp(fighter.agi, me.agi) + '">' + fighter.agi + '</b></li></ul>' +
         (fighter.skills.length > 1 ? '<p class="tw-spells">Sorts : ' + fighter.skills.slice(1).map(function (s) { return '<i>' + s.name + '</i>'; }).join('') + '</p>' : '') +
         '<div class="tw-reward"><h2>' + (f <= save.tower ? 'DÉJÀ CONQUIS' : 'RÉCOMPENSE') + '</h2>' + (f <= save.tower ? '<p class="muted">Tu peux rejouer l’épreuve, sans récompense.</p>' :
-          '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + r.xp + ' XP</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + (itemAvailable(save, r.item) ? statLine(ITEMS[r.item].stats) : 'Pas ton arme : ' + itemPrice(r.item) + ' lucioles à la place') + '</small></p>' : '')) + '</div>' +
+          '<p><span class="luciole"></span> ' + r.gold + ' lucioles · ' + Math.round(r.xp * xpGapMult(save.level, towerLevel(f))) + ' XP' + (xpGapMult(save.level, towerLevel(f)) < 1 ? ' <small>(réduite : tu le dépasses)</small>' : '') + '</p>' + (r.item ? '<p class="tw-prize" style="' + rarStyle(r.item) + '"><img class="px" src="' + iconUrls[r.item] + '" alt=""><b>' + ITEMS[r.item].name + '</b><small>' + (itemAvailable(save, r.item) ? statLine(ITEMS[r.item].stats) : 'Pas ton arme : ' + itemPrice(r.item) + ' lucioles à la place') + '</small></p>' : '')) + '</div>' +
         '<button class="btn" data-tower-fight="' + f + '">' + (f <= save.tower ? 'Rejouer l’épreuve' : (card.boss ? (anc ? 'Défier le Grand Ancêtre ▶' : 'Défier le Grand Sage ▶') : 'Affronter ▶')) + '</button></div>';
     }
     // tout ce que la tour a déjà rapporté : lucioles, XP et les trésors des Grands Sages
