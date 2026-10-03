@@ -334,7 +334,10 @@ grenouille, avec l’événement en cours (le week-end double XP).
   de rôle). Ses PV sont partagés ; chaque grenouille l’attaque **3 fois par jour** pendant 10 tours, et chaque attaque
   rapporte lucioles, XP et éclats. Quand il tombe, chacune de celles qui l’ont frappé reçoit sa part, et un Titan plus
   fort se dresse. Le lundi, les dix plus grands coups de la semaine reçoivent un cadeau, toutes les autres une part ;
-  ses PV s’ajustent d’une semaine à l’autre selon qu’il est tombé ou non.
+  ses PV s’ajustent d’une semaine à l’autre selon qu’il est tombé ou non. Les coups sont comptés sur des compteurs
+  atomiques (HINCRBY) : quand beaucoup de joueurs frappent au même instant, aucun ne se perd, et un seul coup l’abat.
+  Les écritures des clans (dons, messages, assauts, arrivées, fin de guerre) et des cadeaux passent sous un verrou
+  court (`SET NX EX`), pour la même raison.
 - **Les saisons de classement** : un mois chacune. Chaque exploit rapporte des points (quêtes, coffre, boss, salles de
   donjon, étages de la tour, attaques du Titan, duels, assauts du clan) ; l’onglet **Saison** du classement les compare.
   (Le classement des clans est aussi dans la page Classement, onglet **Clans** ; sur la page du clan, il a laissé sa place

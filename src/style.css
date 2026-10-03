@@ -1866,3 +1866,99 @@ button.wm-stage:hover { transform: scale(1.2); }
 }
 .tw-spells { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .tw-spells i { margin: 0; white-space: nowrap; }
+
+/* ---------- Dernier tour : les titres sur deux lignes ne se chevauchent plus ---------- */
+h1 { line-height: 1.3; }
+.cl-head { flex-wrap: wrap; }
+.cl-head > div { flex: 1 1 220px; }
+.wm-switch button { white-space: nowrap; }
+
+/* ---------- Les donjons : de grandes cartes, l'illustration en haut, le texte dessous ---------- */
+.dj-viewport { container-type: size; }
+.dj-card2 { width: min(78cqw, calc((100cqh - 190px) * 16 / 9)); min-width: 260px; aspect-ratio: auto; max-height: none; justify-content: flex-start; background: #0c0a14; }
+.dj-c-art { position: relative; aspect-ratio: 16 / 9; background-size: cover; background-position: center; image-rendering: pixelated; }
+.dj-c-top { position: absolute; top: 0; left: 0; right: 0; }
+.dj-c-body { padding: 14px 18px 16px; background: linear-gradient(#171026, #0c0a14); box-shadow: inset 0 2px 0 rgba(200, 168, 255, 0.25); }
+.dj-c-body h2 { font-size: 18px; }
+.dj-c-body p { font-size: 16px; }
+.dj-s-kicker { margin-top: auto; }
+@media (min-height: 800px) { .dj-s-foe { width: 230px; height: 230px; } .dj-s-foe img { width: 200px; height: 200px; } .dj-s-name { font-size: 15px; } }
+
+/* ---------- La boutique sur un petit écran : la fiche rangée sur le mur de droite ---------- */
+.shop-card.aside { width: 360px; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.shop-card.aside .sc-id { max-width: none; }
+.shop-card.aside .sc-buy { flex-direction: row; justify-content: space-between; }
+
+/* ---------- Le téléphone ---------- */
+@media (max-width: 900px) {
+  #main { height: calc(100vh - var(--sbh, 64px)); height: calc(100dvh - var(--sbh, 64px)); }
+  .build { inset: var(--sbh, 64px) 0 0; }
+  .menu-sep { display: none; }
+  .menu-btn { position: relative; }
+  .menu-btn .badge { top: -5px; right: -5px; transform: none; min-width: 16px; padding: 2px 3px; font-size: 7px; }
+  #page-camp #adventure { margin-top: 300px; }
+  .attr-head { flex-wrap: wrap; }
+  .attr-head h2 { flex: 1 0 100%; }
+  .attr-actions { justify-content: flex-start; }
+  .det2-stats { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  /* le Temple : on fait défiler l'arbre, le deck vient dessous */
+  #page-skills { overflow-y: auto; }
+  .temple-head { top: 12px; left: 12px; right: 12px; max-width: none; padding: 10px 12px; }
+  .temple-head h1 { font-size: 15px; }
+  .temple-head p { font-size: 14px; }
+  .temple-side { left: 12px; right: 12px; bottom: auto; width: auto; height: auto; overflow: visible; margin-bottom: 16px; }
+  .tpath.mini { transform: translate(-50%, -50%); max-width: none; padding: 4px 8px; gap: 6px; clip-path: none; box-shadow: inset 0 -3px 0 var(--voie), 0 4px 10px rgba(0, 0, 0, 0.5); }
+  .tpath.mini b { display: none; }
+  .tpath.mini img { width: 20px; height: 20px; }
+  .tpath.mini small { font-size: 12px; white-space: nowrap; }
+  .tsummit small { display: none; }
+  /* la boutique : Gamako en bandeau, puis l'enseigne, l'étal en grille et la fiche */
+  #page-shop { overflow-y: auto; display: flex; flex-direction: column; background: #2a1d12; }
+  #page-shop .shop-sign { position: relative; inset: auto; order: 1; margin: 250px 12px 0; max-width: none; }
+  #page-shop .shop-wares { position: relative; order: 2; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; margin: 14px 12px; }
+  #page-shop .ware2 { width: auto; flex: none; }
+  #page-shop .ware2-icon { width: 100%; height: 76px; }
+  #page-shop .ware2-icon img { width: 60px; height: 60px; margin-bottom: 8px; }
+  #page-shop .ware2-tag { margin-top: 6px; min-width: 0; width: 100%; padding: 6px 4px; transform: none; }
+  #page-shop .ware2-tag::before { display: none; }
+  #page-shop .ware2-tag b { font-size: 14px; }
+  #page-shop .ware2-tag .price { font-size: 9px; }
+  #page-shop .shop-card { position: relative; order: 3; width: auto; margin: 0 12px 16px; }
+  #page-shop .shop-card::before { display: none; }
+  #page-shop .bubble { top: 10px; left: 12px; right: auto; max-width: 48%; padding: 8px 10px; font-size: 14px; }
+  #page-shop .bubble::after { display: none; }
+  /* le Titan : lui en haut, ses PV dessous, puis tes attaques et les plus grands coups */
+  #titan-bg { height: 340px; bottom: auto; }
+  #page-titan .titan-body { padding: 12px; }
+  .tt-bottom { order: -1; margin-top: 214px; }
+  .tt-bottom h1 { font-size: 17px; }
+  /* la Cascade : les panneaux l'un sous l'autre, devant le décor */
+  #page-dojo { display: flex; flex-direction: column; }
+  .dojo-head { position: relative; inset: auto; margin: 12px; flex-direction: column; align-items: stretch; }
+  .dojo-head h1 { font-size: 15px; }
+  .dojo-head p { font-size: 14px; }
+  .dojo-tabs button { flex: 1; }
+  .dojo-body { position: relative; inset: auto; z-index: 2; flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .dojo-body > * { position: relative !important; inset: auto !important; transform: none !important; width: auto !important; max-width: none !important; margin: 0 !important; }
+  .dojo-body > .cz-plate { display: none; }
+  /* le classement : le nom d'abord, le score dessous */
+  .rk-line, .rk-row:has(.rk-gift) .rk-line { grid-template-columns: 26px 40px minmax(0, 1fr); gap: 2px 10px; padding: 10px 12px; }
+  .rk-line > img, .rk-line > .clan-emb { width: 40px; height: 40px; grid-row: span 2; }
+  .rk-pos { grid-row: span 2; font-size: 12px; }
+  .rk-name b { font-size: 17px; }
+  .rk-name small { font-size: 13px; }
+  .rk-metric { grid-column: 3; text-align: left; font-size: 14px; }
+  .rk-detail { padding: 10px 12px 14px; }
+  /* les clans */
+  .cl-head { padding: 12px; gap: 10px; }
+  .cl-head h1 { font-size: 15px; }
+  .cl-head p { font-size: 14px; }
+}
+@media (max-width: 700px) {
+  .dj-arrow { display: none; }
+  .dj-dots { gap: 10px; }
+  .dj-dot { width: 18px; height: 18px; }
+  .tt-kicker { line-height: 1.7; }
+}

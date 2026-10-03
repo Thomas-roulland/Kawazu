@@ -42,7 +42,7 @@
 // essais:<adresse> (compteur des tentatives de connexion), les tableaux classement (id -> fiche) et reputation
 // (id -> points), dojo:<id> (duels du jour, journal), cadeaux:<id>, dojo-semaine (la semaine en cours),
 // clan:<id>, clans (id -> résumé), clan-de:<grenouille>, clan-jour:<grenouille>, clan-exclu:<grenouille>, guerre:<id>
-// (voir « Les Clans »), titan (le Titan de la semaine), titan-degats:<semaine> (id -> dégâts), titan-jour:<grenouille>,
+// (voir « Les Clans »), titan (le Titan de la semaine), titan-degats:<semaine> (id -> dégâts), titan-pv:<semaine>, titan-parts:<semaine>:<rang>, titan-n:<grenouille>:<jour>,
 // saison-courante (la saison en cours, pour distribuer les cadeaux de la précédente).
 'use strict';
 const fs = require('fs');
@@ -83,6 +83,8 @@ function redisStore(url, token) {
     get: async (k) => { const v = await cmd(['GET', k]); return v == null ? null : JSON.parse(v); },
     set: (k, v, ttl) => cmd(ttl ? ['SET', k, JSON.stringify(v), 'EX', String(ttl)] : ['SET', k, JSON.stringify(v)]),
     setNew: async (k, v) => (await cmd(['SET', k, JSON.stringify(v), 'NX'])) === 'OK',
+    lock: async (k, token, ttl) => (await cmd(['SET', k, token, 'NX', 'EX', String(ttl)])) === 'OK',
+    unlock: async (k, token) => { if ((await cmd(['GET', k])) === token) await cmd(['DEL', k]); },
     del: (k) => cmd(['DEL', k]),
     incr: async (k, ttl) => { const n = await cmd(['INCR', k]); if (n === 1) await cmd(['EXPIRE', k, String(ttl)]); return n; },
     hset: (k, field, v) => cmd(['HSET', k, field, JSON.stringify(v)]),
@@ -114,6 +116,8 @@ function fileStore(dir) {
     get: async (k) => { const e = read(k); return e ? e.v : null; },
     set: async (k, v, ttl) => write(k, v, ttl ? Date.now() + ttl * 1000 : 0),
     setNew: async (k, v) => { if (read(k)) return false; write(k, v); return true; },
+    lock: async (k, token, ttl) => { if (read(k)) return false; write(k, token, Date.now() + ttl * 1000); return true; },
+    unlock: async (k, token) => { const e = read(k); if (e && e.v === token) { try { fs.unlinkSync(file(k)); } catch (er) { /* déjà parti */ } } },
     del: async (k) => { try { fs.unlinkSync(file(k)); } catch (e) { /* déjà parti */ } },
     incr: async (k, ttl) => { const e = read(k), n = (e ? e.v : 0) + 1; write(k, n, e ? e.expire : Date.now() + ttl * 1000); return n; },
     hset: async (k, field, v) => { const e = read(k), o = e ? e.v : {}; o[field] = v; write(k, o); },
@@ -247,14 +251,32 @@ async function weeklyGifts() {
   if (last && await store.setNew('dojo-distribue:' + last, 1)) {
     const top = Object.entries(await store.hgetall(REP)).filter((e) => +e[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, CADEAUX.length);
     for (let i = 0; i < top.length; i++) {
-      const key = 'cadeaux:' + top[i][0], list = (await store.get(key)) || [];
-      list.push(Object.assign({ id: last + '-' + (i + 1), semaine: last, rang: i + 1 }, CADEAUX[i]));
-      await store.set(key, list);
+      await addGift(top[i][0], Object.assign({ id: last + '-' + (i + 1), semaine: last, rang: i + 1 }, CADEAUX[i]));
     }
   }
   await store.set('dojo-semaine', week);
 }
-async function addGift(frogId, gift) { const key = 'cadeaux:' + frogId, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }
+// Un verrou court (SET NX EX) : ce qui relit puis réécrit un même objet passe l'un après l'autre, pour que deux joueurs
+// qui agissent au même instant ne s'effacent pas (un don, un message, un coup sur l'Alpha, un cadeau...)
+async function withLock(key, fn) {
+  const token = crypto.randomUUID();
+  for (let i = 0; i < 80; i++) {
+    if (await store.lock(key, token, 10)) {
+      try { return await fn(); } finally { await store.unlock(key, token); }
+    }
+    await new Promise((r) => setTimeout(r, 40 + Math.random() * 60));
+  }
+  throw fail(503, 'Beaucoup de monde en même temps : réessaie dans un instant.');
+}
+const CLAN_LOCK = 'verrou-clans'; // toutes les écritures des clans (une guerre touche deux clans à la fois)
+async function editGifts(frogId, fn) {
+  return withLock('verrou-cadeaux:' + frogId, async () => {
+    const key = 'cadeaux:' + frogId, list = fn((await store.get(key)) || []);
+    if (list.length) await store.set(key, list); else await store.del(key);
+    return list;
+  });
+}
+async function addGift(frogId, gift) { await editGifts(frogId, (list) => list.filter((g) => g.id !== gift.id).concat([gift])); }
 // ---------- Les saisons de classement : un mois (heure de Paris) ----------
 // Les points de saison sont gagnés dans le jeu (quêtes, boss, donjons, Titan…) et publiés avec la fiche. Le premier du
 // mois, les dix premières de la saison passée reçoivent un cadeau ; les trois premières, une peau qu'on ne trouve pas
@@ -292,13 +314,41 @@ const TITAN_CADEAUX = [{ lucioles: 3000, eclats: 120, xpNiveau: 1 }, { lucioles:
   .concat(Array.from({ length: 7 }, () => ({ lucioles: 900, eclats: 40, xpNiveau: 0.4 })));
 const TITAN_PART = { lucioles: 400, eclats: 15, xpNiveau: 0.2 }; // pour chaque grenouille qui l'a frappé, au-delà des dix premières
 const titanHp = (base, rang) => Math.round(base * Math.pow(1.5, rang));
+// Les coups sont comptés à part, de façon atomique (HINCRBY), pour qu'aucun ne se perde quand beaucoup de joueurs
+// frappent en même temps : titan-pv:<semaine> (r<rang> -> dégâts reçus par ce Titan-là) et
+// titan-parts:<semaine>:<rang> (grenouille -> ses dégâts sur ce Titan-là). Le Titan debout est le premier pas encore abattu.
+async function titanLive(t) {
+  const hp = await store.hgetall('titan-pv:' + t.semaine);
+  let rang = 0;
+  while ((+hp['r' + rang] || 0) >= titanHp(t.base, rang)) rang++;
+  const pvMax = titanHp(t.base, rang);
+  return { rang: rang, vaincus: rang, pvMax: pvMax, pv: Math.max(0, pvMax - (+hp['r' + rang] || 0)) };
+}
+// un Titan de la version d'avant (ses PV dans l'objet) : ses coups passent une fois dans les compteurs
+async function titanMigrate(t) {
+  if (await store.setNew('titan-migre:' + t.semaine, 1)) {
+    const rang = t.rang || 0;
+    for (let r = 0; r < rang; r++) await store.hincr('titan-pv:' + t.semaine, 'r' + r, titanHp(t.base, r));
+    if ((t.pvMax || 0) > (t.pv || 0)) await store.hincr('titan-pv:' + t.semaine, 'r' + rang, t.pvMax - t.pv);
+    await Promise.all(Object.keys(t.parts || {}).map((fr) => store.hincr('titan-parts:' + t.semaine + ':' + rang, fr, t.parts[fr])));
+  }
+  t = { semaine: t.semaine, idx: t.idx, base: t.base, v2: true };
+  await store.set('titan', t);
+  return t;
+}
+// la part d'une grenouille quand un Titan tombe (une seule fois par grenouille et par Titan)
+async function titanPart(t, rang, frogId) {
+  if (+(await store.hincr('titan-donnees:' + t.semaine + ':' + rang, frogId, 1)) !== 1) return;
+  await addGift(frogId, { id: 'titan-' + t.semaine + '-r' + rang, source: 'titan', titan: TITAN_NOMS[t.idx], rang: rang, lucioles: 600 + 300 * rang, eclats: 25 + 10 * rang, xpNiveau: 0.5 });
+}
 async function titanState() {
   const week = mondayOf(parisDay(new Date()));
   let t = await store.get('titan');
-  if (t && t.semaine === week) return t;
+  if (t && t.semaine === week) return t.v2 ? t : titanMigrate(t);
   let base = TITAN_PV;
   if (t) { // une nouvelle semaine : les cadeaux de la précédente (une seule fois), puis un nouveau Titan
-    base = Math.max(TITAN_PV_MIN, Math.round(t.base * (t.vaincus > 0 ? 1.35 : 0.85)));
+    const vaincus = t.v2 ? (await titanLive(t)).vaincus : t.vaincus;
+    base = Math.max(TITAN_PV_MIN, Math.round(t.base * (vaincus > 0 ? 1.35 : 0.85)));
     if (await store.setNew('titan-distribue:' + t.semaine, 1)) {
       const deg = await store.hgetall('titan-degats:' + t.semaine), ranked = Object.keys(deg).filter((k) => +deg[k] > 0).sort((a, b) => deg[b] - deg[a]);
       for (let i = 0; i < ranked.length; i++) {
@@ -307,47 +357,56 @@ async function titanState() {
     }
   }
   const idx = Math.floor(new Date(week + 'T00:00:00Z').getTime() / (7 * 86400e3)) % TITAN_NOMS.length;
-  t = { semaine: week, idx: idx, rang: 0, base: base, pv: base, pvMax: base, vaincus: 0, parts: {} };
+  t = { semaine: week, idx: idx, base: base, v2: true };
   await store.set('titan', t);
   return t;
 }
-async function titanDay(frogId) { // les attaques du jour repartent à zéro chaque jour
-  const r = (await store.get('titan-jour:' + frogId)) || { jour: '', n: 0 }, today = parisDay(new Date());
-  if (r.jour !== today) { r.jour = today; r.n = 0; }
-  return r;
+// les attaques du jour : un compteur par grenouille et par jour (INCR, atomique : un double clic ne passe pas) ;
+// titan-jour:<grenouille> est celui de la version d'avant, encore compté le jour du changement
+const titanDayKey = (frogId) => 'titan-n:' + frogId + ':' + parisDay(new Date());
+async function titanUsed(frogId) {
+  const [old, n] = await Promise.all([store.get('titan-jour:' + frogId), store.get(titanDayKey(frogId))]);
+  return (old && old.jour === parisDay(new Date()) ? old.n : 0) + (+n || 0);
 }
 async function titanRoute(req, res, account, id, action, method) {
   await seasonGifts();
   const t = await titanState();
   if (!action && method === 'GET') {
-    const [day, deg, fiches, gifts] = await Promise.all([titanDay(id), store.hgetall('titan-degats:' + t.semaine), store.hgetall(RANK), store.get('cadeaux:' + id)]);
+    const live = await titanLive(t);
+    const [used, deg, fiches, gifts, parts] = await Promise.all([titanUsed(id), store.hgetall('titan-degats:' + t.semaine), store.hgetall(RANK), store.get('cadeaux:' + id), store.hgetall('titan-parts:' + t.semaine + ':' + live.rang)]);
     const ranked = Object.keys(deg).filter((k) => +deg[k] > 0 && fiches[k]).sort((a, b) => deg[b] - deg[a]);
     return send(res, 200, {
-      semaine: t.semaine, fin: nextMonday(new Date()), titan: { idx: t.idx, rang: t.rang, pv: t.pv, pvMax: t.pvMax, vaincus: t.vaincus, nom: TITAN_NOMS[t.idx] },
-      restants: TITAN_PAR_JOUR - day.n, max: TITAN_PAR_JOUR, tours: TITAN_TOURS, mesDegats: +deg[id] || 0, place: ranked.indexOf(id) + 1, classes: ranked.length,
-      maPart: (t.parts || {})[id] || 0,
+      semaine: t.semaine, fin: nextMonday(new Date()), titan: { idx: t.idx, rang: live.rang, pv: live.pv, pvMax: live.pvMax, vaincus: live.vaincus, nom: TITAN_NOMS[t.idx] },
+      restants: Math.max(0, TITAN_PAR_JOUR - used), max: TITAN_PAR_JOUR, tours: TITAN_TOURS, mesDegats: +deg[id] || 0, place: ranked.indexOf(id) + 1, classes: ranked.length,
+      maPart: +parts[id] || 0,
       top: ranked.slice(0, 10).map((k) => Object.assign({}, fiches[k], { degats: +deg[k] })), recompenses: TITAN_CADEAUX, part: TITAN_PART, cadeaux: gifts || []
     });
   }
   if (action === 'attaque' && method === 'POST') {
-    const b = await readBody(req, 4096), day = await titanDay(id);
-    if (day.n >= TITAN_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre le Titan aujourd’hui : reviens demain !' });
+    const b = await readBody(req, 4096), old = await store.get('titan-jour:' + id);
+    const n = (await store.incr(titanDayKey(id), 2 * 86400)) + (old && old.jour === parisDay(new Date()) ? old.n : 0);
+    if (n > TITAN_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre le Titan aujourd’hui : reviens demain !' });
     const frog = await store.get('grenouille:' + id), lvl = num((frog && frog.save && frog.save.level) || 1, 999);
     const deg = clamp(Math.round(+b.degats || 0), 0, TITAN_TOURS * (60 + 30 * lvl) * 3); // au-delà, ce n'est pas un vrai combat
-    day.n++;
-    t.pv -= deg; t.parts = t.parts || {}; t.parts[id] = (t.parts[id] || 0) + deg;
     const total = await store.hincr('titan-degats:' + t.semaine, id, deg);
-    let vaincu = null;
-    if (t.pv <= 0) { // le Titan tombe : une part pour chaque grenouille qui l'a frappé, et un Titan plus fort se dresse
-      vaincu = t.rang;
-      const gift = { id: 'titan-' + t.semaine + '-r' + t.rang, source: 'titan', titan: TITAN_NOMS[t.idx], rang: t.rang, lucioles: 600 + 300 * t.rang, eclats: 25 + 10 * t.rang, xpNiveau: 0.5 };
-      await Promise.all(Object.keys(t.parts).filter((f2) => t.parts[f2] > 0).map((f2) => addGift(f2, gift)));
-      t.rang++; t.vaincus++; t.pvMax = titanHp(t.base, t.rang); t.pv = t.pvMax; t.parts = {};
+    // le coup frappe le Titan debout ; s'il vient de tomber sous les coups d'une autre, il frappe le suivant
+    let rang = (await titanLive(t)).rang, vaincu = null;
+    for (let k = 0; k < 4; k++) {
+      const max = titanHp(t.base, rang);
+      await store.hincr('titan-parts:' + t.semaine + ':' + rang, id, deg);
+      const dealt = await store.hincr('titan-pv:' + t.semaine, 'r' + rang, deg);
+      if (dealt - deg < max) { if (dealt >= max) vaincu = rang; break; } // un seul coup franchit la barre : c'est lui qui l'abat
+      await titanPart(t, rang, id); // touché au moment où il tombait : la part quand même
+      rang++;
     }
-    await Promise.all([store.set('titan', t), store.set('titan-jour:' + id, day)]);
+    if (vaincu !== null) { // le Titan tombe : une part pour chaque grenouille qui l'a frappé, et un Titan plus fort se dresse
+      const parts = await store.hgetall('titan-parts:' + t.semaine + ':' + vaincu);
+      await Promise.all(Object.keys(parts).filter((fr) => +parts[fr] > 0).map((fr) => titanPart(t, vaincu, fr)));
+    }
+    const live = await titanLive(t);
     // la récompense de l'attaque elle-même (le jeu l'applique) : selon les dégâts
-    const recompense = { lucioles: Math.round(200 + Math.min(1500, deg / 100)), eclats: Math.round(5 + Math.min(40, deg / 2500)), xpNiveau: Math.round((0.06 + Math.min(0.14, deg / Math.max(1, t.pvMax) * 4)) * 1000) / 1000 };
-    return send(res, 200, { degats: deg, total: total, pv: t.pv, pvMax: t.pvMax, rang: t.rang, vaincu: vaincu, restants: TITAN_PAR_JOUR - day.n, recompense: recompense });
+    const recompense = { lucioles: Math.round(200 + Math.min(1500, deg / 100)), eclats: Math.round(5 + Math.min(40, deg / 2500)), xpNiveau: Math.round((0.06 + Math.min(0.14, deg / Math.max(1, live.pvMax) * 4)) * 1000) / 1000 };
+    return send(res, 200, { degats: deg, total: total, pv: live.pv, pvMax: live.pvMax, rang: live.rang, vaincu: vaincu, restants: Math.max(0, TITAN_PAR_JOUR - n), recompense: recompense });
   }
   return send(res, 404, { erreur: 'Route inconnue.' });
 }
@@ -442,8 +501,7 @@ async function dojoRoute(req, res, account, id, action, method) {
   }
   if (action === 'cadeaux' && method === 'POST') {
     const b = await readBody(req, 4096), ids = Array.isArray(b.ids) ? b.ids : [];
-    const left = ((await store.get('cadeaux:' + id)) || []).filter((g) => ids.indexOf(g.id) < 0);
-    if (left.length) await store.set('cadeaux:' + id, left); else await store.del('cadeaux:' + id);
+    await editGifts(id, (list) => list.filter((g) => ids.indexOf(g.id) < 0));
     return send(res, 200, { ok: true });
   }
   return send(res, 404, { erreur: 'Route inconnue.' });
@@ -540,7 +598,7 @@ async function settleWar(w) {
     const gift = { id: 'guerre-' + w.id.slice(0, 8) + '-' + side, source: 'guerre', clan: c.nom, contre: o.nom, resultat: res,
       lucioles: res === 'victoire' ? 400 : (res === 'nulle' ? 200 : 100), xpNiveau: res === 'victoire' ? 0.25 : 0 };
     const fought = w[side].membres.filter((f) => (w.attaques[f] || 0) > 0);
-    await Promise.all(fought.map(async (f) => { const key = 'cadeaux:' + f, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }));
+    await Promise.all(fought.map((f) => addGift(f, gift)));
     await saveClan(c);
   }
   await store.set('guerre:' + w.id, w);
@@ -560,7 +618,11 @@ async function clanRoute(req, res, account, id, action, method) {
   const fiches = await store.hgetall(RANK), me = fiches[id] || { nom: 'Une grenouille', niveau: 1 };
   if (!action && method === 'GET') {
     let m = await clanOf(id);
-    if (m && m.guerre) { const w = await settleWar(await store.get('guerre:' + m.guerre)); if (!w || w.finie) m = await clanOf(id); }
+    if (m && m.guerre) {
+      let w = await store.get('guerre:' + m.guerre);
+      if (w && !w.finie && Date.now() >= w.fin) w = await withLock(CLAN_LOCK, async () => settleWar(await store.get('guerre:' + m.guerre)));
+      if (!w || w.finie) m = await clanOf(id);
+    }
     const [day, all, gifts, exclu] = await Promise.all([clanDay(id), store.hgetall(CLANS), store.get('cadeaux:' + id), store.get('clan-exclu:' + id)]);
     const liste = Object.values(all).sort((a, b) => b.renommee - a.renommee || b.rang - a.rang);
     const out = {
@@ -718,7 +780,7 @@ async function clanRoute(req, res, account, id, action, method) {
       vaincu = r.rang;
       const gift = { id: 'alpha-' + m.id.slice(0, 8) + '-' + r.rang, source: 'clan', clan: m.nom, rang: r.rang, lucioles: 300 + 200 * r.rang, xpNiveau: 0.3 };
       const share = m.membres.filter((f) => r.parts[f] > 0);
-      await Promise.all(share.map(async (f) => { const key = 'cadeaux:' + f, list = (await store.get(key)) || []; list.push(gift); await store.set(key, list); }));
+      await Promise.all(share.map((f) => addGift(f, gift)));
       m.renommee += 25 + 15 * r.rang;
       m.tresor += alphaLoot(r.rang);
       clanLog(m, { type: 'alpha', rang: r.rang, nom: me.nom, parts: share.length, butin: alphaLoot(r.rang) });
@@ -843,7 +905,7 @@ async function route(req, res, p) {
   const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|role|blason|don|ameliorer|raid|guerre|defi|combat|message))?$/.exec(p);
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
-    return clanRoute(req, res, account, cl[1], cl[2], method);
+    return method === 'GET' ? clanRoute(req, res, account, cl[1], cl[2], method) : withLock(CLAN_LOCK, () => clanRoute(req, res, account, cl[1], cl[2], method));
   }
   const ti = /^\/api\/titan\/([0-9a-f-]{36})(?:\/(attaque))?$/.exec(p);
   if (ti) {
@@ -870,8 +932,8 @@ async function route(req, res, p) {
       account.grenouilles = account.grenouilles.filter((g) => g !== id);
       await saveAccount(account);
       await store.del('grenouille:' + id);
-      await leaveClan(id); // elle quitte son clan
-      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id)]);
+      await withLock(CLAN_LOCK, () => leaveClan(id)); // elle quitte son clan
+      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id), store.del(titanDayKey(id))]);
       return send(res, 200, { ok: true });
     }
   }

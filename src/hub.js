@@ -272,10 +272,11 @@
     var page = $('page-camp');
     var W = page.clientWidth, H = page.clientHeight;
     if (!W || !H) return;
-    var s = Math.max(1, Math.ceil(Math.max((W + 40) / CampScene.W, (H + 24) / CampScene.H)));
+    var narrow = W <= 900, zone = narrow ? Math.max(200, $('adventure').offsetTop - 8) : H; // sur un téléphone : la bande au-dessus des panneaux
+    var s = Math.max(narrow ? 2 : 1, Math.ceil(Math.max((W + 40) / CampScene.W, (zone + 24) / CampScene.H)));
     var cx = CampScene.HERO.x + 16, cy = CampScene.HERO.y + 20;
-    base.x = Math.round(Math.min(20, Math.max(W - 20 - CampScene.W * s, W * 0.44 - cx * s)));
-    base.y = Math.round(Math.min(12, Math.max(H - 12 - CampScene.H * s, H * 0.56 - cy * s)));
+    base.x = Math.round(Math.min(20, Math.max(W - 20 - CampScene.W * s, W * (narrow ? 0.5 : 0.44) - cx * s)));
+    base.y = Math.round(Math.min(12, Math.max(zone - 12 - CampScene.H * s, zone * (narrow ? 0.62 : 0.56) - cy * s)));
     Object.keys(layerEls).forEach(function (k) {
       layerEls[k].style.width = CampScene.W * s + 'px';
       layerEls[k].style.height = CampScene.H * s + 'px';
@@ -288,7 +289,9 @@
       layerEls[k].style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
     });
   }
-  window.addEventListener('resize', function () { layoutScene(); if (state.page === 'skills') renderTree(); if (state.page === 'map') renderWorldMap(); if (state.page === 'tower') renderTower(); });
+  function syncChrome() { document.documentElement.style.setProperty('--sbh', $('sidebar').offsetHeight + 'px'); }
+  syncChrome(); setTimeout(syncChrome, 300);
+  window.addEventListener('resize', function () { syncChrome(); layoutScene(); if (state.page === 'skills') renderTree(); if (state.page === 'map') renderWorldMap(); if (state.page === 'tower') renderTower(); });
   $('page-camp').addEventListener('mousemove', function (e) {
     var r = this.getBoundingClientRect();
     parallax.tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
@@ -348,6 +351,18 @@
   function layoutShop() {
     var page = $('page-shop'), Wp = page.clientWidth, Hp = page.clientHeight;
     if (!Wp || !Hp) return;
+    var wares = $('stock'), bubble = $('gamako-says');
+    if (Wp <= 700) { // un téléphone : le décor en bandeau (Gamako au milieu), le reste s'empile dessous
+      var sn = Wp / 170;
+      shopEl.style.width = ShopScene.W * sn + 'px'; shopEl.style.height = ShopScene.H * sn + 'px';
+      shopEl.style.transform = 'translate(' + Math.round(Wp / 2 - 128 * sn) + 'px,' + Math.round(-22 * sn) + 'px)';
+      var ox = Math.round(Wp / 2 - 128 * sn), oy = Math.round(-22 * sn);
+      shopGeo = { s: sn, narrow: true, W: Wp, H: Hp, sx: function (x) { return ox + x * sn; }, sy: function (y) { return oy + y * sn - $('page-shop').scrollTop; } };
+      wares.style.left = wares.style.width = wares.style.top = '';
+      bubble.style.right = bubble.style.top = '';
+      placeShopCard();
+      return;
+    }
     var s = Math.max(Wp / ShopScene.W, Hp / ShopScene.H);
     var ox = Math.round((Wp - ShopScene.W * s) / 2), oy = Math.round(Hp - ShopScene.H * s);
     shopEl.style.width = ShopScene.W * s + 'px';
@@ -355,11 +370,10 @@
     shopEl.style.transform = 'translate(' + ox + 'px,' + oy + 'px)';
     var sx = function (x) { return ox + x * s; }, sy = function (y) { return oy + y * s; };
     shopGeo = { s: s, sx: sx, sy: sy, W: Wp, H: Hp };
-    var wares = $('stock'), left = Math.max(16, sx(34)), right = Math.min(Wp - 16, sx(222));
+    var left = Math.max(16, sx(34)), right = Math.min(Wp - 16, sx(222));
     wares.style.left = left + 'px';
     wares.style.width = (right - left) + 'px';
     wares.style.top = (sy(ShopScene.COUNTER + 2) - 116) + 'px';
-    var bubble = $('gamako-says');
     bubble.style.right = (Wp - sx(ShopScene.GX + 6)) + 'px';
     bubble.style.top = Math.max(sy(ShopScene.GY + 4), 150) + 'px';
     placeShopCard();
@@ -368,11 +382,17 @@
   function placeShopCard() {
     var card = $('shop-card'), ware = document.querySelector('.ware2.is-selected');
     if (card.hidden || !ware || !shopGeo) return;
+    card.classList.remove('aside');
+    if (shopGeo.narrow) { card.style.left = card.style.top = ''; card.classList.remove('cramped'); return; }
     var page = $('page-shop').getBoundingClientRect(), wr = ware.getBoundingClientRect(), tag = ware.querySelector('.ware2-tag').getBoundingClientRect();
     var cw = card.offsetWidth, ch = card.offsetHeight, mid = wr.left - page.left + wr.width / 2;
     var left = Math.max(16, Math.min(shopGeo.W - cw - 16, mid - cw / 2));
     var top = Math.max(tag.bottom - page.top + 16, shopGeo.H - ch - 14), cramped = top + ch > shopGeo.H - 8;
-    if (cramped) top = Math.max(8, shopGeo.H - ch - 10); // un petit écran : la fiche passe devant les étiquettes plutôt que de sortir de l'écran
+    if (cramped) { // un petit écran : la fiche se range sur le mur de droite, au-dessus de l'étal ; sinon elle passe devant les étiquettes
+      card.classList.add('aside');
+      if (card.offsetHeight <= parseFloat($('stock').style.top) - 24) { cw = card.offsetWidth; left = shopGeo.W - cw - 16; top = 16; }
+      else { card.classList.remove('aside'); top = Math.max(8, shopGeo.H - ch - 10); }
+    }
     card.classList.toggle('cramped', cramped);
     card.style.left = left + 'px';
     card.style.top = top + 'px';
@@ -986,14 +1006,20 @@
   // Mise en page (en px de la page) : la zone du temple laisse la place au titre en haut et au deck à droite
   function templeLayout() {
     var page = $('page-skills'), W = page.clientWidth, H = page.clientHeight;
-    var wide = W > 1000;
+    var wide = W > 1000, narrow = W <= 700, side = page.querySelector('.temple-side');
     var rect = { l: 160, r: wide ? W - 400 : W - 30, t: 262, b: wide ? H - 18 : Math.round(H * 0.6) };
+    if (narrow) {
+      var head = page.querySelector('.temple-head'), top0 = head.offsetTop + head.offsetHeight;
+      H = top0 + 880;
+      rect = { l: 52, r: W - 16, t: top0 + 96, b: H - 12 };
+    }
+    side.style.top = narrow ? H + 'px' : '';
     // la dalle-sommet tout en haut (rect.t), puis les 10 rangées des branches
     var first = rect.b - 74, top = rect.t + Math.max(64, (first - rect.t) * 0.14), rowH = (first - top) / (STEPS - 1);
-    var s = H >= 960 ? 4 : (rowH >= 50 ? 3 : 2);
+    var s = narrow ? 3 : (H >= 960 ? 4 : (rowH >= 50 ? 3 : 2));
     var colX = function (i, n) { return rect.l + (rect.r - rect.l) * (i + 0.5) / n; };
     return {
-      W: W, H: H, s: s, rect: rect, first: first, rowH: rowH, colX: colX,
+      W: W, H: H, s: s, rect: rect, first: first, rowH: rowH, colX: colX, narrow: narrow,
       rowY: function (step) { return first - (step - 1) * rowH; },
       pos: function (n) { return n.summit ? { x: colX(1, 3), y: rect.t } : { x: colX(n.path, BRANCHES), y: first - (n.step - 1) * rowH }; },
       pool: function (i) { return { x: colX(i, 3), y: rect.t + 34 }; }, // les trois flaques du choix de la voie
@@ -1236,14 +1262,14 @@
       var col = voieOf(voie).color, sm = summitOf(voie), smp = L.pos(sm);
       PATHS[voie].forEach(function (p, i) {
         var done = save.tree.filter(function (id) { var n = nodeById(id); return n && n.path === i; }).length;
-        html += '<div class="tpath" style="left:' + (L.colX(i, BRANCHES) - (SLAB_R + 6) * L.s) + 'px;top:' + L.rowY(STEPS) + 'px;--voie:' + col + '" title="' + p.name + ' : ' + p.tag + '"><img src="' + branchIcon(voie, i) + '" alt=""><span><b>' + p.name.toUpperCase() + '</b><small>' + done + ' / ' + STEPS + ' dalles</small></span></div>';
+        html += '<div class="tpath' + (L.narrow ? ' mini' : '') + '" style="left:' + (L.narrow ? L.colX(i, BRANCHES) : L.colX(i, BRANCHES) - (SLAB_R + 6) * L.s) + 'px;top:' + (L.narrow ? L.first + 40 : L.rowY(STEPS)) + 'px;--voie:' + col + '" title="' + p.name + ' : ' + p.tag + '"><img src="' + branchIcon(voie, i) + '" alt=""><span><b>' + p.name.toUpperCase() + '</b><small>' + done + ' / ' + STEPS + ' dalles</small></span></div>';
       });
       html += '<div class="tsummit" style="left:' + smp.x + 'px;top:' + (smp.y - (SUMMIT_R + 3) * L.s) + 'px;--voie:' + col + '"><b>SOMMET · ' + sm.name.toUpperCase() + '</b><small>' + skillById(sm.skill).name + ' et un grand passif</small></div>';
       // à gauche de chaque rangée : le niveau requis et le prix de l'étape
       for (var st = 1; st <= STEPS; st++) {
-        html += '<span class="ttier' + (save.level >= STEP_LEVEL[st] ? ' reached' : '') + '" style="left:' + (L.rect.l - 150) + 'px;top:' + L.rowY(st) + 'px">NIV. ' + STEP_LEVEL[st] + ' · ' + st + ' PT' + (st > 1 ? 'S' : '') + '</span>';
+        html += '<span class="ttier' + (save.level >= STEP_LEVEL[st] ? ' reached' : '') + '" style="left:' + (L.narrow ? 4 : L.rect.l - 150) + 'px;top:' + L.rowY(st) + 'px">NIV. ' + STEP_LEVEL[st] + (L.narrow ? '' : ' · ' + st + ' PT' + (st > 1 ? 'S' : '')) + '</span>';
       }
-      html += '<span class="ttier' + (save.level >= SUMMIT.level ? ' reached' : '') + '" style="left:' + (L.rect.l - 150) + 'px;top:' + L.rect.t + 'px">NIV. ' + SUMMIT.level + ' · ' + SUMMIT.cost + ' PTS</span>';
+      html += '<span class="ttier' + (save.level >= SUMMIT.level ? ' reached' : '') + '" style="left:' + (L.narrow ? 4 : L.rect.l - 150) + 'px;top:' + L.rect.t + 'px">NIV. ' + SUMMIT.level + (L.narrow ? '' : ' · ' + SUMMIT.cost + ' PTS') + '</span>';
       TREE.forEach(function (n) {
         if (n.voie !== voie) return;
         var p = L.pos(n), known = hasNode(save, n.id), can = canLearnNode(save, n);
@@ -2887,8 +2913,8 @@
     var open = dungeonOpen(save, d), st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, pips = '';
     for (var r = 1; r <= DUNGEON_ROOMS; r++) pips += '<i class="' + (r <= st.room ? 'on' : (r === st.room + 1 && open ? 'next' : '')) + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"></i>';
     var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; }).length, pet = petById(d.id), pl = pet ? petLevel(save, pet.id) : 0;
-    return '<article class="dj-card2' + (open ? '' : ' locked') + (done ? ' done' : '') + (d.id === dj.sel ? ' is-active' : '') + '" data-dj-card="' + d.id + '" style="background-image:url(' + DungeonArt.scene(d, open) + ')">' +
-      '<div class="dj-c-top"><span>DONJON ' + (d.n + 1) + '</span><span>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : '') + '</span></div>' +
+    return '<article class="dj-card2' + (open ? '' : ' locked') + (done ? ' done' : '') + (d.id === dj.sel ? ' is-active' : '') + '" data-dj-card="' + d.id + '">' +
+      '<div class="dj-c-art" style="background-image:url(' + DungeonArt.scene(d, open) + ')"><div class="dj-c-top"><span>DONJON ' + (d.n + 1) + '</span><span>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : '') + '</span></div></div>' +
       '<div class="dj-c-body"><h2>' + (open ? d.name : '???') + '</h2>' +
       (open ? '<p>' + d.desc + '</p><div class="dj-c-rooms" title="' + st.room + ' / ' + DUNGEON_ROOMS + ' salles">' + pips + '</div>' +
         '<div class="dj-c-meta"><span>' + (done ? '<b class="ok">VIDÉ</b>' + (st.day === todayKey() ? ' · boss vaincu aujourd’hui' : ' · boss du jour à redéfier') : st.room + ' / ' + DUNGEON_ROOMS + ' salles') + '</span>' +
