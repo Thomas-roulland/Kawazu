@@ -207,6 +207,30 @@
     notice(welcome(name));
   });
 
+  // ---------- Les nouveautés : une fenêtre, une fois par mise à jour (NEWS.id), pour celles qui ont déjà joué ----------
+  var NEWS = {
+    id: '2026-10',
+    list: [
+      ['coffre', 'camp', 'Les quêtes du jour', 'Trois quêtes chaque jour au camp, et un coffre quand elles sont faites : lucioles, XP, éclats et un objet Rare ou Épique.'],
+      ['eclat', 'perso', 'La forge', 'Recycle les objets dont tu ne veux plus en éclats de jade, et renforce les autres jusqu’à +10 (+5 % de stats par niveau).'],
+      ['donjon', 'donjons', 'Panoplies et compagnons', 'Les Uniques d’un même donjon forment une panoplie (bonus à 2, 3 et 4 pièces). Au fond des donjons, le petit du boss peut te suivre et se battre avec toi.'],
+      ['titan', 'titan', 'Le Titan de la semaine', 'Un boss géant, le même pour tous les joueurs, aux PV partagés : 3 attaques par jour, une part pour chacun quand il tombe.'],
+      ['rank', 'rank', 'Les saisons', 'Chaque mois, une saison de classement : les dix premières reçoivent un cadeau, les trois premières une peau de champion.'],
+      ['camp', 'camp', 'Les événements', 'Le week-end, l’XP est doublée ; le mercredi, les objets tombent plus souvent.'],
+      ['donjons', 'map', 'Le Royaume sous la Terre', 'Après l’Archipel des Brumes, six terres sous le monde et le Ver du Cœur du Monde.']
+    ]
+  };
+  function showNews() {
+    $('news-list').innerHTML = NEWS.list.map(function (n) {
+      return '<div class="news-row"><img class="px" src="' + ICON[n[0]] + '" alt=""><div><b>' + n[2] + '</b><small>' + n[3] + '</small></div><button class="btn btn-ghost" data-news-go="' + n[1] + '">Voir ▶</button></div>';
+    }).join('');
+    $('news-modal').hidden = false;
+  }
+  $('news-modal').addEventListener('click', function (e) {
+    var t = e.target.closest('button');
+    if (e.target === $('news-modal') || (t && t.id === 'news-close')) { $('news-modal').hidden = true; Sfx.play('click'); return; }
+    if (t && t.dataset.newsGo) { $('news-modal').hidden = true; Sfx.play('click'); showPage(t.dataset.newsGo); }
+  });
   function enterGame() {
     $('title').hidden = true;
     $('app').hidden = false;
@@ -219,6 +243,8 @@
     showPage('camp');
     startTick();
     if (save.notice) { notice(save.notice); delete save.notice; persist(); }
+    // les nouveautés, une fois (une grenouille toute neuve les découvre en jouant)
+    if (save.news !== NEWS.id) { var fresh = save.level <= 1 && !save.progress[0]; save.news = NEWS.id; persist(); if (!fresh) showNews(); }
     // de retour : ce que la grenouille a gagné en méditant pendant l'absence (et elle continue)
     if (save.meditation && meditationGain(save).ms >= 60000) endMeditation(true, 'Pendant ton absence');
   }
@@ -345,7 +371,9 @@
     var page = $('page-shop').getBoundingClientRect(), wr = ware.getBoundingClientRect(), tag = ware.querySelector('.ware2-tag').getBoundingClientRect();
     var cw = card.offsetWidth, ch = card.offsetHeight, mid = wr.left - page.left + wr.width / 2;
     var left = Math.max(16, Math.min(shopGeo.W - cw - 16, mid - cw / 2));
-    var top = Math.max(tag.bottom - page.top + 16, shopGeo.H - ch - 14);
+    var top = Math.max(tag.bottom - page.top + 16, shopGeo.H - ch - 14), cramped = top + ch > shopGeo.H - 8;
+    if (cramped) top = Math.max(8, shopGeo.H - ch - 10); // un petit écran : la fiche passe devant les étiquettes plutôt que de sortir de l'écran
+    card.classList.toggle('cramped', cramped);
     card.style.left = left + 'px';
     card.style.top = top + 'px';
     card.style.setProperty('--arrow', Math.max(18, Math.min(cw - 18, mid - left)) + 'px');
@@ -1447,7 +1475,7 @@
       }
     });
     if (m.peekAt) {
-      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BATS LE BOSS ' + ofLand(BIOMES[off + m.peek - 1].name).toUpperCase() + '</small></div>';
+      html += '<div class="region fogged" style="' + at(m.peekAt.x, m.peekAt.y) + '"><b>Terre inconnue</b><small>BOSS À VAINCRE : ' + BIOMES[off + m.peek - 1].boss.name.toUpperCase() + '</small></div>';
     }
     // les deux cartes, une fois le Continent ouvert ; le cycle en cours ; la boussole et le zoom
     ui += '<canvas class="wm-compass" width="28" height="28" aria-hidden="true"></canvas>' +
@@ -1606,7 +1634,7 @@
       var tea = id === TEA_ID, price = tea ? TEA.price : itemPrice(id);
       return '<button class="ware2' + (tea ? '' : ' rar-' + rarityOf(id)) + (state.ware === id ? ' is-selected' : '') + (save.gold < price ? ' is-poor' : '') + '"' + (tea ? '' : ' style="' + rarStyle(id) + '"') + ' data-ware="' + id + '">' +
         '<span class="ware2-icon"><img src="' + (tea ? ICON.the : iconUrls[id]) + '" alt=""></span>' +
-        '<span class="ware2-tag"><b>' + (tea ? TEA.name : ITEMS[id].name) + '</b><span class="price">' + price + ' lucioles</span></span></button>';
+        '<span class="ware2-tag"><b>' + (tea ? TEA.name : ITEMS[id].name) + '</b><span class="price">' + price.toLocaleString('fr-FR') + ' <small>lucioles</small></span></span></button>';
     }).join('') : '<p class="empty-stock">L’étal est vide. Paie un nouvel arrivage pour voir d’autres trésors.</p>';
     renderShopCard();
     layoutShop();
@@ -1780,8 +1808,8 @@
   }
   function buyButton(id, price, ok) {
     var miss = price - save.gold;
-    return '<div class="sc-buy"><button class="btn" data-buy="' + id + '"' + (ok && miss <= 0 ? '' : ' disabled') + '>Acheter<br><span>' + price + ' lucioles</span></button>' +
-      (miss > 0 ? '<span class="sc-miss">Il te manque ' + miss + ' lucioles.</span>' : '') + '</div>';
+    return '<div class="sc-buy"><button class="btn" data-buy="' + id + '"' + (ok && miss <= 0 ? '' : ' disabled') + '>Acheter<br><span>' + price.toLocaleString('fr-FR') + ' lucioles</span></button>' +
+      (miss > 0 ? '<span class="sc-miss">Il te manque ' + miss.toLocaleString('fr-FR') + ' lucioles.</span>' : '') + '</div>';
   }
 
   // ---------- Classement ----------
@@ -1798,7 +1826,7 @@
     succes: { name: 'Succès', cmp: function (a, b) { return b.succes - a.succes || b.niveau - a.niveau; },
       metric: function (e) { return e.succes + ' succès'; } },
     tour: { name: 'Tour', cmp: function (a, b) { return (b.tour || 0) - (a.tour || 0) || b.niveau - a.niveau; },
-      metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + TOWER_FLOORS; } },
+      metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + ((e.tour || 0) >= TOWER_FLOORS ? TOWER_TOP : TOWER_FLOORS); } },
     saison: { name: 'Saison', cmp: function (a, b) { return rankPts(b) - rankPts(a) || b.niveau - a.niveau; },
       metric: function (e) { return rankPts(e).toLocaleString('fr-FR') + ' pts'; } },
     reputation: { name: 'Duels', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
@@ -3335,7 +3363,7 @@
   window.addEventListener('keydown', function (e) {
     if (!visible || !$('title').hidden) return;
     if ((e.key === 'm' || e.key === 'M') && !/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) { Sfx.toggle(); renderMute(); }
-    if (e.code === 'Escape') { $('save-modal').hidden = true; closeKeys(); }
+    if (e.code === 'Escape') { $('save-modal').hidden = true; $('news-modal').hidden = true; closeKeys(); }
   });
 
   // ---------- Touches du clavier : disposition QWERTY / AZERTY, ou une touche par action à la main ----------

@@ -1101,6 +1101,7 @@ function newSave() {
     quests: null, // les quêtes du jour (quetes.js) : { day, list: [{ id, n, got }], chest }
     season: null, // la saison de classement en cours : { id: 'AAAA-MM', pts }
     counts: { coffres: 0, titan: 0 }, // des compteurs pour les hauts faits : coffres des quêtes ouverts, attaques du Titan
+    news: '', // la dernière fenêtre des nouveautés vue (voir NEWS dans hub.js)
     inClan: false, // dans un clan (vu la dernière fois que le jeu l'a lu : pour les quêtes)
     ach: [], // hauts faits obtenus (voir feats.js)
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
@@ -1212,6 +1213,7 @@ function parseSave(data) {
   });
   save.eclats = Math.min(1e9, int(data.eclats, 0) || 0);
   save.inClan = !!data.inClan;
+  if (typeof data.news === 'string') save.news = data.news.slice(0, 12);
   if (data.counts && typeof data.counts === 'object') Object.keys(save.counts).forEach(function (k) { save.counts[k] = Math.min(1e7, int(data.counts[k], 0) || 0); });
   if (data.pets && typeof data.pets === 'object') Object.keys(data.pets).forEach(function (id) { if (/^d\d{1,2}$/.test(id)) save.pets[id] = Math.min(PET_MAX_LEVEL, int(data.pets[id], 1) || 0); });
   if (typeof data.pet === 'string' && save.pets[data.pet]) save.pet = data.pet;
