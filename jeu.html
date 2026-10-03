@@ -59,7 +59,7 @@
       <span class="menu-sep" aria-hidden="true"></span>
       <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
       <button class="menu-btn" data-page="tower"><img data-ico="tour" alt=""><span>Tour des Sages</span></button>
-      <button class="menu-btn" data-page="donjons"><img data-ico="donjon" alt=""><span>Donjons</span></button>
+      <button class="menu-btn" data-page="donjons"><img data-ico="donjon" alt=""><span>Donjons</span><i class="badge" id="badge-donjons" hidden>!</i></button>
       <button class="menu-btn" data-page="dojo"><img data-ico="cascade" alt=""><span>Cascade des duels</span></button>
       <button class="menu-btn" data-page="clans"><img data-ico="clan" alt=""><span>Clans</span></button>
       <span class="menu-sep" aria-hidden="true"></span>
@@ -90,6 +90,7 @@
         <div id="adv-world"></div>
         <button id="adv-go" class="btn">Continuer ▶</button>
         <button class="adv-link" data-page="map">Carte du monde</button>
+        <div id="adv-dungeon"></div>
         <div id="meditation" class="meditation"></div>
       </aside>
     </section>
@@ -168,10 +169,10 @@
         <div id="voie-pick" class="voie-pick" hidden></div>
         <div id="deck-side" class="deck-side">
           <div id="arme-pick" class="arme-pick" hidden></div>
-          <div id="mastery" class="mastery" hidden></div>
           <h2>TON DECK</h2>
           <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 4 sorts appris : chacun a son temps de relance.</p>
           <div id="deck" class="deck"></div>
+          <div id="mastery" class="mastery" hidden></div>
           <h2>SORTS APPRIS</h2>
           <div id="learned" class="learned"></div>
           <div id="node-info" class="node-info"></div>

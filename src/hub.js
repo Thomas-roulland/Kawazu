@@ -469,8 +469,18 @@
     renderAll();
   }
 
+  // Le donjon du moment : le plus haut ouvert pas encore vidé (sa prochaine salle), sinon un boss à redéfier aujourd'hui
+  function dungeonHint() {
+    var open = DUNGEONS.filter(function (d) { return dungeonOpen(save, d); });
+    var todo = open.filter(function (d) { return dungeonState(save, d).room < DUNGEON_ROOMS; });
+    if (todo.length) { var d = todo[todo.length - 1]; return { d: d, label: d.name + ' · salle ' + (dungeonState(save, d).room + 1) }; }
+    var daily = open.filter(function (d) { return dungeonState(save, d).day !== todayKey(); });
+    return daily.length ? { d: daily[daily.length - 1], label: daily[daily.length - 1].name + ' · boss du jour' } : null;
+  }
   function renderAdventure() {
     renderMeditation();
+    var hint = dungeonHint();
+    $('adv-dungeon').innerHTML = hint ? '<button class="adv-link adv-dj" data-page="donjons" data-dj-go="' + hint.d.id + '">Donjon : ' + hint.label + ' ▶</button>' : '';
     var w = currentWorld(), st = nextStage(w), done = save.progress[w] >= STAGES;
     var e = worldStages(w)[st - 1].enemy;
     $('adv-world').innerHTML = '<span><b>' + BIOMES[w].name + '</b></span>' +
@@ -2637,6 +2647,7 @@
   function renderAll() {
     albumSyncItems(save);
     $('badge-album').hidden = !ALBUM_MILESTONES.some(function (m) { return milestoneReady(save, m); });
+    $('badge-donjons').hidden = !dungeonHint();
     checkFeats();
     renderSidebar();
     renderAdventure();
@@ -2726,6 +2737,7 @@
     // choisir sa voie : la grenouille plonge dans la flaque (définitif)
     if (t.dataset.towerScroll) { var sc = +t.dataset.towerScroll; tower.view = sc ? tower.view + sc : Math.max(1, towerNext() - 2); Sfx.play('click'); renderTower(); return; }
     if (t.dataset.floor) { tower.sel = +t.dataset.floor; Sfx.play('click'); renderTower(); return; }
+    if (t.dataset.djGo) dj.sel = t.dataset.djGo; // depuis le camp : ce donjon-là (la page s'ouvre ensuite)
     if (t.dataset.dj) { dj.sel = t.dataset.dj; Sfx.play('click'); renderDonjons(); return; }
     if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
     if (t.hasAttribute('data-dj-daily')) { var dd2 = dungeonById(dj.sel), st2 = dd2 && dungeonState(save, dd2); if (st2 && st2.room >= DUNGEON_ROOMS && st2.day !== todayKey()) { Sfx.play('click'); startFight(donjonFight(dd2, DUNGEON_ROOMS, true)); } return; }

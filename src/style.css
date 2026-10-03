@@ -1350,6 +1350,7 @@ button.wm-stage:hover { transform: scale(1.2); }
 .cl-adv-tease { padding: 6px 8px; background: rgba(138, 208, 255, 0.08); box-shadow: inset 2px 0 0 #8ad0ff; }
 
 /* ---------- Les Donjons ---------- */
+.adv-dj { color: #c8b0ff; }
 #page-donjons { background: radial-gradient(ellipse at 40% 20%, #2a2236, #0e0a14 70%); overflow: hidden; }
 .dj-main { position: absolute; inset: 0 400px 0 0; overflow-y: auto; padding: 22px 24px 30px; display: flex; flex-direction: column; gap: 16px; }
 .dj-head h1 { margin: 0; color: #e0d0ff; text-shadow: 0 3px 0 #0a0614; }
