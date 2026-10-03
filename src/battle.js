@@ -159,7 +159,6 @@ var BattleScene = (function () {
 
   function statusText(f) {
     var s = [];
-    if (f.shield > 0) s.push('Bouclier ' + Math.ceil(f.shield));
     if (f.guard > 0) s.push('Garde ' + f.guard + (f.counter > 0 ? ' · riposte' : ''));
     if (f.buff > 0) s.push('Dégâts +40 % (' + f.buff + ')');
     if (f.shadow) s.push('Ombre');
@@ -173,9 +172,16 @@ var BattleScene = (function () {
     return s.join(' · ');
   }
 
+  // le bouclier, sous les PV : une barre bleue qui fond sous les coups (et sa valeur à côté des PV)
+  function shieldBar(side, f) {
+    var bar = $('bt-' + side + '-shield'), on = f.shield > 0;
+    bar.hidden = !on;
+    if (on) bar.firstChild.style.width = Math.min(100, f.shield / (f.shieldMax || f.shield) * 100) + '%';
+    return on ? ' · bouclier ' + Math.ceil(f.shield) : '';
+  }
   function renderHud() {
     $('bt-hero-hp').style.width = Math.max(0, P.hp / P.maxHp * 100) + '%';
-    $('bt-hero-hptext').textContent = Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp;
+    $('bt-hero-hptext').textContent = Math.max(0, Math.ceil(P.hp)) + ' / ' + P.maxHp + shieldBar('hero', P);
     $('bt-hero-status').textContent = statusText(P);
     $('bt-enemy-name').textContent = E.name;
     $('bt-enemy-name').style.color = E.rarity && E.rarity !== 'commun' ? RARITIES[E.rarity].color : '';
@@ -186,7 +192,7 @@ var BattleScene = (function () {
     } else {
       $('bt-enemy-lvl').textContent = capped() ? 'Niv. ' + E.level + (fight.kind === 'titan' ? ' · TITAN' : ' · ALPHA') + ' · tour ' + Math.min(fight.turns, fight.done + 1) + ' / ' + fight.turns : 'Niv. ' + E.level + (E.rank === 'boss' ? ' · BOSS' : (E.rank === 'elite' ? ' · ÉLITE' : (E.frog ? (E.rank === 'sage' ? ' · SAGE' : (fight.kind === 'guerre' ? ' · GUERRE' : ' · DUEL')) : ''))) + (E.rarity && E.rarity !== 'commun' ? ' · ' + RARITIES[E.rarity].name.toUpperCase() : '');
       $('bt-enemy-hp').style.width = Math.max(0, E.hp / E.maxHp * 100) + '%';
-      $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp;
+      $('bt-enemy-hptext').textContent = Math.max(0, Math.ceil(E.hp)) + ' / ' + E.maxHp + shieldBar('enemy', E);
     }
     $('bt-enemy-status').textContent = statusText(E);
     renderSkills();
@@ -1261,7 +1267,7 @@ var BattleScene = (function () {
     var title = capped() ? (E.hp <= 0 ? (fight.kind === 'titan' ? 'Le Titan est tombé !' : 'L’Alpha est tombé !') : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
     var climb = fight.kind === 'tour' || fight.kind === 'donjon', nextL = fight.kind === 'tour' ? 'Étage suivant ▶' : 'Salle suivante ▶', backL = fight.kind === 'tour' ? 'Retour à la tour' : 'Retour au donjon';
     showEnd(win, html, title, climb
-      ? (win ? (fight.next ? [['next', nextL], ['back', backL]] : [['back', backL]]) : [['again', 'Réessayer'], ['back', backL]])
+      ? (win ? (fight.next ? [['next', nextL], ['back', backL]] : [['back', backL]]) : (fight.kind === 'donjon' ? [['back', backL]] : [['again', 'Réessayer'], ['back', backL]])) // (un donjon se retente une heure plus tard)
       : [['back', fight.kind === 'titan' ? 'Retour au Titan' : (fight.kind === 'raid' || fight.kind === 'guerre' ? 'Retour au clan' : 'Retour à la cascade')]]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
@@ -1540,7 +1546,7 @@ var BattleScene = (function () {
     var en = f.enemy, size = enemySize(en);
     E = arm(Object.assign({}, en, { hp: en.hp0 != null ? en.hp0 : en.maxHp, turn: 0, charging: false, enraged: false, monster: en.frog ? null : monsterImgs(en) }), -1, W - MARGIN - size);
     [P, E].forEach(function (fi) {
-      if (fi.pas.shield) fi.shield = Math.round(fi.maxHp * fi.pas.shield);
+      if (fi.pas.shield) fi.shield = fi.shieldMax = Math.round(fi.maxHp * fi.pas.shield);
       if (fi === P && f.weather && f.weather.startCd) P.skills.forEach(function (s) { if (s.cd) P.cds[s.id] = f.weather.startCd + 1; }); // canicule : les sorts commencent en relance
     });
     tweens = []; floaters = []; particles = []; shots = []; fxs = []; shake = 0;

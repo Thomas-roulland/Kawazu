@@ -268,6 +268,12 @@ async function withLock(key, fn) {
   }
   throw fail(503, 'Beaucoup de monde en même temps : réessaie dans un instant.');
 }
+// plusieurs verrous, toujours pris dans le même ordre : deux joueurs qui se défient l'un l'autre ne s'attendent pas sans fin
+function withLocks(keys, fn) {
+  const ks = Array.from(new Set(keys)).sort();
+  const take = (i) => (i >= ks.length ? fn() : withLock(ks[i], () => take(i + 1)));
+  return take(0);
+}
 const CLAN_LOCK = 'verrou-clans'; // toutes les écritures des clans (une guerre touche deux clans à la fois)
 async function editGifts(frogId, fn) {
   return withLock('verrou-cadeaux:' + frogId, async () => {
@@ -444,6 +450,30 @@ function combatCard(frog, entry, points) {
     voie: entry.voie, equip: entry.equip, alloc: alloc, tree: strs(s.tree, 80), deck: strs(s.deck, 4), items: equippedItems(s, entry.equip)
   };
 }
+async function dojoDuel(res, account, id, b) {
+  const rec = await dojoRecord(id);
+  const opp = rec.offerts.filter((o) => o.id === b.adversaire)[0];
+  if (!opp) return send(res, 400, { erreur: 'Cet adversaire n’est plus proposé : choisis-en un autre.' });
+  if (rec.n >= DUELS_PAR_JOUR) return send(res, 429, { erreur: 'Plus de duels aujourd’hui : reviens demain !' });
+  if (opp.soeur) {
+    rec.soeurs = rec.soeurs || {};
+    if (rec.soeurs[opp.id] === rec.jour) return send(res, 400, { erreur: 'Tu as déjà affronté cette grenouille aujourd’hui.' });
+    rec.soeurs[opp.id] = rec.jour;
+  }
+  const reps = await store.hgetall(REP), mine = +reps[id] || 0, theirs = +reps[opp.id] || 0, diff = theirs - mine, win = !!b.victoire;
+  const myDelta = win ? clamp(Math.round(12 + diff / 8), 4, 30) : -clamp(Math.round(8 - diff / 10), 2, 15);
+  const oppDelta = win ? -Math.ceil(myDelta / 2) : Math.ceil(-myDelta / 2);
+  const apply = async (fid, delta) => { const n = await store.hincr(REP, fid, delta); if (n < 0) { await store.hset(REP, fid, 0); return 0; } return n; };
+  const [newMine] = await Promise.all([apply(id, myDelta), apply(opp.id, oppDelta)]);
+  const me = (await store.hgetall(RANK))[id] || { nom: 'Une grenouille' };
+  rec.n++; rec[win ? 'v' : 'd']++;
+  rec.offerts = rec.offerts.filter((o) => o.id !== opp.id);
+  rec.journal = [{ t: Date.now(), type: 'attaque', nom: opp.nom, pseudo: opp.pseudo, victoire: win, delta: myDelta }].concat(rec.journal).slice(0, 12);
+  const theirRec = await dojoRecord(opp.id);
+  theirRec.journal = [{ t: Date.now(), type: 'defense', nom: me.nom, pseudo: account.pseudo, victoire: !win, delta: oppDelta }].concat(theirRec.journal).slice(0, 12);
+  await Promise.all([store.set('dojo:' + id, rec), store.set('dojo:' + opp.id, theirRec)]);
+  return send(res, 200, { delta: myDelta, rep: newMine, restants: DUELS_PAR_JOUR - rec.n });
+}
 async function dojoRoute(req, res, account, id, action, method) {
   await weeklyGifts();
   await seasonGifts();
@@ -456,7 +486,7 @@ async function dojoRoute(req, res, account, id, action, method) {
       top: ranked.slice(0, 10).map((k) => Object.assign({}, fiches[k], { rep: +reps[k] }))
     });
   }
-  if (action === 'adversaires' && method === 'GET') {
+  if (action === 'adversaires' && method === 'GET') return withLock('verrou-dojo:' + id, async () => {
     const [rec, reps, fiches] = await Promise.all([dojoRecord(id), store.hgetall(REP), store.hgetall(RANK)]);
     const mine = +reps[id] || 0, me = fiches[id] || { niveau: 1 };
     const pool = Object.values(fiches).filter((e) => account.grenouilles.indexOf(e.id) < 0).map((e) => Object.assign({ rep: +reps[e.id] || 0 }, e));
@@ -474,30 +504,12 @@ async function dojoRoute(req, res, account, id, action, method) {
     rec.offerts = cards.map((k) => ({ id: k.id, nom: k.nom, pseudo: k.pseudo, soeur: !!k.soeur }));
     await store.set('dojo:' + id, rec);
     return send(res, 200, { adversaires: cards });
-  }
+  });
+  // un duel : le carnet de la grenouille et celui de son adversaire, sous leurs deux verrous (un double clic ne compte
+  // qu'une fois, et plusieurs défis à la même grenouille au même instant gardent tous leur ligne de journal)
   if (action === 'duel' && method === 'POST') {
-    const b = await readBody(req, 4096), rec = await dojoRecord(id);
-    const opp = rec.offerts.filter((o) => o.id === b.adversaire)[0];
-    if (!opp) return send(res, 400, { erreur: 'Cet adversaire n’est plus proposé : choisis-en un autre.' });
-    if (rec.n >= DUELS_PAR_JOUR) return send(res, 429, { erreur: 'Plus de duels aujourd’hui : reviens demain !' });
-    if (opp.soeur) {
-      rec.soeurs = rec.soeurs || {};
-      if (rec.soeurs[opp.id] === rec.jour) return send(res, 400, { erreur: 'Tu as déjà affronté cette grenouille aujourd’hui.' });
-      rec.soeurs[opp.id] = rec.jour;
-    }
-    const reps = await store.hgetall(REP), mine = +reps[id] || 0, theirs = +reps[opp.id] || 0, diff = theirs - mine, win = !!b.victoire;
-    const myDelta = win ? clamp(Math.round(12 + diff / 8), 4, 30) : -clamp(Math.round(8 - diff / 10), 2, 15);
-    const oppDelta = win ? -Math.ceil(myDelta / 2) : Math.ceil(-myDelta / 2);
-    const apply = async (fid, delta) => { const n = await store.hincr(REP, fid, delta); if (n < 0) { await store.hset(REP, fid, 0); return 0; } return n; };
-    const [newMine] = await Promise.all([apply(id, myDelta), apply(opp.id, oppDelta)]);
-    const me = (await store.hgetall(RANK))[id] || { nom: 'Une grenouille' };
-    rec.n++; rec[win ? 'v' : 'd']++;
-    rec.offerts = rec.offerts.filter((o) => o.id !== opp.id);
-    rec.journal = [{ t: Date.now(), type: 'attaque', nom: opp.nom, pseudo: opp.pseudo, victoire: win, delta: myDelta }].concat(rec.journal).slice(0, 12);
-    const theirRec = await dojoRecord(opp.id);
-    theirRec.journal = [{ t: Date.now(), type: 'defense', nom: me.nom, pseudo: account.pseudo, victoire: !win, delta: oppDelta }].concat(theirRec.journal).slice(0, 12);
-    await Promise.all([store.set('dojo:' + id, rec), store.set('dojo:' + opp.id, theirRec)]);
-    return send(res, 200, { delta: myDelta, rep: newMine, restants: DUELS_PAR_JOUR - rec.n });
+    const b = await readBody(req, 4096);
+    return withLocks(['verrou-dojo:' + id, 'verrou-dojo:' + String(b.adversaire || '').slice(0, 64)], () => dojoDuel(res, account, id, b));
   }
   if (action === 'cadeaux' && method === 'POST') {
     const b = await readBody(req, 4096), ids = Array.isArray(b.ids) ? b.ids : [];

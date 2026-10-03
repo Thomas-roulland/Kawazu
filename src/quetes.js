@@ -7,7 +7,22 @@ var EVENTS = {
   butin: { name: 'Mercredi du butin', short: 'Butin +50 %', desc: 'Tout le mercredi, +50 % de chances de trouver un objet.', days: [3], loot: 0.5 }
 };
 function eventsNow(t) { var d = new Date(t || Date.now()).getDay(); return Object.keys(EVENTS).filter(function (k) { return EVENTS[k].days.indexOf(d) >= 0; }); }
-function eventMult(key) { return 1 + eventsNow().reduce(function (s, k) { return s + (EVENTS[k][key] || 0); }, 0); }
+function eventMult(key, t) { return 1 + eventsNow(t).reduce(function (s, k) { return s + (EVENTS[k][key] || 0); }, 0); }
+// la fin de l'événement en cours : minuit après son dernier jour (le week-end s'arrête dimanche à minuit)
+function eventEnds(k, t) {
+  var d = new Date(t || Date.now()); d.setHours(0, 0, 0, 0);
+  for (var i = 0; i < 8; i++) { d.setDate(d.getDate() + 1); if (EVENTS[k].days.indexOf(d.getDay()) < 0) return d.getTime(); }
+  return null;
+}
+// sur une durée (une méditation, une mission) : seule la part passée pendant l'événement compte double
+function eventMultOver(key, t0, t1) {
+  if (!(t1 > t0)) return eventMult(key, t1 || undefined);
+  var n = Math.min(400, Math.max(1, Math.ceil((t1 - t0) / 300000)) ), s = 0; // un point toutes les 5 minutes
+  for (var i = 0; i < n; i++) s += eventMult(key, t0 + (i + 0.5) * (t1 - t0) / n);
+  return s / n;
+}
+// « 1 j 4 h », « 3 h 20 », « 12 min »
+function durText(ms) { var m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60); return h >= 24 ? Math.floor(h / 24) + ' j ' + (h % 24) + ' h' : (h ? h + ' h ' + ('0' + m % 60).slice(-2) : m + ' min'); }
 // Le prochain événement (quand aucun n'a lieu) : { ev, ms } d'ici son début (minuit)
 function nextEvent() {
   var now = new Date();
@@ -27,14 +42,14 @@ var QUESTS = [
   { id: 'sentier', g: 0, name: 'Le sentier', text: 'Gagner {n} combats sur la carte du monde', n: 8, ev: 'stage' },
   { id: 'chasseur', g: 0, name: 'Chasseuse de boss', text: 'Vaincre {n} gardiens ou boss (carte, donjons, tour)', n: 2, ev: 'boss' },
   { id: 'gibier', g: 0, name: 'Gibier de choix', text: 'Vaincre {n} monstres rares ou épiques', n: 2, ev: 'rareFoe' },
-  { id: 'salles', g: 0, name: 'Les profondeurs', text: 'Vider {n} salles de donjon (le boss du jour compte)', n: 3, ev: 'room', need: function (s) { return s.level >= DUNGEON_EVERY; } },
+  { id: 'salles', g: 0, name: 'Les profondeurs', text: 'Vider {n} salles de donjon', n: 2, ev: 'room', need: function (s) { return s.level >= DUNGEON_EVERY && DUNGEONS.some(function (d) { return dungeonOpen(s, d) && !dungeonCleared(s, d); }); } },
   { id: 'ascension', g: 0, name: 'L’ascension', text: 'Conquérir {n} étages de la tour', n: 2, ev: 'tower', need: function (s) { return s.tower < TOWER_TOP; } },
   { id: 'fouine', g: 1, name: 'La fouine', text: 'Trouver {n} objets', n: 4, ev: 'loot' },
   { id: 'lynx', g: 1, name: 'L’œil de lynx', text: 'Trouver un objet Rare ou mieux', n: 1, ev: 'rare' },
   { id: 'forgeron', g: 1, name: 'À la forge', text: 'Renforcer un objet à la forge', n: 1, ev: 'forge', need: function (s) { return s.owned.some(forgeable); } },
   { id: 'recyclage', g: 1, name: 'Rien ne se perd', text: 'Recycler {n} objets à la forge', n: 4, ev: 'recycle' },
   { id: 'messager', g: 2, name: 'La messagère', text: 'Terminer {n} missions', n: 2, ev: 'mission' },
-  { id: 'calme', g: 2, name: 'Le calme du nénuphar', text: 'Méditer au moins une heure, puis récolter', n: 1, ev: 'meditation' },
+  { id: 'calme', g: 2, name: 'Le calme intérieur', text: 'Méditer au moins une heure, puis récolter', n: 1, ev: 'meditation' },
   { id: 'duelliste', g: 2, name: 'La duelliste', text: 'Livrer {n} duels à la Cascade', n: 2, ev: 'duel', online: true },
   { id: 'titan', g: 2, name: 'Contre le Titan', text: 'Attaquer le Titan de la semaine', n: 1, ev: 'titan', online: true },
   { id: 'alpha', g: 2, name: 'Pour le clan', text: 'Attaquer l’Alpha de ton clan', n: 1, ev: 'raid', clan: true }

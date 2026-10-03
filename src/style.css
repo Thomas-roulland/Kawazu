@@ -1962,3 +1962,27 @@ h1 { line-height: 1.3; }
   .dj-dot { width: 18px; height: 18px; }
   .tt-kicker { line-height: 1.7; }
 }
+
+/* ---------- Le bouclier, sous les PV ---------- */
+.bt-shield { height: 8px; margin-top: 5px; background: #0b1820; box-shadow: 0 0 0 2px #0b0705, 0 0 0 3px #2a5a7a; }
+.bt-shield[hidden] { display: none; }
+.bt-shield span { display: block; height: 100%; background: linear-gradient(#d8f2ff, #5aa8d8); box-shadow: 0 0 8px rgba(156, 216, 248, 0.7); transition: width 0.25s; }
+.bt-card.enemy .bt-shield { transform: scaleX(-1); }
+
+/* ---------- La fiche d'objet : ce qu'on porte, en bas ---------- */
+.det2-cmp { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: rgba(0, 0, 0, 0.25); box-shadow: inset 3px 0 0 var(--rar, var(--line-2)); }
+.det2-cmp-k { font-family: var(--pixel); font-size: 8px; letter-spacing: 1px; color: var(--muted); }
+.det2-cmp-it { display: flex; align-items: center; gap: 10px; }
+.det2-cmp-it img { width: 34px; height: 34px; }
+.det2-cmp-it b { display: block; font-size: 15px; color: var(--rar); }
+.det2-cmp-it small { font-size: 13px; color: var(--muted); }
+.det2-cmp-stats li { background: rgba(0, 0, 0, 0.2); }
+.det2-cmp-stats b { color: #c8d4cc; }
+
+/* ---------- Les donjons : nettoyé, ou l'heure d'attente ---------- */
+.dj-c-meta b.wait { color: #ffb07a; font-family: var(--body); font-size: 14px; font-weight: 700; }
+.dj-s-foe.done img { filter: grayscale(0.85) brightness(0.7); animation: none; }
+.dj-s-note { margin: 0; font-size: 13px; line-height: 1.3; color: #a89ac0; }
+
+/* ---------- Les cartes des donjons, animées ---------- */
+.dj-c-cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }

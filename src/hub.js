@@ -260,10 +260,29 @@
     layerEls[k] = el;
   });
   var sceneStatic = null;
-  // le décor du camp prend l'ambiance du biome où l'on en est dans l'aventure
+  // Le décor du camp : le paysage de la carte du monde, là où se tient la grenouille (le même point que sur la carte),
+  // agrandi deux fois, avec l'ambiance de sa terre (halo, brume, lucioles, neige ou feuilles)
+  var CAMP_ZOOM = 2;
+  function campPlace() {
+    var cur = currentWorld(), isle = isleOf(cur), M = isle.map, T = M.TRAILS, n = T.length, local = cur - M.FIRST, p;
+    if (local >= n) p = T[n - 1].at(T[n - 1].total);
+    else { local = Math.max(0, local); p = T[local].at(T[local].stageDist[Math.min(save.progress[M.FIRST + local], STAGES)]); }
+    return { M: M, p: p, w: cur, key: isle.id + ':' + cur + ':' + save.progress[cur] };
+  }
   function campBiome() {
-    var id = BIOMES[currentWorld()].id;
-    if (!sceneStatic || sceneStatic.biome !== id) sceneStatic = CampScene.buildStatic(id);
+    var pl = campPlace();
+    if (sceneStatic && sceneStatic.key === pl.key) return;
+    var M = pl.M, unlocked = [];
+    for (var li = 0; li < M.REGIONS.length; li++) if (worldUnlocked(save, M.FIRST + li)) unlocked.push(li);
+    var src = M.render(unlocked).canvas, CW = CampScene.W, CH = CampScene.H, z = CAMP_ZOOM;
+    var ox = Math.round(pl.p.x - (CampScene.HERO.x + 16) / z), oy = Math.round(pl.p.y - (CampScene.HERO.y + 31) / z); // ses pieds sur le point de la carte
+    var back = document.createElement('canvas'); back.width = CW; back.height = CH;
+    var x = back.getContext('2d');
+    x.imageSmoothingEnabled = false;
+    x.fillStyle = (M.sea && M.sea.deep && M.sea.deep[0]) || '#0f2430'; x.fillRect(0, 0, CW, CH); // au-delà du bord de la carte : la mer
+    x.drawImage(src, -ox * z, -oy * z, M.W * z, M.H * z);
+    var id = BIOMES[pl.w].id;
+    sceneStatic = { key: pl.key, biome: id, back: back, theme: CampScene.THEMES[id] || CampScene.THEMES.marais };
   }
   var DEPTH = { back: [-14, -8], mid: [-5, -3], front: [18, 10] };
   var base = { x: 0, y: 0 }, parallax = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -302,10 +321,10 @@
   function drawCamp(now) {
     if (!sceneStatic) campBiome();
     var t = now / 1000, set = HERO_IMG.face;
-    CampScene.draw(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], null, save.meditation ? HERO_IMG.zen : null);
+    CampScene.drawMap(layers, sceneStatic, t, set[Math.floor(now / (1000 / set.length)) % set.length], save.meditation ? HERO_IMG.zen : null);
     var cpet = save.pet && petById(save.pet);
     if (cpet && petLevel(save, cpet.id)) { // le compagnon, sur le ponton à côté d'elle
-      var pf = petFrames(cpet), ps = SPECIES[cpet.species].size === 32 ? 24 : 16, px = CampScene.HERO.x - ps + 2, py = CampScene.HERO.y + 31 - ps + Math.round(Math.sin(t * 2) * 0.6);
+      var pf = petFrames(cpet), ps = SPECIES[cpet.species].size === 32 ? 24 : 16, px = CampScene.HERO.x - ps - 16, py = CampScene.HERO.y + 31 - ps + Math.round(Math.sin(t * 2) * 0.6);
       layers.mid.fillStyle = 'rgba(0,0,0,0.3)'; layers.mid.fillRect(px + 2, CampScene.HERO.y + 30, ps - 4, 2);
       layers.mid.drawImage(pf[Math.floor(now / 450) % pf.length], px, py, ps, ps);
     }
@@ -439,6 +458,7 @@
     else if (state.page === 'tower') TowerPage.animate(now);
     else if (state.page === 'forge') drawForge(now);
     else if (state.page === 'titan') drawTitan(now);
+    else if (state.page === 'donjons') drawDjArts(now);
     if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); if (state.page === 'camp' && save.meditation) renderMeditation(); }
     raf = requestAnimationFrame(tick);
   }
@@ -456,7 +476,7 @@
     $('sb-eclats').textContent = (save.eclats || 0).toLocaleString('fr-FR');
     var evs = eventsNow(), sbe = $('sb-event');
     sbe.hidden = !evs.length;
-    sbe.innerHTML = evs.map(function (k) { return '<b>' + EVENTS[k].short + '</b><span>' + EVENTS[k].name + '</span>'; }).join('');
+    sbe.innerHTML = evs.map(function (k) { return '<b>' + EVENTS[k].short + '</b><span>' + EVENTS[k].name + ' · fin dans ' + durText(eventEnds(k) - Date.now()) + '</span>'; }).join('');
     sbe.title = evs.map(function (k) { return EVENTS[k].desc; }).join(' ');
     var qc = questsClaimable(save), bc = $('badge-camp');
     bc.hidden = !qc; bc.textContent = qc;
@@ -495,7 +515,8 @@
     if (!e || expeditionLeft(save) > 0) return;
     var loot = rollLoot(save, lootTier(save, e.w), e.item);
     if (loot) save.owned.push(loot);
-    e.gold = clanGold(e.gold); e.xp = clanXp(e.xp); // avec les bonus du clan
+    var ex = EXPEDITIONS.filter(function (x) { return x.id === e.id; })[0], t0 = e.start || (ex ? e.endsAt - ex.secs * 1000 : e.endsAt);
+    e.gold = clanGold(e.gold); e.xp = clanXp(e.xp, eventBoostOver('xp', t0, e.endsAt)); // avec les bonus du clan (l'XP double pour le temps passé pendant le week-end)
     save.gold += e.gold;
     var levels = gainXp(save, e.xp);
     save.expedition = null;
@@ -520,8 +541,8 @@
   function renderMeditation() {
     var box = $('meditation'), r = meditationRates(save.level), g = meditationGain(save);
     if (!g) {
-      box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu sur le nénuphar : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
-        (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer sur le nénuphar</button>');
+      box.innerHTML = '<div class="adv-kicker">MÉDITATION</div><p class="med-text">Assieds Kawazu en tailleur : il médite et gagne un peu d’XP et de lucioles, même quand tu n’es pas là (' + r.xp + ' XP et ' + r.gold + ' lucioles par heure, ' + MEDITATION_MAX_H + ' h au plus).</p>' +
+        (save.expedition ? '<p class="muted med-text">Il est en mission : il méditera à son retour.</p>' : '<button class="btn btn-ghost" id="med-start">Méditer</button>');
       return;
     }
     box.innerHTML = '<div class="adv-kicker">MÉDITATION · ' + hmm(g.ms) + (g.full ? ' (PLEIN)' : '') + '</div>' +
@@ -538,7 +559,7 @@
     quested(qd);
     if (g.xp || g.gold) {
       Sfx.play(g.levels ? 'levelup' : 'pickup');
-      notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' sur le nénuphar, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
+      notice((why || 'Méditation') + ' : ' + hmm(g.ms) + ' de méditation, +' + g.xp + ' XP et +' + g.gold + ' lucioles' + (g.levels ? '. Niveau ' + save.level + ' !' : '.'), true);
     }
     renderAll();
   }
@@ -546,10 +567,10 @@
   // Le donjon du moment : le plus haut ouvert pas encore vidé (sa prochaine salle), sinon un boss à redéfier aujourd'hui
   function dungeonHint() {
     var open = DUNGEONS.filter(function (d) { return dungeonOpen(save, d); });
-    var todo = open.filter(function (d) { return dungeonState(save, d).room < DUNGEON_ROOMS; });
-    if (todo.length) { var d = todo[todo.length - 1]; return { d: d, label: d.name + ' · salle ' + (dungeonState(save, d).room + 1) }; }
-    var daily = open.filter(function (d) { return dungeonState(save, d).day !== todayKey(); });
-    return daily.length ? { d: daily[daily.length - 1], label: daily[daily.length - 1].name + ' · boss du jour' } : null;
+    var todo = open.filter(function (d) { return dungeonState(save, d).room < DUNGEON_ROOMS && !dungeonRetryIn(save, d); });
+    if (!todo.length) return null;
+    var d = todo[todo.length - 1];
+    return { d: d, label: d.name + ' · salle ' + (dungeonState(save, d).room + 1) };
   }
   // ---------- Les quêtes du jour (quetes.js) ----------
   function questCtx() { return { online: !!(window.Cloud && Cloud.id), clan: !!save.inClan }; }
@@ -568,7 +589,7 @@
       (qs.chest ? 'Reviens demain pour trois nouvelles quêtes.' : 'Les trois quêtes faites (' + got + ' / 3) : un objet Rare ou Épique, ' + cr.eclats + ' éclats et ' + cr.gold.toLocaleString('fr-FR') + ' lucioles.') + '</small></div>' +
       (chestReady(save) ? '<button class="btn" data-quest-chest>Ouvrir</button>' : '') + '</div>';
     var evs = eventsNow(), nx = !evs.length && nextEvent();
-    html += evs.length ? '<p class="q-event is-on">' + evs.map(function (k) { return '<b>' + EVENTS[k].name + '</b> : ' + EVENTS[k].desc.replace(/^[^,]*, /, ''); }).join(' ') + '</p>'
+    html += evs.length ? '<p class="q-event is-on">' + evs.map(function (k) { return '<b>' + EVENTS[k].name + '</b> : ' + EVENTS[k].desc.replace(/^[^,]*, /, '') + ' Fin dans ' + durText(eventEnds(k) - Date.now()) + '.'; }).join(' ') + '</p>'
       : (nx ? '<p class="q-event">Prochain événement : <b>' + nx.ev.name + '</b> dans ' + (nx.ms > 86400e3 ? Math.round(nx.ms / 86400e3) + ' j' : Math.ceil(nx.ms / 3600e3) + ' h') + '.</p>' : '');
     box.innerHTML = html;
   }
@@ -792,7 +813,7 @@
       return '<button class="item pet-item' + (on ? ' is-equipped' : '') + (state.selected === 'pet:' + p.id ? ' is-selected' : '') + '" data-pet="' + p.id + '" title="' + p.name + ' : ' + bonusText(petBonus(p, petLevel(save, p.id))) + '">' +
         '<img src="' + petIcon(p) + '" alt=""><span>' + p.name + ' · niv. ' + petLevel(save, p.id) + '</span>' + (on ? '<b>AVEC TOI</b>' : '') + '</button>';
     }).join('') + '<p class="muted inv-empty">' + (own.length ? own.length + ' / ' + PETS.length + ' compagnons trouvés. ' : '<b>Aucun compagnon pour l’instant.</b> ') +
-      'Au fond de chaque donjon, le petit du boss peut te suivre : ' + Math.round(PET_CHANCE.first * 100) + ' % la première fois, ' + Math.round(PET_CHANCE.daily * 100) + ' % au boss du jour. Le retrouver le fait grandir d’un niveau.</p>';
+      'Au fond de chaque donjon, le petit du boss te suit quand tu l’as vaincu. Nourris-le d’éclats de jade pour le faire grandir.</p>';
     Array.prototype.forEach.call(document.querySelectorAll('#filters button'), function (b) { b.classList.toggle('is-active', b.dataset.filter === state.filter); });
   }
   function renderInventory() {
@@ -824,12 +845,12 @@
 
   // La barre de la vente en masse : cocher par rareté, le total, et vendre (deux clics)
   function renderSellBar(sellable) {
-    var n = state.sellSel.length, total = state.sellSel.reduce(function (s, id) { return s + sellPrice(id); }, 0), shards = state.sellSel.reduce(function (s, id) { return s + salvageValue(id); }, 0);
+    var n = state.sellSel.length, total = state.sellSel.reduce(function (s, id) { return s + sellPrice(id); }, 0), shards = state.sellSel.reduce(function (s, id) { return s + salvageValue(id); }, 0), sgold = state.sellSel.reduce(function (s, id) { return s + salvageGold(id); }, 0);
     var pick = function (key, label) { return '<button class="tab" data-sell-pick="' + key + '">' + label + '</button>'; };
     $('sell-bar').innerHTML = '<div class="sell-picks">' + pick('commun', 'Communs') + pick('rare', 'Rares') + pick('tout', 'Tout (' + sellable.length + ')') + pick('aucun', 'Aucun') + '</div>' +
       '<div class="sell-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>' + total + '</b> lucioles</span>' +
       '<span class="sell-go"><button class="btn' + (state.sellArmed ? ' is-armed' : '') + '" data-sell-go' + (n ? '' : ' disabled') + '>' + (state.sellArmed ? 'Confirmer la vente' : 'Vendre') + '</button>' +
-      '<button class="btn btn-ghost' + (state.salvageArmed ? ' is-armed' : '') + '" data-salvage-go' + (n ? '' : ' disabled') + ' title="Recycler à la forge : des éclats de jade, pour renforcer tes objets">' + (state.salvageArmed ? 'Confirmer : recycler' : 'Recycler · ' + shards + ' éclats') + '</button></span></div>';
+      '<button class="btn btn-ghost' + (state.salvageArmed ? ' is-armed' : '') + '" data-salvage-go' + (n ? '' : ' disabled') + ' title="Recycler à la forge : des éclats de jade, pour renforcer tes objets">' + (state.salvageArmed ? 'Confirmer : recycler' : 'Recycler · ' + salvageText(shards, sgold)) + '</button></span></div>';
   }
   function sellSelected() {
     var sold = state.sellSel.filter(function (id) { return owns(id) && save.equip[ITEMS[id].slot] !== id; });
@@ -856,8 +877,8 @@
     $('details').innerHTML = '<div class="det-head pet-head"><img class="px" src="' + petIcon(p) + '" alt=""><div><h3>' + p.name + '</h3><span class="muted">Compagnon · niveau ' + lv + ' / ' + PET_MAX_LEVEL + '</span></div></div>' +
       '<p>' + p.desc + '</p><ul class="pet-fx"><li><b>Bonus</b><span>' + bonusText(petBonus(p, lv)) + (lv < PET_MAX_LEVEL ? ' <small>(au niveau ' + (lv + 1) + ' : ' + bonusText(petBonus(p, lv + 1)) + ')</small>' : '') + '</span></li>' +
       '<li><b>En combat</b><span>tous les ' + PET_EVERY + ' tours, il bondit sur l’ennemi : ' + Math.round(petPower(lv) * 100) + ' % de tes dégâts (pas en duel ni à la guerre)</span></li></ul>' +
-      (lv < PET_MAX_LEVEL ? '<p class="muted">Le retrouver au fond de ' + p.d.name + ' le fait grandir d’un niveau.</p>' : '<p class="muted">Il est au plus haut : le retrouver encore donne des éclats.</p>') +
-      '<div class="modal-actions">' + (save.pet === p.id ? '<button class="btn btn-ghost" data-pet-off>Le laisser au camp</button>' : '<button class="btn" data-pet-on="' + p.id + '">L’emmener</button>') + '</div>';
+      (lv < PET_MAX_LEVEL ? '<p class="muted">Nourris-le d’éclats de jade pour qu’il grandisse d’un niveau.</p>' : '<p class="muted">Il est au plus haut.</p>') +
+      '<div class="modal-actions">' + (lv < PET_MAX_LEVEL ? '<button class="btn" data-pet-feed="' + p.id + '"' + ((save.eclats || 0) < petFeedCost(save, p) ? ' disabled' : '') + '>Nourrir · ' + petFeedCost(save, p).toLocaleString('fr-FR') + ' éclats</button>' : '') + (save.pet === p.id ? '<button class="btn btn-ghost" data-pet-off>Le laisser au camp</button>' : '<button class="btn" data-pet-on="' + p.id + '">L’emmener</button>') + '</div>';
   }
   function renderDetails() {
     if (state.filter === 'pet') { renderPetDetails(); return; }
@@ -884,10 +905,20 @@
       '<div class="det2-head"><img class="px" src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span><b>' + (it.reward ? 'Trésor' : rar.name) + '</b> · ' + slotName + (equipped ? ' · <b class="on">équipé</b>' : '') + '</span>' + (chips ? '<span class="det2-chips">' + chips + '</span>' : '') + '</div></div>' +
       '<ul class="det2-stats">' + rows + '</ul>' +
       '<div class="det2-actions">' + main + (forgeable(id) ? '<button class="btn btn-ghost" data-forge-go="' + id + '">Forger' + (it.forge ? ' (+' + it.forge + ')' : '') + '</button>' : '') +
-      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre · ' + sellPrice(id).toLocaleString('fr-FR') + '</button><button id="salvage-btn" class="btn btn-ghost">Recycler · +' + salvageValue(id) + ' éclats</button>') + '</div>' +
+      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre · ' + sellPrice(id).toLocaleString('fr-FR') + '</button><button id="salvage-btn" class="btn btn-ghost">Recycler · ' + salvageText(salvageValue(id), salvageGold(id)) + '</button>') + '</div>' +
+      (equipped ? '' : wornBlock(it.slot)) +
       '<details class="det2-more"><summary>En savoir plus</summary><p>' + it.desc + '</p>' + (it.kind ? '<p>Attaque de base : <b>' + baseSkill(it).name + '</b> — ' + baseSkill(it).desc + '</p>' : '') + setBlock(id) + '</details></div>';
   }
 
+  // l'objet porté à la même place, pour comparer d'un coup d'œil
+  function wornBlock(slot) {
+    var cur = save.equip[slot], w = cur && ITEMS[cur];
+    if (!w) return '<div class="det2-cmp"><span class="det2-cmp-k">TU PORTES</span><p class="muted">Rien à cette place.</p></div>';
+    var stats = STATS.map(function (s) { return s.id; }).filter(function (k) { return w.stats[k]; });
+    return '<div class="det2-cmp" style="--rar:' + RARITIES[rarityOf(cur)].color + '"><span class="det2-cmp-k">TU PORTES</span>' +
+      '<div class="det2-cmp-it"><img class="px" src="' + itemIconUrl(cur) + '" alt=""><div><b>' + w.name + '</b><small>' + (w.reward ? 'Trésor' : RARITIES[rarityOf(cur)].name) + (w.forge ? ' · forge +' + w.forge : '') + '</small></div></div>' +
+      '<ul class="det2-stats det2-cmp-stats">' + stats.map(function (k) { return '<li><span>' + statName(k) + '</span><b class="' + (w.stats[k] < 0 ? 'st-down' : '') + '">' + fmt(w.stats[k]) + '</b><i></i></li>'; }).join('') + '</ul></div>';
+  }
   // « katana (corps à corps) », « shuriken (distance) »
   function weaponLabel(it) { return WEAPON_TYPES[weaponType(it)].name.toLowerCase() + ' (' + (it.kind === 'kunai' ? 'distance' : 'corps à corps') + ')'; }
 
@@ -942,13 +973,13 @@
     var worn = SLOTS.map(function (s) { return save.equip[s.id]; }), ids = save.owned.filter(function (id) { return ITEMS[id] && worn.indexOf(id) < 0; });
     ids.sort(function (a, b) { return ITEM_RARITIES.indexOf(rarityOf(a)) - ITEM_RARITIES.indexOf(rarityOf(b)) || tierOf(a) - tierOf(b); });
     forge.pick = forge.pick.filter(function (id) { return ids.indexOf(id) >= 0; });
-    var total = forge.pick.reduce(function (s, id) { return s + salvageValue(id); }, 0), n = forge.pick.length;
-    $('fg-recycle').innerHTML = '<h2>RECYCLER</h2><p class="muted">Les objets qu’on ne porte pas deviennent des éclats de jade.</p>' +
+    var total = forge.pick.reduce(function (s, id) { return s + salvageValue(id); }, 0), gold = forge.pick.reduce(function (s, id) { return s + salvageGold(id); }, 0), n = forge.pick.length;
+    $('fg-recycle').innerHTML = '<h2>RECYCLER</h2><p class="muted">Les objets qu’on ne porte pas deviennent des éclats de jade. Un objet renforcé rend en plus la moitié de ce qu’on a mis dans sa forge.</p>' +
       '<div class="fg-picks">' + [['commun', 'Communs'], ['rare', 'Rares'], ['epique', 'Épiques'], ['tout', 'Tout'], ['aucun', 'Aucun']].map(function (p) { return '<button class="tab" data-recycle-pick="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div>' +
       (ids.length ? '<div class="fg-grid">' + ids.map(function (id) {
-        return '<button class="fg-cell' + (forge.pick.indexOf(id) >= 0 ? ' is-on' : '') + '" style="' + rarStyle(id) + '" data-recycle="' + id + '" title="' + ITEMS[id].name + ' · +' + salvageValue(id) + ' éclats"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + (forgeOf(id) ? '<b>+' + forgeOf(id) + '</b>' : '') + '</button>';
+        return '<button class="fg-cell' + (forge.pick.indexOf(id) >= 0 ? ' is-on' : '') + '" style="' + rarStyle(id) + '" data-recycle="' + id + '" title="' + ITEMS[id].name + ' · ' + salvageText(salvageValue(id), salvageGold(id)) + '"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + (forgeOf(id) ? '<b>+' + forgeOf(id) + '</b>' : '') + '</button>';
       }).join('') + '</div>' : '<p class="muted">Rien à recycler : tout ce que tu as est porté.</p>') +
-      '<div class="fg-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>+' + total.toLocaleString('fr-FR') + '</b> éclats</span>' +
+      '<div class="fg-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>' + salvageText(total, gold) + '</b></span>' +
       '<button class="btn' + (forge.armed ? ' is-armed' : '') + '" data-recycle-go' + (n ? '' : ' disabled') + '>' + (forge.armed ? 'Confirmer' : 'Recycler') + '</button></div>';
   }
   // l'atelier : les murs de pierre, le four, l'enclume (dessiné une fois), puis le feu et les étincelles
@@ -2600,6 +2631,20 @@
     inp.value = '';
     clanApi('POST', '/message', { texte: texte }).then(function (r) { clans.data.clan.chat = r.chat.slice(-40); updateChat(); Sfx.play('drip'); }, function (err) { inp.value = texte; notice(err.message); });
   });
+  // toutes les 30 s : la bannière du week-end (son compte à rebours, et elle s'éteint à minuit dimanche) ; le donjon
+  // qui nous a battus redevient possible au bout d'une heure
+  var evKey = null, djWaitKey = null;
+  setInterval(function () {
+    if (!save || $('app').hidden) return;
+    var k = eventsNow().join();
+    renderSidebar();
+    if (evKey !== null && k !== evKey && state.page === 'camp') renderQuests();
+    evKey = k;
+    var wk = DUNGEONS.filter(function (d) { return dungeonRetryIn(save, d) > 0; }).map(function (d) { return d.id; }).join();
+    if (state.page === 'donjons') { if (djWaitKey !== null && wk !== djWaitKey) renderDonjons(); else renderDjSide(); }
+    if (djWaitKey !== null && wk !== djWaitKey) $('badge-donjons').hidden = !dungeonHint();
+    djWaitKey = wk;
+  }, 30000);
   // le chat se met à jour tout seul sur la page des clans (sans effacer ce qu'on est en train d'écrire)
   setInterval(function () {
     if (state.page !== 'clans' || !Cloud.id || !clans.data || !clans.data.clan || $('app').hidden) return;
@@ -2914,10 +2959,10 @@
     for (var r = 1; r <= DUNGEON_ROOMS; r++) pips += '<i class="' + (r <= st.room ? 'on' : (r === st.room + 1 && open ? 'next' : '')) + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"></i>';
     var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; }).length, pet = petById(d.id), pl = pet ? petLevel(save, pet.id) : 0;
     return '<article class="dj-card2' + (open ? '' : ' locked') + (done ? ' done' : '') + (d.id === dj.sel ? ' is-active' : '') + '" data-dj-card="' + d.id + '">' +
-      '<div class="dj-c-art" style="background-image:url(' + DungeonArt.scene(d, open) + ')"><div class="dj-c-top"><span>DONJON ' + (d.n + 1) + '</span><span>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : '') + '</span></div></div>' +
+      '<div class="dj-c-art"><canvas class="dj-c-cv" width="' + DungeonArt.W + '" height="' + DungeonArt.H + '" data-dj-art="' + d.id + '"' + (open ? ' data-lit="1"' : '') + '></canvas><div class="dj-c-top"><span>DONJON ' + (d.n + 1) + '</span><span>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : '') + '</span></div></div>' +
       '<div class="dj-c-body"><h2>' + (open ? d.name : '???') + '</h2>' +
       (open ? '<p>' + d.desc + '</p><div class="dj-c-rooms" title="' + st.room + ' / ' + DUNGEON_ROOMS + ' salles">' + pips + '</div>' +
-        '<div class="dj-c-meta"><span>' + (done ? '<b class="ok">VIDÉ</b>' + (st.day === todayKey() ? ' · boss vaincu aujourd’hui' : ' · boss du jour à redéfier') : st.room + ' / ' + DUNGEON_ROOMS + ' salles') + '</span>' +
+        '<div class="dj-c-meta"><span>' + (done ? '<b class="ok">NETTOYÉ</b> · tous ses monstres sont tombés' : st.room + ' / ' + DUNGEON_ROOMS + ' salles' + (dungeonRetryIn(save, d) ? ' · <b class="wait">retente dans ' + durText(dungeonRetryIn(save, d)) + '</b>' : '')) + '</span>' +
         '<span><b class="dj-unique">' + uniq + '</b> Unique' + (uniq > 1 ? 's' : '') + ' · ' + setName(d) + '</span>' +
         '<span>Compagnon : ' + (pl ? '<b>' + pet.name + '</b> niv. ' + pl : 'pas encore') + '</span></div>'
         : '<p class="dj-c-lock">🔒 ' + dungeonLock(save, d) + '</p>') + '</div></article>';
@@ -2929,6 +2974,18 @@
       '<button class="dj-arrow next" data-dj-step="1" aria-label="Donjon suivant">▶</button>';
     $('dj-dots').innerHTML = vis.map(function (d) { return '<button class="dj-dot' + (dungeonCleared(save, d) ? ' done' : '') + (dungeonOpen(save, d) ? '' : ' locked') + '" data-dj="' + d.id + '" aria-label="' + (dungeonOpen(save, d) ? d.name : 'Donjon fermé') + '"></button>'; }).join('');
     selectDungeon(dj.sel, true);
+    djArtLast = 0; drawDjArts(performance.now(), true);
+  }
+  // les cartes s'animent : celle qu'on regarde et ses voisines, une vingtaine d'images par seconde (les autres une fois)
+  var djArtLast = 0;
+  function drawDjArts(now, all) {
+    if (!all && now - djArtLast < 50) return;
+    djArtLast = now;
+    var cards = document.querySelectorAll('#dj-track canvas[data-dj-art]'), vis = djVisible(), sel = vis.indexOf(dungeonById(dj.sel));
+    Array.prototype.forEach.call(cards, function (cv, i) {
+      if (!all && Math.abs(i - sel) > 1) return;
+      DungeonArt.draw(cv.getContext('2d'), dungeonById(cv.dataset.djArt), !!cv.dataset.lit, now / 1000);
+    });
   }
   // choisir un donjon : la piste glisse jusqu'à sa carte, et le panneau montre son monstre
   function selectDungeon(id, instant) {
@@ -2957,19 +3014,28 @@
       box.innerHTML = '<div class="dj-s-locked"><img class="px" src="' + DungeonArt.gate(d, false) + '" alt=""><h2>DONJON FERMÉ</h2><p>' + dungeonLock(save, d) + '.</p><p class="muted">Ses monstres et ses Uniques n’existent nulle part ailleurs.</p></div>';
       return;
     }
-    var st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, next = Math.min(DUNGEON_ROOMS, st.room + 1), daily = done && st.day !== todayKey();
-    var foe = dungeonFoe(d, next), me = myFight(), rw = dungeonRewards(d, next, done), gap = xpGapMult(save.level, foe.level), boss = next === DUNGEON_ROOMS;
+    var st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, next = Math.min(DUNGEON_ROOMS, st.room + 1), wait = dungeonRetryIn(save, d);
+    if (done) { // nettoyé : son boss ne revient pas
+      var uq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; }).length, pt = petById(d.id), plv = pt ? petLevel(save, pt.id) : 0;
+      box.innerHTML = '<span class="dj-s-kicker">DONJON NETTOYÉ</span><div class="dj-s-foe done"><img class="px" src="' + monsterPortrait(dungeonFoe(d, DUNGEON_ROOMS)) + '" alt=""></div>' +
+        '<h2 class="dj-s-name">' + d.boss.name + '</h2><span class="dj-s-lvl">est tombé, et tous ses monstres avec lui.</span>' +
+        '<div class="dj-s-rew"><span class="dj-unique"><b>' + uq + '</b> Unique' + (uq > 1 ? 's' : '') + ' de ' + setName(d) + '</span>' + (plv ? '<span>Compagnon : <b>' + pt.name + '</b> niv. ' + plv + '</span>' : '') + '</div>' +
+        (DUNGEONS[d.n + 1] && djVisible().indexOf(DUNGEONS[d.n + 1]) >= 0 ? '<button class="btn dj-go" data-dj-step="1">Donjon suivant ▶</button>' : '<p class="dj-s-lvl dj-go">Le prochain donjon s’ouvrira plus loin dans l’aventure.</p>');
+      return;
+    }
+    var foe = dungeonFoe(d, next), me = myFight(), rw = dungeonRewards(d, next), gap = xpGapMult(save.level, foe.level), boss = next === DUNGEON_ROOMS;
     var row = function (label, his, mine, f) { var worse = his > mine * 1.08, better = his < mine * 0.92; return '<li><span>' + label + '</span><b class="' + (worse ? 'down' : (better ? 'up' : '')) + '">' + f(his) + '</b><small>toi : ' + f(mine) + '</small></li>'; };
     var n = function (v) { return Math.round(v).toLocaleString('fr-FR'); }, p = function (v) { return Math.round(v * 100) + ' %'; };
-    box.innerHTML = '<span class="dj-s-kicker">' + (done ? 'LE BOSS, À NOUVEAU' : 'SALLE ' + next + ' / ' + DUNGEON_ROOMS + (boss ? ' · BOSS' : (next === 5 ? ' · GARDIEN' : ''))) + '</span>' +
+    box.innerHTML = '<span class="dj-s-kicker">' + 'SALLE ' + next + ' / ' + DUNGEON_ROOMS + (boss ? ' · BOSS' : (next === 5 ? ' · GARDIEN' : '')) + '</span>' +
       '<div class="dj-s-foe' + (boss ? ' boss' : '') + '"><img class="px" src="' + monsterPortrait(foe) + '" alt=""></div>' +
       '<h2 class="dj-s-name">' + foe.name + '</h2><span class="dj-s-lvl">Niveau ' + foe.level + (foe.level > save.level ? ' · <b class="down">+' + (foe.level - save.level) + '</b>' : '') + '</span>' +
       '<ul class="dj-s-stats">' + row('PV', foe.maxHp, me.maxHp, n) + row('Dégâts', foe.dmg, me.dmg, n) + row('Esquive', foe.dodge, me.dodge, p) + '</ul>' +
       '<div class="dj-s-rew"><span><b>' + n(rw.xp * gap) + '</b> XP' + (gap < 1 ? ' <small>(réduite)</small>' : '') + '</span><span><b>' + n(rw.gold) + '</b> lucioles</span>' +
-      '<span><b>' + (rw.item >= 1 ? '100 %' : p(rw.item)) + '</b> objet</span><span class="dj-unique"><b>' + p(rw.unique) + '</b> Unique</span>' +
-      (boss ? '<span><b>' + p(done ? PET_CHANCE.daily : PET_CHANCE.first) + '</b> compagnon</span>' : '') + '</div>' +
-      (done ? (daily ? '<button class="btn dj-go" data-dj-daily>Redéfier le boss ▶</button>' : '<button class="btn dj-go" disabled>Le boss se repose : reviens demain</button>')
-        : '<button class="btn dj-go" data-dj-fight="' + next + '">' + (boss ? 'Affronter le boss ▶' : 'Entrer dans la salle ' + next + ' ▶') + '</button>');
+      '<span><b>' + (rw.item >= 1 ? '100 %' : p(rw.item)) + '</b> objet</span><span class="dj-unique"><b>' + (rw.unique >= 1 ? '100 %' : p(rw.unique)) + '</b> Unique</span>' +
+      (boss ? '<span><b>' + p(PET_CHANCE.first) + '</b> compagnon</span>' : '') + '</div>' +
+      (wait ? '<button class="btn dj-go" disabled>Il t’a battu : retente dans ' + durText(wait) + '</button>'
+        : '<button class="btn dj-go" data-dj-fight="' + next + '">' + (boss ? 'Affronter le boss ▶' : 'Entrer dans la salle ' + next + ' ▶') + '</button>') +
+      '<p class="dj-s-note">Un seul passage : un monstre vaincu ne revient pas. Battu, tu le retentes une heure plus tard.</p>';
   }
   // faire glisser les cartes (souris ou doigt), et les flèches du clavier
   (function () {
@@ -3002,25 +3068,28 @@
   }
   function settleDonjon(d, r, daily, win) {
     var st = dungeonState(save, d);
-    if (!win) return '<p>Le donjon te recrache. Change d’équipement ou de sorts, monte un peu… et reviens : la salle ' + r + ' t’attend.</p>';
-    if (!daily && r <= st.room) return '<p>Salle déjà vidée : pas de nouvelle récompense.</p>';
-    var rw = dungeonRewards(d, r, daily), foe = dungeonFoe(d, r), gap = xpGapMult(save.level, foe.level);
+    if (!win) {
+      save.dungeons[d.id] = { room: st.room, day: '', lost: Date.now() }; persist();
+      return '<p>Le donjon te recrache. ' + dungeonFoe(d, r).name + ' se laisse retenter <b>dans une heure</b> : change d’équipement ou de sorts d’ici là.</p>';
+    }
+    if (r <= st.room) return '<p>Salle déjà nettoyée : pas de nouvelle récompense.</p>';
+    var rw = dungeonRewards(d, r), foe = dungeonFoe(d, r), gap = xpGapMult(save.level, foe.level);
     var xp = clanXp(rw.xp * gap), gold = clanGold(rw.gold), levels = gainXp(save, xp);
     save.gold += gold;
     var loot = Math.random() < rw.item ? rollLoot(save, dungeonTier(d), 1, rw.luck) : null;
     if (loot) save.owned.push(loot);
     var uq = Math.random() < rw.unique * (1 + playerMutBonus.loot) ? rollUnique(save, d) : null;
     if (uq) save.owned.push(uq);
-    save.dungeons[d.id] = { room: daily ? st.room : r, day: daily ? todayKey() : st.day };
-    var pet = r === DUNGEON_ROOMS ? petDrop(save, d, daily) : null;
+    save.dungeons[d.id] = { room: r, day: '', lost: 0 };
+    var pet = r === DUNGEON_ROOMS ? petDrop(save, d) : null;
     var qd = track(save, 'room').concat(r === DUNGEON_ROOMS || r === 5 ? track(save, 'boss') : [], trackLoot(save, [loot, uq]));
     setPlayer(save);
     persist();
     Sfx.play(uq ? 'glint' : (levels ? 'levelup' : 'pickup'));
     var line = function (id, label) { return '<p class="bt-loot" style="' + rarStyle(id) + '"><img src="' + itemIconUrl(id) + '" alt=""> ' + label + ' : <b>' + ITEMS[id].name + '</b> <em>' + RARITIES[rarityOf(id)].name + '</em></p>'; };
-    var nd = r === DUNGEON_ROOMS && !daily ? DUNGEONS[d.n + 1] : null;
+    var nd = r === DUNGEON_ROOMS ? DUNGEONS[d.n + 1] : null;
     return (nd ? '<p class="bt-unlock">' + (dungeonOpen(save, nd) ? 'Le donjon suivant s’ouvre : <b>' + nd.name + '</b> !' : 'Le donjon suivant, <b>' + nd.name + '</b>, s’ouvrira au niveau ' + nd.level + '.') + '</p>' : '') +
-      '<p>' + (r === DUNGEON_ROOMS ? (daily ? 'Le boss tombe encore !' : '<b>Le donjon est vidé !</b> Son boss se redéfie une fois par jour.') : 'Salle ' + r + ' vidée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+      '<p>' + (r === DUNGEON_ROOMS ? '<b>Le donjon est nettoyé !</b> Son boss ne reviendra pas.' : 'Salle ' + r + ' nettoyée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
       (gap < 1 ? '<p class="bt-gap">XP réduite à ' + Math.round(gap * 100) + ' % : tu es bien plus fort que ce donjon.</p>' : '') +
       (loot ? line(loot, 'Butin') : '') + (uq ? line(uq, 'OBJET UNIQUE') : '') +
       (pet ? '<p class="bt-loot bt-pet"><img src="' + petIcon(pet.pet) + '" alt=""> ' + (pet.max ? pet.pet.name + ' est déjà au plus haut : <b>+' + pet.eclats + ' éclats</b>.' : (pet.up ? '<b>' + pet.pet.name + '</b> grandit : niveau ' + pet.lvl + ' !' : 'Le petit du boss te suit : <b>' + pet.pet.name + '</b> devient ton compagnon !' + (save.pet === pet.pet.id ? ' Il est déjà à tes côtés.' : ' (page Personnage, case Compagnon)'))) + '</p>' : '') + questLine(qd);
@@ -3259,8 +3328,8 @@
     if (t.dataset.djGo) dj.sel = t.dataset.djGo; // depuis le camp : ce donjon-là (la page s'ouvre ensuite)
     if (t.dataset.dj) { Sfx.play('page'); selectDungeon(t.dataset.dj); return; }
     if (t.dataset.djStep) { djStep(+t.dataset.djStep); return; }
-    if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
-    if (t.hasAttribute('data-dj-daily')) { var dd2 = dungeonById(dj.sel), st2 = dd2 && dungeonState(save, dd2); if (st2 && st2.room >= DUNGEON_ROOMS && st2.day !== todayKey()) { Sfx.play('click'); startFight(donjonFight(dd2, DUNGEON_ROOMS, true)); } return; }
+    if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1 && !dungeonRetryIn(save, djd)) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
+    if (t.dataset.petFeed) { var fp = petById(t.dataset.petFeed); if (fp && feedPet(save, fp)) { persist(); Sfx.play('levelup'); notice(fp.name + ' grandit : niveau ' + petLevel(save, fp.id) + ' !'); setPlayer(save); renderAll(); } return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
     if (t.dataset.bookGo) { turnPage(+t.dataset.bookGo); return; }
     if (t.dataset.bookStep) { turnPage(Math.max(0, Math.min(ALBUM_CHAPTERS.length, album.spread + +t.dataset.bookStep))); return; }
@@ -3434,7 +3503,7 @@
       forge.pick = []; forge.armed = false;
       var sq3 = track(save, 'recycle', sv3.n);
       persist(); Sfx.play('pickup'); forgeSparks(true); renderAll(); renderForge();
-      notice(sv3.n + ' objet' + (sv3.n > 1 ? 's' : '') + ' recyclé' + (sv3.n > 1 ? 's' : '') + ' : +' + sv3.eclats.toLocaleString('fr-FR') + ' éclats de jade.');
+      notice(sv3.n + ' objet' + (sv3.n > 1 ? 's' : '') + ' recyclé' + (sv3.n > 1 ? 's' : '') + ' : ' + salvageText(sv3.eclats, sv3.gold) + '.');
       quested(sq3);
       return;
     }
@@ -3444,7 +3513,7 @@
       state.selected = null;
       var sq = track(save, 'recycle', sv.n);
       persist(); Sfx.play('pickup'); renderAll();
-      notice('Recyclé à la forge : +' + sv.eclats + ' éclats de jade.');
+      notice('Recyclé à la forge : ' + salvageText(sv.eclats, sv.gold) + '.');
       quested(sq);
       return;
     }
@@ -3455,7 +3524,7 @@
       state.salvageArmed = false; state.sellSel = []; state.sellMode = false; state.selected = null;
       var sq2 = track(save, 'recycle', sv2.n);
       persist(); Sfx.play('pickup'); renderAll();
-      notice(sv2.n + ' objet' + (sv2.n > 1 ? 's' : '') + ' recyclé' + (sv2.n > 1 ? 's' : '') + ' : +' + sv2.eclats + ' éclats de jade.');
+      notice(sv2.n + ' objet' + (sv2.n > 1 ? 's' : '') + ' recyclé' + (sv2.n > 1 ? 's' : '') + ' : ' + salvageText(sv2.eclats, sv2.gold) + '.');
       quested(sq2);
       return;
     }

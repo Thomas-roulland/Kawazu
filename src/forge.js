@@ -11,23 +11,36 @@ var SALVAGE_RAR = { commun: 1, rare: 2.5, epique: 6, unique: 15, legendaire: 15 
 function eclatUnit(tier) { return 1 + 0.5 * Math.max(1, tier); }
 function forgeOf(id) { var it = ITEMS[id]; return (it && it.forge) || 0; }
 function forgeable(id) { return String(id).indexOf('#') > 0 && !!ITEMS[id] && !!ITEMS[id].raw; } // un exemplaire trouvé (pas un trésor fixe)
-function forgeCost(id) {
-  var k = forgeOf(id), u = eclatUnit(tierOf(id));
+function forgeCost(id, at) {
+  var k = at === undefined ? forgeOf(id) : at, u = eclatUnit(tierOf(id));
   return { eclats: Math.round(u * 1.5 * Math.pow(k + 1, 1.6)), gold: Math.round((20 + 6 * tierOf(id) * tierOf(id)) * RARITIES[rarityOf(id)].price * 0.3 * (k + 1)), chance: FORGE_CHANCE[k] || 0.3 };
 }
+// ce qu'on a mis dans sa forge : noté à chaque essai (réussi ou raté) ; pour un objet forgé avant, ce qu'ont coûté ses niveaux
+function forgeSpent(id) {
+  var it = ITEMS[id];
+  if (!it) return { e: 0, g: 0 };
+  if (it.investi) return it.investi;
+  var o = { e: 0, g: 0 };
+  for (var k = 0; k < forgeOf(id); k++) { var c = forgeCost(id, k); o.e += c.eclats; o.g += c.gold; }
+  return o;
+}
+// recycler : des éclats selon sa rareté et son rang, plus la moitié de ce qu'on a mis dans sa forge (éclats et lucioles)
 function salvageValue(id) {
   var it = ITEMS[id];
   if (!it) return 0;
-  var u = eclatUnit(tierOf(id)), k = forgeOf(id), r = it.reward ? 4 : (SALVAGE_RAR[rarityOf(id)] || 1), put = 0;
-  for (var i = 0; i < k; i++) put += 1.5 * Math.pow(i + 1, 1.6);
-  return Math.max(1, Math.round(u * r + u * put / 2)); // (la moitié des éclats mis dans sa forge reviennent)
+  var u = eclatUnit(tierOf(id)), r = it.reward ? 4 : (SALVAGE_RAR[rarityOf(id)] || 1);
+  return Math.max(1, Math.round(u * r + forgeSpent(id).e / 2));
 }
+function salvageGold(id) { return ITEMS[id] ? Math.round(forgeSpent(id).g / 2) : 0; }
+function salvageText(e, g) { return '+' + e.toLocaleString('fr-FR') + ' éclats' + (g ? ' · +' + g.toLocaleString('fr-FR') + ' lucioles' : ''); }
 // Tente de renforcer un exemplaire d'un niveau ; renvoie null (impossible), ou { ok: réussi ou raté, level }
 function forgeItem(save, id) {
   if (!forgeable(id) || forgeOf(id) >= FORGE_MAX || !save.items[id]) return null;
   var c = forgeCost(id);
   if ((save.eclats || 0) < c.eclats || save.gold < c.gold) return null;
   save.eclats -= c.eclats; save.gold -= c.gold;
+  var spent = forgeSpent(id), inv = { e: spent.e + c.eclats, g: spent.g + c.gold };
+  save.items[id].investi = inv; ITEMS[id].investi = inv;
   if (Math.random() >= c.chance) return { ok: false, level: forgeOf(id) };
   save.items[id].forge = forgeOf(id) + 1;
   registerItem(id, save.items[id]);
@@ -35,14 +48,14 @@ function forgeItem(save, id) {
 }
 // Recycle des objets (jamais ceux qu'on porte) ; renvoie les éclats gagnés et combien d'objets
 function salvageItems(save, ids) {
-  var worn = SLOTS.map(function (s) { return save.equip[s.id]; }), n = 0, total = 0;
+  var worn = SLOTS.map(function (s) { return save.equip[s.id]; }), n = 0, total = 0, gold = 0;
   ids.forEach(function (id) {
     if (save.owned.indexOf(id) < 0 || worn.indexOf(id) >= 0) return;
-    total += salvageValue(id); n++;
+    total += salvageValue(id); gold += salvageGold(id); n++;
     save.owned.splice(save.owned.indexOf(id), 1);
   });
-  save.eclats = (save.eclats || 0) + total;
-  return { eclats: total, n: n };
+  save.eclats = (save.eclats || 0) + total; save.gold += gold;
+  return { eclats: total, gold: gold, n: n };
 }
 
 // ---------- Les Panoplies d'Uniques ----------
@@ -82,7 +95,7 @@ function bonusText(b) { return Object.keys(b).filter(function (k) { return b[k];
 // jour). Un compagnon donne un petit bonus, et en combat (sauf en duel et à la guerre), il attaque tous les PET_EVERY
 // tours de la grenouille. Le retrouver une nouvelle fois le fait grandir d'un niveau, jusqu'à PET_MAX_LEVEL.
 var PET_EVERY = 2;
-var PET_CHANCE = { first: 0.5, daily: 0.2 };
+var PET_CHANCE = { first: 1 }; // le boss vaincu, son petit suit la grenouille
 var PET_KINDS = [
   { id: 'vie', key: 'hp', base: 0.04 }, { id: 'force', key: 'dmg', base: 0.04 }, { id: 'flair', key: 'loot', base: 0.08 },
   { id: 'savoir', key: 'xp', base: 0.06 }, { id: 'bourse', key: 'gold', base: 0.08 }
@@ -96,15 +109,23 @@ function petLevel(save, id) { return (save.pets && save.pets[id]) || 0; }
 function petBonus(pet, lvl) { var o = {}; o[pet.kind.key] = pet.kind.base * (1 + 0.15 * (Math.max(1, lvl) - 1)); return o; }
 function petPower(lvl) { return 0.3 + 0.03 * (Math.max(1, lvl) - 1); } // la part des dégâts de la grenouille à chaque attaque
 // Au fond d'un donjon : le petit du boss suit peut-être la grenouille ; renvoie { pet, lvl, up } ou null
-function petDrop(save, d, daily) {
+function petDrop(save, d) {
   var pet = petById(d.id);
-  if (!pet || Math.random() > (daily ? PET_CHANCE.daily : PET_CHANCE.first)) return null;
+  if (!pet || Math.random() > PET_CHANCE.first) return null;
   save.pets = save.pets || {};
   var had = petLevel(save, pet.id);
   if (had >= PET_MAX_LEVEL) { var e = Math.round(eclatUnit(dungeonTier(d)) * 10); save.eclats = (save.eclats || 0) + e; return { pet: pet, lvl: had, max: true, eclats: e }; }
   save.pets[pet.id] = had + 1;
   if (!save.pet) save.pet = pet.id; // le premier compagnon suit la grenouille tout de suite
   return { pet: pet, lvl: had + 1, up: had > 0 };
+}
+// Nourrir un compagnon d'éclats de jade le fait grandir d'un niveau (de plus en plus cher)
+function petFeedCost(save, pet) { var lv = petLevel(save, pet.id); return lv && lv < PET_MAX_LEVEL ? Math.round(eclatUnit(dungeonTier(pet.d)) * 6 * lv) : 0; }
+function feedPet(save, pet) {
+  var c = petFeedCost(save, pet);
+  if (!c || (save.eclats || 0) < c) return false;
+  save.eclats -= c; save.pets[pet.id] = petLevel(save, pet.id) + 1;
+  return true;
 }
 // Ses images, tournées vers la droite (il se bat aux côtés de la grenouille)
 var petImgCache = {};

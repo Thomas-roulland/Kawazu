@@ -35,7 +35,8 @@ var clanBonus = { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 };
 // événements de la semaine, le week-end double XP : voir eventMult dans quetes.js)
 var playerGearBonus = { xp: 0, gold: 0, loot: 0 };
 function eventBoost(key) { return typeof eventMult === 'function' ? eventMult(key) : 1; }
-function clanXp(n) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp + playerGearBonus.xp) * eventBoost('xp')); }
+function clanXp(n, ev) { return Math.round(n * (1 + clanBonus.xp + playerMutBonus.xp + playerGearBonus.xp) * (ev === undefined ? eventBoost('xp') : ev)); }
+function eventBoostOver(key, t0, t1) { return typeof eventMultOver === 'function' ? eventMultOver(key, t0, t1) : 1; }
 function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMutBonus.gold + playerGearBonus.gold)); }
 
 // ---------- Le cycle (NG+) : une fois le dernier boss du monde vaincu, le monde recommence, plus fort ----------
@@ -1008,6 +1009,7 @@ function registerItem(id, inst) {
   Object.keys(stats).forEach(function (k) { forged[k] = stats[k] > 0 ? Math.round(stats[k] * (1 + FORGE_STEP * forge)) : stats[k]; });
   ITEMS[id] = Object.assign({}, b, { stats: forged, raw: stats, forge: forge, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? nm + ' +' + plus : nm });
   if (inst.from) ITEMS[id].dungeon = String(inst.from).slice(0, 8);
+  if (inst.investi && typeof inst.investi === 'object') ITEMS[id].investi = { e: Math.max(0, Math.round(+inst.investi.e || 0)), g: Math.max(0, Math.round(+inst.investi.g || 0)) }; // (ce qu'on a mis dans sa forge)
   return true;
 }
 // La forge (forge.js) : un exemplaire se renforce de +1 à +FORGE_MAX, chaque niveau ajoutant FORGE_STEP de ses stats
@@ -1095,7 +1097,7 @@ function newSave() {
     mutation: { n: 0, traits: {} }, // les mutations : combien, et les traits choisis (id -> fois)
     mastery: { force: 0, carapace: 0, instinct: 0, souffle: 0 }, // les Maîtrises (après l'arbre), pour toujours
     awakened: [], // les sorts éveillés (un tous les 10 rangs de maîtrise)
-    dungeons: {}, // les Donjons : id -> { room: salles vidées, day: le jour du dernier boss redéfié }
+    dungeons: {}, // les Donjons : id -> { room: salles vidées, lost: l'heure de la dernière défaite }
     eclats: 0, // les éclats de jade, le métal de la forge (forge.js)
     pets: {}, pet: null, // les compagnons : id du donjon -> niveau ; celui qui accompagne la grenouille
     quests: null, // les quêtes du jour (quetes.js) : { day, list: [{ id, n, got }], chest }
@@ -1170,6 +1172,7 @@ function parseSave(data) {
     if (ITEMS[id].forge) save.items[id].forge = ITEMS[id].forge;
     if (typeof di.name === 'string' && di.name) save.items[id].name = di.name.slice(0, 48);
     if (di.from) save.items[id].from = String(di.from).slice(0, 8);
+    if (ITEMS[id].investi) save.items[id].investi = ITEMS[id].investi;
   });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
@@ -1209,7 +1212,7 @@ function parseSave(data) {
   }
   if (data.dungeons && typeof data.dungeons === 'object') Object.keys(data.dungeons).forEach(function (id) {
     var dd = data.dungeons[id];
-    if (/^d\d{1,2}$/.test(id) && dd && typeof dd === 'object') save.dungeons[id] = { room: Math.min(10, int(dd.room, 0) || 0), day: typeof dd.day === 'string' ? dd.day.slice(0, 12) : '' };
+    if (/^d\d{1,2}$/.test(id) && dd && typeof dd === 'object') save.dungeons[id] = { room: Math.min(10, int(dd.room, 0) || 0), day: typeof dd.day === 'string' ? dd.day.slice(0, 12) : '', lost: int(dd.lost, 0) || 0 };
   });
   save.eclats = Math.min(1e9, int(data.eclats, 0) || 0);
   save.inClan = !!data.inClan;

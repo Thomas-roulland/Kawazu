@@ -4,7 +4,9 @@
 // 5e) et un boss au fond. Leurs créatures n'existent nulle part ailleurs (DUNGEON_SPECIES), et leurs objets Uniques non
 // plus : une rareté vert rayonnant, plus forte qu'un Épique, aux formes et aux noms de leur donjon.
 var DUNGEON_ROOMS = 10, DUNGEON_EVERY = 10;
-var DUNGEON_LOOT = { room: 0.25, unique: 0.1, bossUnique: 0.25, dailyUnique: 0.12 };
+var DUNGEON_LOOT = { room: 0.3, unique: 0.18, guardUnique: 0.35, bossUnique: 1 };
+// Un donjon se nettoie une fois : un monstre vaincu ne revient pas. Après une défaite, on le retente au bout d'une heure.
+var DUNGEON_RETRY_MS = 3600e3;
 
 // ---------- Les créatures des donjons (sculptées comme celles des îles : sculpt, colosses.js) ----------
 var DUNGEON_SPECIES = {
@@ -207,7 +209,9 @@ var DUNGEONS = [
   return { id: 'd' + (i + 1), n: i, level: DUNGEON_EVERY * (i + 1), name: d[0], biome: Math.max(0, w), boss: { name: d[3], species: d[2], pal: pal }, of: d[4], desc: d[5], petName: d[6], monsters: monsters };
 });
 function dungeonById(id) { return DUNGEONS.filter(function (d) { return d.id === id; })[0] || null; }
-function dungeonState(save, d) { return (save.dungeons && save.dungeons[d.id]) || { room: 0, day: '' }; }
+function dungeonState(save, d) { return (save.dungeons && save.dungeons[d.id]) || { room: 0, day: '', lost: 0 }; }
+// le temps avant de pouvoir retenter le monstre qui nous a battus (0 : on peut y aller)
+function dungeonRetryIn(save, d) { return Math.max(0, (dungeonState(save, d).lost || 0) + DUNGEON_RETRY_MS - Date.now()); }
 function dungeonCleared(save, d) { return dungeonState(save, d).room >= DUNGEON_ROOMS; }
 // Un donjon s'ouvre quand on a son niveau et que le précédent est vidé (ou qu'on y est déjà entré)
 function dungeonOpen(save, d) { return save.level >= d.level && (d.n === 0 || dungeonState(save, d).room > 0 || dungeonCleared(save, DUNGEONS[d.n - 1])); }
@@ -238,16 +242,17 @@ function dungeonFoe(d, r) {
   e.dungeon = d.id; e.room = r;
   return e;
 }
-// réglé au simulateur : à son niveau, avec des objets communs, les premières salles se gagnent souvent, la fin et le
-// boss demandent de meilleurs objets (ou quelques niveaux) ; on ne vide plus un donjon d'une traite
+// réglé au simulateur : en arrivant à son niveau avec des objets Rares, les salles du milieu se perdent souvent et le
+// boss ne tombe qu'une fois sur trois ou quatre ; il faut monter, s'équiper, et revenir (une heure après une défaite)
 // (isleRoom, isleBoss : les donjons de l'île, dont les monstres ordinaires sont plus doux ; guard : le gardien de la 5e salle)
-var DUNGEON_ISLE = { archipel: { hp: 1.35, dmg: 1.15 } };
-var DUNGEON_POWER = { hp: 0.95, dmg: 0.95, boss: 0.95, bossDmg: 1, isleBoss: 0.7, isleRoom: 1.3, guardHp: 1.1, guardDmg: 1.05, roomHp: 0.02, roomDmg: 0.015 };
-// ce que rapporte une salle la première fois (daily : le boss redéfié, une fois par jour) : une part d'un niveau
-function dungeonRewards(d, r, daily) {
-  var boss = r === DUNGEON_ROOMS, lvl = d.level + r - 1 + (boss ? 2 : 0);
-  if (daily) return { xp: Math.round(xpForLevel(lvl) * 0.15), gold: Math.round((30 + 8 * lvl) * 2), item: 1, luck: 1, unique: DUNGEON_LOOT.dailyUnique };
-  return { xp: Math.round(xpForLevel(lvl) * (boss ? 0.5 : 0.12)), gold: Math.round((30 + 8 * lvl) * (boss ? 4 : 1)), item: boss ? 1 : DUNGEON_LOOT.room, luck: boss ? 1 : 0, unique: boss ? DUNGEON_LOOT.bossUnique : DUNGEON_LOOT.unique };
+var DUNGEON_ISLE = { archipel: { hp: 1.35, dmg: 1.15 }, royaume: { hp: 1.3, dmg: 1.12 } };
+var DUNGEON_POWER = { hp: 1.04, dmg: 1.02, boss: 0.98, bossDmg: 1.03, isleBoss: 0.8, isleRoom: 1.75, guardHp: 1.14, guardDmg: 1.07, roomHp: 0.025, roomDmg: 0.02 };
+// ce que rapporte une salle (une seule fois : un monstre vaincu ne revient pas) : une part d'un niveau
+// (un donjon est dur et ne se fait qu'une fois : il paie bien, et son boss donne toujours un Unique)
+function dungeonRewards(d, r) {
+  var boss = r === DUNGEON_ROOMS, guard = r === 5, lvl = d.level + r - 1 + (boss ? 2 : 0);
+  return { xp: Math.round(xpForLevel(lvl) * (boss ? 0.9 : (guard ? 0.3 : 0.18))), gold: Math.round((30 + 8 * lvl) * (boss ? 5 : (guard ? 2 : 1.5))), item: boss || guard ? 1 : DUNGEON_LOOT.room, luck: boss ? 1 : 0,
+    unique: boss ? DUNGEON_LOOT.bossUnique : (guard ? DUNGEON_LOOT.guardUnique : DUNGEON_LOOT.unique) };
 }
 
 // ---------- Les objets Uniques des donjons : leurs propres modèles ----------
@@ -345,46 +350,78 @@ var DungeonArt = (function () {
     }
     return (cache[key] = c.toDataURL());
   }
-  // la grande illustration d'une carte : la salle du donjon, sa porte, ses torches et son boss qui attend
-  function scene(d, lit) {
-    var key = 's' + d.id + (lit ? 'l' : 'd');
+  // la grande illustration d'une carte : la salle du donjon, sa porte, ses torches et son boss qui attend.
+  // Le décor et le voile sont dessinés une fois (layers) ; draw() y ajoute à chaque image ce qui bouge.
+  var W = 240, H = 135, CX = 120;
+  function layers(d, lit) {
+    var key = 'L' + d.id + (lit ? 'l' : 'd');
     if (cache[key]) return cache[key];
-    var b = BIOMES[d.biome], P = b.pal, W = 240, H = 135, c = document.createElement('canvas');
-    c.width = W; c.height = H;
-    var x = c.getContext('2d'), R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
-    var hue = (d.n * 47) % 360, glow = hueShift('#9a6ad0', hue, 1.2);
+    var b = BIOMES[d.biome], P = b.pal, mk = function () { var cv = document.createElement('canvas'); cv.width = W; cv.height = H; return cv; };
+    var bg = mk(), fg = mk(), x = bg.getContext('2d'), R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
     // le fond : les murs de la salle, des briques, des colonnes
     for (var yy = 0; yy < H; yy += 3) R(0, yy, W, 3, yy < 95 ? (yy % 6 ? P.wallDark : P.wall) : P.groundDark);
     for (var i = 0; i < 60; i++) R(hash(i, d.n, 11) * W, hash(i, d.n, 12) * 90, 6 + hash(i, d.n, 13) * 8, 2, i % 3 ? P.wall : '#000000');
     [24, 72, 168, 216].forEach(function (px, k) { R(px - 7, 10, 14, 86, '#1a1c2c'); R(px - 6, 10, 12, 86, k % 2 ? '#6a6a74' : '#5a5a64'); R(px - 6, 10, 3, 86, '#8a8a94'); R(px - 9, 8, 18, 5, '#1a1c2c'); R(px - 8, 9, 16, 3, '#7a7a84'); });
     // le sol en dalles
     for (var gy = 96; gy < H; gy += 6) for (var gx = (gy / 6) % 2 ? 0 : 8; gx < W; gx += 16) { R(gx, gy, 15, 5, P.ground); R(gx, gy, 15, 1, P.groundLight); }
-    // la grande porte, et la lumière qui en sort
-    var cx = 120, top = 26;
+    // la grande porte
+    var top = 26;
     for (var y = top; y < 97; y++) {
       var ry = y - (top + 24), half = y < top + 24 ? Math.round(Math.sqrt(Math.max(0, 1 - (ry / 24) * (ry / 24))) * 34) : 34;
-      R(cx - half - 6, y, 6, 1, '#1a1c2c'); R(cx + half, y, 6, 1, '#1a1c2c'); R(cx - half - 5, y, 4, 1, '#7a7a84'); R(cx + half + 1, y, 4, 1, '#6a6a74');
-      R(cx - half, y, half * 2, 1, lit ? '#120818' : '#060608');
+      R(CX - half - 6, y, 6, 1, '#1a1c2c'); R(CX + half, y, 6, 1, '#1a1c2c'); R(CX - half - 5, y, 4, 1, '#7a7a84'); R(CX + half + 1, y, 4, 1, '#6a6a74');
+      R(CX - half, y, half * 2, 1, lit ? '#120818' : '#060608');
     }
-    if (lit) {
-      var g = x.createRadialGradient(cx, 80, 4, cx, 80, 70); g.addColorStop(0, glow + 'aa'); g.addColorStop(1, glow + '00');
-      x.fillStyle = g; x.fillRect(cx - 70, 20, 140, 90);
-    }
-    // les torches
-    [[cx - 52, 52], [cx + 50, 52]].forEach(function (t) { R(t[0], t[1], 3, 14, '#5a3a20'); if (lit) { R(t[0] - 2, t[1] - 6, 7, 6, '#ff8a2a'); R(t[0], t[1] - 9, 3, 4, '#ffe060'); } });
-    // des os, des chaînes, des cristaux selon le donjon
-    for (var k = 0; k < 7; k++) { var bx = hash(k, d.n, 21) * W, by = 100 + hash(k, d.n, 22) * 30; R(bx, by, 5, 2, '#d8d4c0'); R(bx + 1, by - 1, 1, 4, '#d8d4c0'); }
+    // les manches des torches, des os, des chaînes
+    [[CX - 52, 52], [CX + 50, 52]].forEach(function (t) { R(t[0], t[1], 3, 14, '#5a3a20'); });
+    for (var k2 = 0; k2 < 7; k2++) { var bx = hash(k2, d.n, 21) * W, by = 100 + hash(k2, d.n, 22) * 30; R(bx, by, 5, 2, '#d8d4c0'); R(bx + 1, by - 1, 1, 4, '#d8d4c0'); }
     [[46, 0], [194, 0]].forEach(function (ch) { for (var cy = 0; cy < 30; cy += 3) R(ch[0] + (cy % 6 ? 1 : 0), ch[1] + cy, 2, 2, '#4a4a54'); });
-    // le boss, dans l'ouverture de la porte
-    var sp = SPECIES[d.boss.species], img = stringsToCanvas(sp.frames[0], lit ? d.boss.pal : (function () { var p = {}; Object.keys(sp.pal).forEach(function (cc) { p[cc] = cc === 'k' ? '#000000' : '#16141c'; }); return p; })());
-    x.imageSmoothingEnabled = false;
-    x.fillStyle = 'rgba(0,0,0,0.4)'; x.fillRect(cx - 22, 94, 44, 3);
-    x.drawImage(img, cx - 32, 96 - 64, 64, 64);
-    if (!lit) { x.fillStyle = 'rgba(4, 4, 8, 0.55)'; x.fillRect(0, 0, W, H); }
-    // une vignette sombre
-    var v = x.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 150); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.7)');
-    x.fillStyle = v; x.fillRect(0, 0, W, H);
-    return (cache[key] = c.toDataURL());
+    // le voile : l'obscurité d'un donjon fermé, puis une vignette sombre
+    var v = fg.getContext('2d');
+    if (!lit) { v.fillStyle = 'rgba(4, 4, 8, 0.55)'; v.fillRect(0, 0, W, H); }
+    var g = v.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 150); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.7)');
+    v.fillStyle = g; v.fillRect(0, 0, W, H);
+    // le boss (ses images), en couleurs ou en silhouette
+    var sp = SPECIES[d.boss.species], pal = lit ? d.boss.pal : (function () { var p = {}; Object.keys(sp.pal).forEach(function (cc) { p[cc] = cc === 'k' ? '#000000' : '#16141c'; }); return p; })();
+    var frames = sp.frames.map(function (f) { return stringsToCanvas(f, pal); });
+    return (cache[key] = { bg: bg, fg: fg, frames: frames, glow: hueShift('#9a6ad0', (d.n * 47) % 360, 1.2) });
   }
-  return { gate: gate, scene: scene };
+  // une image de la carte au temps t (en secondes)
+  function draw(x, d, lit, t) {
+    var L = layers(d, lit), R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
+    x.imageSmoothingEnabled = false;
+    x.drawImage(L.bg, 0, 0);
+    if (lit) { // la lumière qui sort de la porte, qui respire
+      var a = 0.55 + 0.2 * Math.sin(t * 1.7 + d.n), g = x.createRadialGradient(CX, 80, 4, CX, 80, 70);
+      g.addColorStop(0, L.glow + Math.round(a * 255).toString(16).padStart(2, '0')); g.addColorStop(1, L.glow + '00');
+      x.fillStyle = g; x.fillRect(CX - 70, 20, 140, 90);
+      // les flammes des torches, qui vacillent
+      [[CX - 52, 52], [CX + 50, 52]].forEach(function (tc, i) {
+        var f = Math.sin(t * 11 + i * 2.1) + Math.sin(t * 17.3 + i), hgt = 6 + Math.round(f), sway = Math.round(Math.sin(t * 7 + i * 3) * 0.8);
+        R(tc[0] - 2 + sway * 0.5, tc[1] - hgt, 7, hgt, '#ff8a2a'); R(tc[0] + sway, tc[1] - hgt - 3, 3, 4 + (f > 0.8 ? 1 : 0), '#ffe060');
+        x.globalAlpha = 0.18 + 0.06 * f; x.fillStyle = '#ffb060'; x.beginPath(); x.arc(tc[0] + 1, tc[1] - 4, 13, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1;
+      });
+      // des braises qui montent de la porte
+      for (var e = 0; e < 7; e++) {
+        var life = (t * 0.35 + hash(e, d.n, 31)) % 1, ex = CX - 26 + hash(e, d.n, 32) * 52 + Math.sin(t * 1.3 + e) * 4, ey = 92 - life * 70;
+        x.globalAlpha = Math.sin(life * Math.PI) * 0.85; R(ex, ey, e % 3 ? 1 : 2, e % 3 ? 1 : 2, e % 2 ? L.glow : '#ffd08a'); x.globalAlpha = 1;
+      }
+    }
+    // le boss : il respire, et passe d'une image à l'autre
+    var fr = L.frames[Math.floor(t * 1.6) % L.frames.length], bob = Math.round(Math.sin(t * 2.1) * 1.4);
+    x.fillStyle = 'rgba(0,0,0,0.4)'; x.fillRect(CX - 22 + Math.abs(bob), 94, 44 - 2 * Math.abs(bob), 3);
+    x.drawImage(fr, CX - 32, 32 + bob, 64, 64);
+    if (!lit) { // fermé : deux yeux qui s'allument de temps en temps dans le noir
+      var blink = (t + d.n * 1.7) % 5;
+      if (blink < 1.2) { x.globalAlpha = Math.sin(blink / 1.2 * Math.PI) * 0.9; R(CX - 9, 52 + bob, 3, 2, '#ff4a3a'); R(CX + 6, 52 + bob, 3, 2, '#ff4a3a'); x.globalAlpha = 1; }
+    }
+    x.drawImage(L.fg, 0, 0);
+  }
+  function scene(d, lit) { // (une image fixe, pour ce qui n'est pas animé)
+    var key = 's' + d.id + (lit ? 'l' : 'd');
+    if (cache[key]) return cache[key];
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    draw(cv.getContext('2d'), d, lit, 0);
+    return (cache[key] = cv.toDataURL());
+  }
+  return { gate: gate, scene: scene, draw: draw, W: W, H: H };
 })();

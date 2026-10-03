@@ -220,7 +220,7 @@ function titanOf(idx, rang, heroLevel) {
   };
 }
 
-// ---------- Méditation au camp : la grenouille médite sur un nénuphar, même quand on n'est pas là ----------
+// ---------- Méditation au camp : la grenouille médite là où elle est, même quand on n'est pas là ----------
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.
 var MEDITATION_MAX_H = 10;
@@ -229,7 +229,7 @@ function meditationGain(save, now) {
   var m = save.meditation;
   if (!m) return null;
   var ms = Math.max(0, Math.min(MEDITATION_MAX_H * 3600e3, (now || Date.now()) - m.since)), h = ms / 3600e3, r = meditationRates(save.level);
-  return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: clanXp(Math.floor(r.xp * h)), gold: clanGold(Math.floor(r.gold * h)) }; // avec les bonus du clan
+  return { ms: ms, full: ms >= MEDITATION_MAX_H * 3600e3, xp: clanXp(Math.floor(r.xp * h), eventBoostOver('xp', m.since, m.since + ms)), gold: clanGold(Math.floor(r.gold * h)) }; // avec les bonus du clan (et l'XP double pour les heures du week-end seulement)
 }
 // Récolte ce qui a été gagné ; again : elle continue de méditer (au retour), sinon elle se lève
 function claimMeditation(save, again) {
@@ -259,7 +259,7 @@ function expeditionRewards(w, st, e) {
 function startExpedition(save, w, st, id) {
   var e = EXPEDITIONS.filter(function (x) { return x.id === id; })[0];
   var r = expeditionRewards(w, st, e);
-  save.expedition = { w: w, st: st, id: id, name: e.name, endsAt: Date.now() + e.secs * 1000, gold: r.gold, xp: r.xp, item: r.item };
+  save.expedition = { w: w, st: st, id: id, name: e.name, start: Date.now(), endsAt: Date.now() + e.secs * 1000, gold: r.gold, xp: r.xp, item: r.item };
 }
 
 function expeditionLeft(save) { return save.expedition ? Math.max(0, save.expedition.endsAt - Date.now()) : 0; }

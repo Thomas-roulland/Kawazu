@@ -63,10 +63,10 @@ aux couleurs du jeu ailleurs ; les chiffres sont en Silkscreen (le 5 et le 8 ne 
 Les **lucioles** sont la monnaie du jeu, les **éclats de jade** le métal de la forge ; les deux s’affichent sous la
 grenouille, avec l’événement en cours (le week-end double XP).
 
-- **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre ; le décor prend
-  l’ambiance du biome en cours (lagune, saules d’automne, grotte, ruines englouties, sommet enneigé),
-  et un panneau « Aventure » pour reprendre le monde en cours. **Méditation** : la grenouille s’assoit sur un nénuphar,
-  les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
+- **Camp** : grande scène en trois couches (profondeur à la souris), la grenouille au centre, **sur le paysage de la
+  carte du monde là où elle se tient** (la même terre, le même sentier, agrandis), avec l’ambiance de sa terre (halo,
+  brume, lucioles, neige ou feuilles) et son compagnon un peu à l’écart ; un panneau « Aventure » pour reprendre le
+  monde en cours. **Méditation** : la grenouille s’assoit en tailleur, les yeux fermés, et gagne un peu d’XP et de lucioles même quand on n’est pas là (par heure, environ la moitié
   de l’XP d’un combat de son niveau ; 10 h au plus). On récolte en la faisant se lever ou en revenant (elle continue
   alors de méditer) ; un combat ou une mission la fait se lever.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
@@ -244,9 +244,11 @@ grenouille, avec l’événement en cours (le week-end double XP).
   fond. Leurs **douze créatures n’existent nulle part ailleurs** (gargouille, mimique, spectre, liche, golem runique,
   minotaure, chimère, basilic, feu-follet, crâne flottant, hydre, œil flottant), et leurs **objets Uniques** non plus :
   dix modèles par donjon, à ses couleurs et à ses noms (« Couperet des Gargouilles »), une rareté vert rayonnant plus
-  forte qu’un Épique (10 % par salle, 25 % au boss). Coriaces (réglés au simulateur : à leur niveau, il faut de bons
-  objets pour la fin et le boss) ; une salle rapporte un peu plus d’un dixième de niveau, le boss la moitié d’un ; un
-  donjon vidé, son boss se redéfie une fois par jour.
+  forte qu’un Épique (18 % par salle, 35 % au gardien, **toujours au boss**). Coriaces (réglés au simulateur : en
+  arrivant à leur niveau avec des objets Rares, les salles du milieu se perdent souvent et le boss ne tombe qu’une fois
+  sur trois ou quatre) et bien payés : une salle rapporte près d’un cinquième de niveau, le gardien un tiers, le boss
+  presque un niveau. **Un seul passage** : un monstre vaincu ne revient pas, un donjon fini est **nettoyé** ; battu,
+  on retente le même monstre **une heure plus tard** (la carte et le panneau affichent l’attente).
 - **Une difficulté qui monte en pente douce** (réglée au simulateur, grenouille au niveau de l’étape, objets communs
   de sa terre) : sur l’île, les ordinaires restent du gibier, mais gardiens et boss demandent **un peu de farm** —
   boss gagnés ~100 % au Marais-Brume, puis 92, 80, 71, 60 et ~50 % pour le Héron (77 à 100 % avec 3 niveaux de plus).
@@ -316,17 +318,21 @@ grenouille, avec l’événement en cours (le week-end double XP).
   des éclats de jade ; les trois faites, le **coffre du jour** s’ouvre (un objet Rare ou Épique de sa terre, et plus
   d’éclats). Un badge sur « Camp » dit quand une récompense attend (`src/quetes.js`).
 - **Les événements** : le **week-end double XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte deux fois
-  plus) et le **mercredi du butin** (+50 % de chances d’objet). Le camp annonce le prochain.
+  plus, jusqu’à dimanche minuit : le menu affiche le temps qui reste et la bannière s’éteint d’elle-même ; une
+  méditation ou une mission ne compte double que pour ses heures passées pendant le week-end) et le **mercredi du
+  butin** (+50 % de chances d’objet). Le camp annonce le prochain.
 - **La forge** (`src/forge.js`), une page à elle : l’atelier, son four et son enclume. À gauche, les objets à forger
   (ceux qu’on porte d’abord) ; au milieu, l’objet sur l’enclume, ce que donne le niveau suivant, son prix et ses chances ;
   à droite, le **recyclage en masse** (par rareté, ou objet par objet) en éclats de jade. Renforcer un objet de +1 à
   **+10** (+5 % de stats par niveau) coûte de plus en plus d’éclats et de lucioles, et **peut rater à partir de +4**
-  (90 %, puis 80 %… 30 % pour +10 : les éclats sont perdus, l’objet garde son niveau).
+  (90 %, puis 80 %… 30 % pour +10 : les éclats sont perdus, l’objet garde son niveau). **Recycler un objet renforcé
+  rend la moitié de tout ce qu’on a mis dans sa forge**, éclats et lucioles, essais ratés compris (noté à chaque essai).
+- **En combat**, le bouclier (passif « Peau de pierre ») a sa barre bleue sous les PV, qui fond sous les coups.
 - **Les panoplies d’Uniques** : les Uniques d’un même donjon forment une panoplie ; en porter 2, 3 puis 4 donne un bonus
   de plus à chaque palier. Six sortes, une par donjon à tour de rôle : du Colosse (PV, dégâts reçus), du Fauve (dégâts,
   critique), de l’Ombre (esquive), du Sage (sorts), de Fortune (XP, lucioles, objets) et du Sang (vol de vie).
-- **Les compagnons** : au fond de chaque donjon, le petit du boss peut suivre la grenouille (50 % la première fois,
-  20 % au boss du jour) ; le retrouver le fait grandir, jusqu’au niveau 10. Il donne un petit bonus (PV, dégâts,
+- **Les compagnons** : au fond de chaque donjon, le petit du boss suit la grenouille quand elle l’a vaincu ; on le
+  **nourrit d’éclats de jade** pour le faire grandir, jusqu’au niveau 10 (de plus en plus cher). Il donne un petit bonus (PV, dégâts,
   objets, XP ou lucioles), se tient à côté d’elle au camp, et en combat il bondit sur l’ennemi tous les deux tours
   (sauf en duel et à la guerre). Trente compagnons, un par donjon (case « Compagnon » de la fiche du personnage).
 - **Le Titan de la semaine** (avec un compte) : un boss mondial, le même pour toutes les grenouilles de tous les joueurs
@@ -337,7 +343,8 @@ grenouille, avec l’événement en cours (le week-end double XP).
   ses PV s’ajustent d’une semaine à l’autre selon qu’il est tombé ou non. Les coups sont comptés sur des compteurs
   atomiques (HINCRBY) : quand beaucoup de joueurs frappent au même instant, aucun ne se perd, et un seul coup l’abat.
   Les écritures des clans (dons, messages, assauts, arrivées, fin de guerre) et des cadeaux passent sous un verrou
-  court (`SET NX EX`), pour la même raison.
+  court (`SET NX EX`), pour la même raison, comme le carnet de chaque grenouille de la Cascade (un double clic ne
+  compte qu’une fois ; plusieurs défis à la même grenouille au même instant gardent tous leur ligne de journal).
 - **Les saisons de classement** : un mois chacune. Chaque exploit rapporte des points (quêtes, coffre, boss, salles de
   donjon, étages de la tour, attaques du Titan, duels, assauts du clan) ; l’onglet **Saison** du classement les compare.
   (Le classement des clans est aussi dans la page Classement, onglet **Clans** ; sur la page du clan, il a laissé sa place
