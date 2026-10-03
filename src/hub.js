@@ -59,6 +59,8 @@
       { k: '#1a1c2c', m: '#e07a2a', E: '#f3d23a', Z: '#b8321a' }],
     ombre: [['', '....kkkkkkkk', '...k22222222k', '..k2222222222k', '..k2kkkkkkkk2k', '..k2kwkkkkwk2k', '..k2kkkkkkkk2k', '..k2222222222k', '...k22222222k', '....k222222k', '.....kkkkkk'],
       { k: '#1a1c2c', 2: '#4a3a6b', w: '#b8e0ff' }],
+    donjon: [['....kkkkkkkk', '..kk22222222kk', '.k222kkkkkk222k', '.k22k111111k22k', 'k22k11111111k22k', 'k22k11k11k11k22k', 'k22k11111111k22k', 'k22k11k11k11k22k', 'k22k11111111k22k', 'k22k111y1111k22k', 'k22k11111111k22k', 'k22k11111111k22k', 'kkkkkkkkkkkkkkkk'],
+      { k: '#1a1c2c', 2: '#8a8478', 1: '#5a3e25', y: '#e0b43a' }],
     the: [['', '', '......k.k', '.......k.k', '...kkkkkkkkk', '..k111111111kk', '..k122222221k.k', '..k122222221k.k', '..k112222211kk', '...k1111111k', '....kkkkkkk', '..kkkkkkkkkkk'],
       { k: '#1a1c2c', 1: '#e8ecf0', 2: '#8fce52' }]
   };
@@ -2402,6 +2404,79 @@
     $('tower-side').innerHTML = html;
   }
 
+  // ---------- Les Donjons (donjons.js) ----------
+  // À gauche, une porte par donjon (ouverte ou non selon le niveau, sa progression) ; à droite, celui qu'on a choisi :
+  // ses dix salles, l'ennemi de la prochaine (comparé à soi), ce qu'elle rapporte, et ses objets Uniques.
+  var dj = { sel: null };
+  function openDonjons() {
+    if (!dungeonById(dj.sel) || !dungeonOpen(save, dungeonById(dj.sel))) {
+      var open = DUNGEONS.filter(function (d) { return dungeonOpen(save, d); });
+      var todo = open.filter(function (d) { return dungeonState(save, d).room < DUNGEON_ROOMS; });
+      dj.sel = (todo[todo.length - 1] || open[open.length - 1] || DUNGEONS[0]).id; // le plus haut pas encore vidé
+    }
+    renderDonjons();
+  }
+  function renderDonjons() {
+    var shownTo = Math.min(DUNGEONS.length, Math.floor(save.level / DUNGEON_EVERY) + 2); // les ouverts, et les deux suivants
+    $('dj-grid').innerHTML = DUNGEONS.slice(0, Math.max(3, shownTo)).map(function (d) {
+      var open = dungeonOpen(save, d), st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS;
+      return '<button class="dj-card' + (open ? '' : ' locked') + (done ? ' done' : '') + (dj.sel === d.id ? ' is-selected' : '') + '" data-dj="' + d.id + '"' + (open ? '' : ' disabled') + '>' +
+        '<img class="px" src="' + DungeonArt.gate(d, open) + '" alt=""><b>' + d.name + '</b><small>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : 'Au niveau ' + d.level) + '</small>' +
+        '<span class="dj-bar"><i style="width:' + (st.room / DUNGEON_ROOMS * 100) + '%"></i></span><em>' + (done ? 'VIDÉ' : (open ? st.room + ' / ' + DUNGEON_ROOMS : '')) + '</em></button>';
+    }).join('');
+    var d = dungeonById(dj.sel);
+    if (!d) { $('dj-side').innerHTML = ''; return; }
+    var st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, next = Math.min(DUNGEON_ROOMS, st.room + 1), me = myFight();
+    var foe = dungeonFoe(d, next), cmp = function (a, b) { return a > b * 1.08 ? 'down' : (a < b * 0.92 ? 'up' : ''); };
+    var daily = done && st.day !== todayKey(), rw = dungeonRewards(d, next, done);
+    var html = '<div class="dj-title"><img class="px" src="' + DungeonArt.gate(d, true) + '" alt=""><div><h2>' + d.name.toUpperCase() + '</h2><p>' + d.desc + '</p></div></div>';
+    html += '<ol class="dj-rooms">' + Array.apply(null, Array(DUNGEON_ROOMS)).map(function (_, i) {
+      var r = i + 1, f = dungeonFoe(d, r), cls = r <= st.room ? 'cleared' : (r === next && !done ? 'next' : 'locked');
+      return '<li class="' + cls + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"><span>' + r + '</span><b>' + (r <= st.room || r === next ? f.name : '???') + '</b><small>niv. ' + f.level + '</small></li>';
+    }).join('') + '</ol>';
+    html += '<div class="tw-sheet' + (next === DUNGEON_ROOMS ? ' boss' : '') + '"><span class="tw-floor">' + (done ? 'LE BOSS, À NOUVEAU' : 'SALLE ' + next + (next === DUNGEON_ROOMS ? ' · LE BOSS' : (next === 5 ? ' · LE GARDIEN' : ''))) + '</span>' +
+      '<div class="tw-sage"><img class="px" src="' + monsterPortrait(foe) + '" alt=""><div><h3>' + foe.name + '</h3><span class="muted">Niveau ' + foe.level + '</span></div></div>' +
+      '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(foe.maxHp, me.maxHp) + '">' + foe.maxHp + '</b></li><li><span>Dégâts</span><b class="' + cmp(foe.dmg, me.dmg) + '">' + foe.dmg + '</b></li><li><span>Niveau</span><b class="' + cmp(foe.level, save.level) + '">' + foe.level + '</b></li></ul>' +
+      '<div class="tw-reward"><h2>' + (done ? 'UNE FOIS PAR JOUR' : 'PREMIÈRE VICTOIRE') + '</h2><p><span class="luciole"></span> ' + rw.gold + ' lucioles · ' + Math.round(rw.xp * xpGapMult(save.level, foe.level)) + ' XP' + (xpGapMult(save.level, foe.level) < 1 ? ' <small class="muted">(réduite : tu es bien plus fort)</small>' : '') + '</p>' +
+      '<p>' + (rw.item >= 1 ? 'Un objet sûr' : Math.round(rw.item * 100) + ' % de chance d’objet') + ' · <b class="dj-unique">' + Math.round(rw.unique * 100) + ' % d’Unique</b></p></div>' +
+      (done ? (daily ? '<button class="btn" data-dj-daily>Redéfier le boss ▶</button>' : '<button class="btn" disabled>Le boss se repose : reviens demain</button>')
+        : '<button class="btn" data-dj-fight="' + next + '">' + (next === DUNGEON_ROOMS ? 'Affronter le boss ▶' : 'Entrer dans la salle ' + next + ' ▶') + '</button>') + '</div>';
+    var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; });
+    html += '<div class="dj-uniques"><h2>OBJETS UNIQUES</h2><p class="muted">Des objets de rang ' + dungeonTier(d) + ' qui portent le nom du donjon (« … ' + d.of + ' »), plus forts qu’un Épique : ' + Math.round(DUNGEON_LOOT.unique * 100) + ' % par salle, ' + Math.round(DUNGEON_LOOT.bossUnique * 100) + ' % au boss.</p>' +
+      (uniq.length ? '<div class="dj-uq">' + uniq.map(function (id) { return '<span class="dj-uq-item" style="' + rarStyle(id) + '" title="' + ITEMS[id].name + ' · ' + statLine(ITEMS[id].stats) + '"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + ITEMS[id].name + '</span>'; }).join('') + '</div>' : '<p class="muted">Aucun trouvé ici pour l’instant.</p>') + '</div>';
+    $('dj-side').innerHTML = html;
+  }
+  function itemIconUrl(id) { return iconUrls[id] || iconUrls[baseOf(id)] || (iconUrls[id] = iconCanvas(ITEMS[id]).toDataURL()); }
+  function donjonFight(d, r, daily) {
+    return {
+      kind: 'donjon', biomeIndex: d.biome, stage: r, dungeon: d.id, room: r, daily: daily, gloom: true, enemy: dungeonFoe(d, r),
+      title: d.name + ' · salle ' + r + ' / ' + DUNGEON_ROOMS + (daily ? ' · le boss, à nouveau' : ''),
+      intro: r === DUNGEON_ROOMS ? d.boss.name + ' (niv. ' + dungeonFoe(d, r).level + ') t’attend au fond du donjon !' : null,
+      settle: function (win) { return Promise.resolve(settleDonjon(d, r, daily, win)); },
+      next: !daily && r < DUNGEON_ROOMS ? function () { return donjonFight(d, r + 1, false); } : null,
+      again: function () { return donjonFight(d, r, daily); }
+    };
+  }
+  function settleDonjon(d, r, daily, win) {
+    var st = dungeonState(save, d);
+    if (!win) return '<p>Le donjon te recrache. Change d’équipement ou de sorts, monte un peu… et reviens : la salle ' + r + ' t’attend.</p>';
+    if (!daily && r <= st.room) return '<p>Salle déjà vidée : pas de nouvelle récompense.</p>';
+    var rw = dungeonRewards(d, r, daily), foe = dungeonFoe(d, r), gap = xpGapMult(save.level, foe.level);
+    var xp = clanXp(rw.xp * gap), gold = clanGold(rw.gold), levels = gainXp(save, xp);
+    save.gold += gold;
+    var loot = Math.random() < rw.item ? rollLoot(save, dungeonTier(d), 1, rw.luck) : null;
+    if (loot) save.owned.push(loot);
+    var uq = Math.random() < rw.unique * (1 + playerMutBonus.loot) ? rollUnique(save, d) : null;
+    if (uq) save.owned.push(uq);
+    save.dungeons[d.id] = { room: daily ? st.room : r, day: daily ? todayKey() : st.day };
+    persist();
+    Sfx.play(uq ? 'glint' : (levels ? 'levelup' : 'pickup'));
+    var line = function (id, label) { return '<p class="bt-loot" style="' + rarStyle(id) + '"><img src="' + itemIconUrl(id) + '" alt=""> ' + label + ' : <b>' + ITEMS[id].name + '</b> <em>' + RARITIES[rarityOf(id)].name + '</em></p>'; };
+    return '<p>' + (r === DUNGEON_ROOMS ? (daily ? 'Le boss tombe encore !' : '<b>Le donjon est vidé !</b> Son boss se redéfie une fois par jour.') : 'Salle ' + r + ' vidée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+      (gap < 1 ? '<p class="bt-gap">XP réduite à ' + Math.round(gap * 100) + ' % : tu es bien plus fort que ce donjon.</p>' : '') +
+      (loot ? line(loot, 'Butin') : '') + (uq ? line(uq, 'OBJET UNIQUE') : '');
+  }
+
   // ---------- L'Album : un livre à feuilleter ----------
   // Une double page par famille (ALBUM_CHAPTERS) : la présentation de la famille à gauche, ses cartes à collectionner
   // sur les deux pages. Le sommaire ouvre le livre, avec les chapitres et les récompenses à réclamer. Une carte pas
@@ -2556,11 +2631,12 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
     if (page === 'map') { cam.reset = true; renderWorldMap(); }
+    if (page === 'donjons') openDonjons();
     if (page === 'rank') openRank();
     if (page === 'dojo') openDojo();
     if (page === 'clans') openClans();
@@ -2603,7 +2679,7 @@
     if (fight.kind === 'raid' && result === 'flee' && !fight.settled && fight.stats.total > 0) fight.settle(false).then(function () { notice('Tu as quitté l’assaut : tes dégâts comptent quand même.'); loadClans(); }, function () {});
     if (fight.kind === 'guerre' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté le combat : il compte comme une défaite.'); loadClans(); }, function () {});
     var atClan = fight.kind === 'raid' || fight.kind === 'guerre';
-    showPage(fight.kind === 'tour' ? 'tower' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map')));
+    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map'))));
     startTick();
   }
 
@@ -2626,6 +2702,9 @@
     // choisir sa voie : la grenouille plonge dans la flaque (définitif)
     if (t.dataset.towerScroll) { var sc = +t.dataset.towerScroll; tower.view = sc ? tower.view + sc : Math.max(1, towerNext() - 2); Sfx.play('click'); renderTower(); return; }
     if (t.dataset.floor) { tower.sel = +t.dataset.floor; Sfx.play('click'); renderTower(); return; }
+    if (t.dataset.dj) { dj.sel = t.dataset.dj; Sfx.play('click'); renderDonjons(); return; }
+    if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
+    if (t.hasAttribute('data-dj-daily')) { var dd2 = dungeonById(dj.sel), st2 = dd2 && dungeonState(save, dd2); if (st2 && st2.room >= DUNGEON_ROOMS && st2.day !== todayKey()) { Sfx.play('click'); startFight(donjonFight(dd2, DUNGEON_ROOMS, true)); } return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
     if (t.dataset.bookGo) { turnPage(+t.dataset.bookGo); return; }
     if (t.dataset.bookStep) { turnPage(Math.max(0, Math.min(ALBUM_CHAPTERS.length, album.spread + +t.dataset.bookStep))); return; }

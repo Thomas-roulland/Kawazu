@@ -20,7 +20,7 @@ var MONSTER_POWER = { hp: 2.2, dmg: 2.6 };
 // Le Continent est plus dur : ses monstres ont plus de PV et frappent plus fort, à niveau égal. On y avance en
 // farmant et en trouvant de meilleurs objets (réglé au simulateur, voir sim.js).
 // hp, dmg : au début du Continent ; hpK, dmgK : ce qui s'ajoute à chaque terre suivante (la grenouille y gagne plus vite en force)
-var CONTINENT_POWER = { hp: 2.15, dmg: 1.75, hpK: 0.035, dmgK: 0.03, normal: 1.7 }; // normal : les monstres des étapes ordinaires, un peu plus coriaces
+var CONTINENT_POWER = { hp: 2.15, dmg: 1.75, hpK: 0.045, dmgK: 0.04, normal: 1.5 }; // normal : les monstres des étapes ordinaires, un peu plus coriaces
 // L'île, terre par terre : la force de ses monstres ordinaires, de ses gardiens et de son boss (PV × s, dégâts
 // × (1 + (s − 1) / 2)), réglée au simulateur (calib.js) : il faut un peu farmer — quelques niveaux, ou un meilleur
 // objet — avant chaque boss, de plus en plus en montant vers le Héron ; le Marais-Brume reste doux pour débuter.
@@ -55,6 +55,7 @@ function makeEnemy(w, level, variant, rank, title) {
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1; hpX *= GP.hp * bb; dmgX *= GP.dmg * Math.sqrt(bb); }
+  if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
   return {
@@ -154,6 +155,9 @@ function monsterAlbumId(w, st, rank, rar) {
   return 'm-' + w + '-' + idx + (rar === 'rare' ? '-r' : (rar === 'epique' ? '-e' : ''));
 }
 
+// L'XP d'un combat : une part d'un niveau du monstre (un ordinaire à ton niveau ≈ un quart de niveau, un gardien ×1,8,
+// un boss ×3). Finir une terre une fois fait gagner ~3,5 niveaux ; une vingtaine de combats en plus font le reste.
+var STAGE_XP = 0.25;
 function stageFight(save, w, st) {
   var s = worldStages(w)[st - 1], lvl = s.enemy.level;
   var mult = s.rank === 'boss' ? 3 : (s.rank === 'gardien' ? 1.8 : 1);
@@ -163,7 +167,7 @@ function stageFight(save, w, st) {
     kind: 'stage', biomeIndex: w, stage: st, enemy: enemy, weather: s.weather, luck: s.rank === 'normal' ? R.luck : 1,
     albumId: monsterAlbumId(w, st, s.rank, rar),
     rewards: {
-      xp: Math.round((10 + 5 * lvl) * mult * s.weather.xp * R.reward),
+      xp: Math.round(xpForLevel(lvl) * STAGE_XP * mult * s.weather.xp * R.reward),
       gold: Math.round((6 + 3 * lvl) * mult * R.reward),
       itemChance: Math.min(1, (s.rank === 'boss' ? 1 : (s.rank === 'gardien' ? 0.5 : 0.15)) + R.item)
     }
@@ -197,7 +201,7 @@ function alphaOf(rang, heroLevel) {
 // Un petit plus, pas un raccourci : par heure, environ la moitié de l'XP d'un combat de son niveau et un peu de
 // lucioles, jusqu'à MEDITATION_MAX_H heures (au-delà, elle médite pour rien). On récolte en se levant, ou en revenant.
 var MEDITATION_MAX_H = 10;
-function meditationRates(level) { return { xp: Math.round(0.5 * (10 + 5 * level)), gold: Math.round(0.3 * (6 + 3 * level)) }; }
+function meditationRates(level) { return { xp: Math.round(xpForLevel(level) * 0.12), gold: Math.round(0.6 * (6 + 3 * level)) }; } // par heure : ~1/8 de niveau
 function meditationGain(save, now) {
   var m = save.meditation;
   if (!m) return null;
@@ -226,7 +230,7 @@ var EXPEDITIONS = [
 
 function expeditionRewards(w, st, e) {
   var lvl = stageLevel(w, st);
-  return { gold: Math.round((5 + 2 * lvl) * e.gold), xp: Math.round((6 + 3 * lvl) * e.xp), item: e.item };
+  return { gold: Math.round((5 + 2 * lvl) * e.gold), xp: Math.round(xpForLevel(lvl) * 0.06 * e.xp), item: e.item };
 }
 
 function startExpedition(save, w, st, id) {

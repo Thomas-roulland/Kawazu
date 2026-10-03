@@ -244,7 +244,8 @@ BIOMES.push(
       { species: 'fantome', name: 'Âme errante', pal: { 1: '#5a8a7a', 2: '#8ac0b0', 3: '#d0f0e8', r: '#1a3a34' } },
       { species: 'araignee', name: 'Araignée des cryptes', pal: { 2: '#2a2a34', 3: '#5a5a6a', r: '#8af0c0' } }
     ],
-    boss: { species: 'fantome', name: 'Spectre Couronné', scale: 2.4, pal: { 1: '#3a6a5a', 2: '#6ab0a0', 3: '#c0f8e8', r: '#0a2a24' } }
+    // (un spectre qui esquive beaucoup : un peu moins de PV que les autres boss pour ne pas faire mur)
+    bossPower: 0.78, boss: { species: 'fantome', name: 'Spectre Couronné', scale: 2.4, pal: { 1: '#3a6a5a', 2: '#6ab0a0', 3: '#c0f8e8', r: '#0a2a24' } }
   },
   {
     id: 'feerique', name: 'Bois Féerique', continent: true, tagline: 'Des champignons hauts comme des maisons et des lumières qui dansent. N’écoute pas ce qu’elles chantent.',

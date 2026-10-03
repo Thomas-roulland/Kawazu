@@ -59,6 +59,7 @@
       <span class="menu-sep" aria-hidden="true"></span>
       <button class="menu-btn" data-page="map"><img data-ico="donjons" alt=""><span>Carte du monde</span></button>
       <button class="menu-btn" data-page="tower"><img data-ico="tour" alt=""><span>Tour des Sages</span></button>
+      <button class="menu-btn" data-page="donjons"><img data-ico="donjon" alt=""><span>Donjons</span></button>
       <button class="menu-btn" data-page="dojo"><img data-ico="cascade" alt=""><span>Cascade des duels</span></button>
       <button class="menu-btn" data-page="clans"><img data-ico="clan" alt=""><span>Clans</span></button>
       <span class="menu-sep" aria-hidden="true"></span>
@@ -176,6 +177,18 @@
           <div id="node-info" class="node-info"></div>
         </div>
       </aside>
+    </section>
+
+    <!-- Les Donjons : un tous les dix niveaux, dix salles chacun -->
+    <section id="page-donjons" class="page" aria-label="Donjons" hidden>
+      <div class="dj-main">
+        <header class="dj-head">
+          <h1>LES DONJONS</h1>
+          <p>Un donjon s’ouvre tous les dix niveaux : dix salles, des monstres qui montent d’un niveau à chaque salle, un boss au fond. Beaucoup d’XP, du butin… et des objets <b class="dj-unique">Uniques</b>.</p>
+        </header>
+        <div id="dj-grid" class="dj-grid"></div>
+      </div>
+      <aside id="dj-side" class="panel dj-side"></aside>
     </section>
 
     <!-- Carte du monde -->
@@ -349,6 +362,7 @@
 <script src="src/tiles.js"></script>
 <script src="src/worlds.js"></script>
 <script src="src/tower.js"></script>
+<script src="src/donjons.js"></script>
 <script src="src/album.js"></script>
 <script src="src/scene.js"></script>
 <script src="src/map.js"></script>

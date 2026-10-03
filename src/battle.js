@@ -1223,8 +1223,9 @@ var BattleScene = (function () {
     var html;
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
     var title = fight.kind === 'raid' ? (E.hp <= 0 ? 'L’Alpha est tombé !' : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
-    showEnd(win, html, title, fight.kind === 'tour'
-      ? (win ? (fight.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]) : [['again', 'Réessayer'], ['back', 'Retour à la tour']])
+    var climb = fight.kind === 'tour' || fight.kind === 'donjon', nextL = fight.kind === 'tour' ? 'Étage suivant ▶' : 'Salle suivante ▶', backL = fight.kind === 'tour' ? 'Retour à la tour' : 'Retour au donjon';
+    showEnd(win, html, title, climb
+      ? (win ? (fight.next ? [['next', nextL], ['back', backL]] : [['back', backL]]) : [['again', 'Réessayer'], ['back', backL]])
       : [['back', fight.kind === 'raid' || fight.kind === 'guerre' ? 'Retour au clan' : 'Retour à la cascade']]);
   }
   // la fin d'un combat du dojo ou de la tour ; buttons : [[action, libellé], …], le premier est le principal
@@ -1469,6 +1470,21 @@ var BattleScene = (function () {
     }
   }
 
+  // le décor d'un donjon : assombri, teinté de violet, une vignette noire et des torches
+  var gloomCache = {};
+  function gloomy(src) {
+    var key = src.toDataURL().length + ':' + src.width;
+    if (gloomCache[key]) return gloomCache[key];
+    var c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    var x = c.getContext('2d'); x.drawImage(src, 0, 0);
+    x.fillStyle = 'rgba(20, 8, 34, 0.55)'; x.fillRect(0, 0, c.width, c.height);
+    var g = x.createRadialGradient(c.width / 2, c.height * 0.62, 40, c.width / 2, c.height * 0.62, c.width * 0.7);
+    g.addColorStop(0, 'rgba(0, 0, 0, 0)'); g.addColorStop(1, 'rgba(0, 0, 0, 0.75)'); x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+    [[30, 60], [c.width - 34, 60]].forEach(function (t) { x.fillStyle = '#5a3a20'; x.fillRect(t[0], t[1], 4, 18); x.fillStyle = '#ff9a3a'; x.fillRect(t[0] - 1, t[1] - 6, 6, 6); x.fillStyle = '#ffe060'; x.fillRect(t[0] + 1, t[1] - 8, 2, 3);
+      var h = x.createRadialGradient(t[0] + 2, t[1] - 4, 2, t[0] + 2, t[1] - 4, 40); h.addColorStop(0, 'rgba(255, 160, 60, 0.35)'); h.addColorStop(1, 'rgba(255, 160, 60, 0)'); x.fillStyle = h; x.fillRect(t[0] - 40, t[1] - 44, 84, 84); });
+    return (gloomCache[key] = c);
+  }
+
   // ---------- Démarrage ----------
   function start(gameSave, f, callback) {
     save = gameSave; fight = f; onEnd = callback;
@@ -1490,11 +1506,13 @@ var BattleScene = (function () {
     tweens = []; floaters = []; particles = []; shots = []; fxs = []; shake = 0;
     busy = true; over = false;
     bg = f.backdrop || buildBackground(BIOMES[f.biomeIndex]);
+    if (f.gloom) bg = gloomy(bg); // un donjon : le même décor, dans le noir des couloirs
     $('battle').style.background = f.backdrop ? '#1a1108' : BIOMES[f.biomeIndex].pal.groundDark;
     $('battle').style.setProperty('--bt-bg', 'url(' + bg.toDataURL() + ')');
     $('bt-log').innerHTML = '';
     $('bt-result').hidden = true;
     $('bt-title').textContent = f.title || BIOMES[f.biomeIndex].name + ' · étape ' + f.stage + ' / ' + STAGES;
+    $('battle').classList.toggle('gloom', !!f.gloom);
     $('bt-hero-name').textContent = heroName();
     $('bt-weather').textContent = f.weather && f.weather.id !== 'clair' ? f.weather.name + ' : ' + f.weather.desc : '';
     $('bt-weather').hidden = !(f.weather && f.weather.id !== 'clair');

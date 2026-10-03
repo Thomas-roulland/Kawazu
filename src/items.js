@@ -792,8 +792,17 @@ Object.assign(ITEM_TIER, {
 // Rang d'un objet = rang de sa terre (7 pour la Plaine des Vents… 22 pour l'Orage).
 // continentMain(w) : l'attribut principal d'une arme commune de la terre w (≈ 13 à la Plaine des Vents, ≈ 130 à l'Orage) ;
 // les accessoires en valent le tiers. GEAR_VERSION : quand la courbe change, les exemplaires déjà trouvés sont recalculés.
-var GEAR_VERSION = 2;
-function continentMain(w) { var k = w - ISLAND_WORLDS, L = 8 * w + 5; return L * (0.24 + 0.035 * k); }
+var GEAR_VERSION = 3;
+// les courbes successives (la force d'une arme commune de la terre w) : 1 = 1,1 × L (le saut de l'île au Continent),
+// 2 = en pente douce mais trop plate (les trouvailles ne changeaient presque rien), 3 = celle d'aujourd'hui
+var GEAR_CURVES = {
+  1: function (w) { return 1.1 * (8 * w + 5); },
+  2: function (w) { return (8 * w + 5) * (0.24 + 0.035 * (w - ISLAND_WORLDS)); },
+  3: function (w) { return (8 * w + 5) * (0.4 + 0.045 * (w - ISLAND_WORLDS)); }
+};
+// les multiplicateurs des raretés à chaque version (les Rares et les Épiques pèsent plus depuis la 3)
+var RARITY_MULTS = { 1: { rare: 1.35, epique: 1.75 }, 2: { rare: 1.35, epique: 1.75 }, 3: { rare: 1.5, epique: 2.1 } };
+function continentMain(w) { return GEAR_CURVES[GEAR_VERSION](w); }
 function continentAcc(w) { return 0.33 * continentMain(w); }
 var CONTINENT_GEAR = {
   plaine: { de: 'des Vents', c: ['#e0c050', '#a8882a', '#fff0a0', '#6e4a2a', '#4a3018'], wave: ['#fff0a0', '#a8882a'], focus: 'agilite', hat: 'kasa' },
@@ -854,14 +863,17 @@ if (typeof COLOSSUS_ICONS !== 'undefined') Object.assign(ICONS, COLOSSUS_ICONS);
 // Les trésors (tour, dojo, album) ont des stats fixes et comptent comme Épiques.
 var RARITIES = {
   commun: { name: 'Commun', color: '#b8c0b0', mult: 1, extra: 0, price: 1 },
-  rare: { name: 'Rare', color: '#4f9ae8', mult: 1.35, extra: 1, price: 1.8 },
-  epique: { name: 'Épique', color: '#b86ae8', mult: 1.75, extra: 2, price: 3 }
+  rare: { name: 'Rare', color: '#4f9ae8', mult: 1.5, extra: 1, price: 1.8 },
+  epique: { name: 'Épique', color: '#b86ae8', mult: 2.1, extra: 2, price: 3 }
 };
 var RARITY_IDS = ['commun', 'rare', 'epique'];
 // Légendaire : une rareté à part, dorée, réservée à quelques modèles (bandeaux et capes) qu'on ne trouve que sur le
 // Continent, très rarement (LEGEND_CHANCE). Leurs stats suivent le rang de la terre où ils tombent.
 RARITIES.legendaire = { name: 'Légendaire', color: '#ff8c1a', mult: 1, extra: 0, price: 6 };
-var ITEM_RARITIES = RARITY_IDS.concat(['legendaire']); // pour ranger les objets
+// Unique : une rareté vert rayonnant, plus forte qu'un Épique, qu'on ne trouve que dans les Donjons (donjons.js) ;
+// chaque exemplaire porte le nom de son donjon
+RARITIES.unique = { name: 'Unique', color: '#3aff7a', mult: 2.6, extra: 3, price: 5 };
+var ITEM_RARITIES = RARITY_IDS.concat(['unique', 'legendaire']); // pour ranger les objets
 var LEGEND_CHANCE = { 0: 0.003, 1: 0.008, 2: 0.02 }; // par victoire sur le Continent : monstre commun, boss ou rare, épique
 function mkLegend(slot, name, stats, accent, desc) {
   var gold = ['#f0c040', '#b08a1a', '#fff6c0'], dark = accent[1];
@@ -908,7 +920,9 @@ function registerItem(id, inst) {
     if (BASE_STATS[key] !== undefined && typeof inst.stats[k] === 'number') stats[key] = (stats[key] || 0) + Math.round(inst.stats[k]);
   });
   var plus = Math.max(0, Math.min(99, Math.floor(+inst.plus || 0))); // le « + » des objets trouvés dans les cycles suivants
-  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? b.name + ' +' + plus : b.name });
+  var nm = typeof inst.name === 'string' && inst.name ? inst.name.slice(0, 48) : b.name; // (un Unique a le nom de son donjon)
+  ITEMS[id] = Object.assign({}, b, { stats: stats, rarity: inst.rar, base: inst.base, plus: plus, name: plus ? nm + ' +' + plus : nm });
+  if (inst.from) ITEMS[id].dungeon = String(inst.from).slice(0, 8);
   return true;
 }
 // Un nouvel exemplaire d'un modèle : ses stats tirées selon la rareté
@@ -922,7 +936,7 @@ function rollItem(save, base, rar) {
   for (var i = 0; i < R.extra && others.length; i++) {
     if (rar === 'rare' && Math.random() < 0.5) break; // un Rare a une chance sur deux d'avoir une stat de plus
     var k = others.splice(Math.floor(Math.random() * others.length), 1)[0];
-    stats[k] = 1 + Math.floor(Math.random() * (rar === 'epique' ? 3 : 2));
+    stats[k] = rar === 'unique' ? Math.max(2, Math.round(Math.max.apply(null, Object.keys(stats).map(function (s) { return stats[s]; })) * (0.15 + Math.random() * 0.1))) : 1 + Math.floor(Math.random() * (rar === 'epique' ? 3 : 2));
   }
   var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);
   save.items[id] = { base: base, rar: rar, stats: stats };
@@ -992,6 +1006,7 @@ function newSave() {
     mutation: { n: 0, traits: {} }, // les mutations : combien, et les traits choisis (id -> fois)
     mastery: { force: 0, carapace: 0, instinct: 0, souffle: 0 }, // les Maîtrises (après l'arbre), pour toujours
     awakened: [], // les sorts éveillés (un tous les 10 rangs de maîtrise)
+    dungeons: {}, // les Donjons : id -> { room: salles vidées, day: le jour du dernier boss redéfié }
     ach: [], // hauts faits obtenus (voir feats.js)
     items: {}, // les exemplaires d'objets : id -> { base, rar, stats }
     gifts: [], // cadeaux du dojo déjà reçus (leur identifiant, pour ne jamais les compter deux fois)
@@ -1046,11 +1061,18 @@ function parseSave(data) {
   // avant la version 6, les armes de jet donnaient de la Force : leurs exemplaires passent à l'Agilité
   if (data.items && typeof data.items === 'object' && data.v < 6) Object.keys(data.items).forEach(function (id) { var it = data.items[id], b = it && ITEMS[it.base]; if (b && b.kind === 'kunai' && it.stats) it.stats = swapThrown(it.stats); });
   if (data.items && typeof data.items === 'object' && (data.gear || 1) < GEAR_VERSION) {
-    var rescaled = 0;
-    Object.keys(data.items).forEach(function (id) { if (rescaleGear(data.items[id])) rescaled++; });
-    if (rescaled && save.hero && !save.notice) save.notice = 'Les objets du Continent ont été rééquilibrés : leur force monte maintenant en douceur depuis celle des objets de l’île. Tes ' + rescaled + ' objet' + (rescaled > 1 ? 's' : '') + ' du Continent ont été recalculés (et les monstres ajustés).';
+    var rescaled = 0, from = data.gear || 1;
+    Object.keys(data.items).forEach(function (id) { if (rescaleGear(data.items[id], from)) rescaled++; });
+    if (rescaled && save.hero && !save.notice) save.notice = 'Les objets ont été rééquilibrés : chaque nouvelle terre du Continent et chaque rareté (Rare, Épique) donnent maintenant de vrais gains. ' + (rescaled > 1 ? 'Tes ' + rescaled + ' objets ont été recalculés' : 'Ton objet a été recalculé') + ' à la hausse.';
   }
-  if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) { if (registerItem(id, data.items[id])) { save.items[id] = { base: data.items[id].base, rar: data.items[id].rar, stats: ITEMS[id].stats }; if (ITEMS[id].plus) save.items[id].plus = ITEMS[id].plus; } });
+  if (data.items && typeof data.items === 'object') Object.keys(data.items).forEach(function (id) {
+    var di = data.items[id];
+    if (!registerItem(id, di)) return;
+    save.items[id] = { base: di.base, rar: di.rar, stats: ITEMS[id].stats };
+    if (ITEMS[id].plus) save.items[id].plus = ITEMS[id].plus;
+    if (typeof di.name === 'string' && di.name) save.items[id].name = di.name.slice(0, 48);
+    if (di.from) save.items[id].from = String(di.from).slice(0, 8);
+  });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
   if (Array.isArray(data.progress)) data.progress.forEach(function (n, i) { if (i < save.progress.length) save.progress[i] = Math.min(10, int(n, 0) || 0); });
@@ -1087,6 +1109,10 @@ function parseSave(data) {
     save.mutation.n = Math.min(999, int(data.mutation.n, 0) || 0);
     Object.keys(data.mutation.traits || {}).forEach(function (id) { if (MUTATIONS[id]) save.mutation.traits[id] = Math.min(999, int(data.mutation.traits[id], 0) || 0); });
   }
+  if (data.dungeons && typeof data.dungeons === 'object') Object.keys(data.dungeons).forEach(function (id) {
+    var dd = data.dungeons[id];
+    if (/^d\d{1,2}$/.test(id) && dd && typeof dd === 'object') save.dungeons[id] = { room: Math.min(10, int(dd.room, 0) || 0), day: typeof dd.day === 'string' ? dd.day.slice(0, 12) : '' };
+  });
   if (data.mastery && typeof data.mastery === 'object') MASTERIES.forEach(function (x) { save.mastery[x.id] = Math.min(9999, int(data.mastery[x.id], 0) || 0); });
   if (Array.isArray(data.awakened)) save.awakened = data.awakened.filter(function (id, i) { return skillById(id) && data.awakened.indexOf(id) === i; }).slice(0, awakeningsAllowed(save));
   if (data.clanBonus) save.clanBonus = { xp: Math.min(0.2, Math.max(0, +data.clanBonus.xp || 0)), lucioles: Math.min(0.2, Math.max(0, +data.clanBonus.lucioles || 0)) };
@@ -1100,18 +1126,23 @@ function parseSave(data) {
 }
 
 // Un exemplaire du Continent tiré avec l'ancienne courbe : ses stats ramenées sur la nouvelle (même rareté, même tirage)
-function rescaleGear(inst) {
+// Un exemplaire tiré avec une ancienne version (from) : ses stats ramenées sur la version d'aujourd'hui (même tirage)
+function rescaleGear(inst, from) {
   var b = inst && ITEMS[inst.base];
-  if (!b || !inst.stats || typeof inst.stats !== 'object') return false;
-  var ratio;
-  if (b.continent != null) ratio = continentMain(b.continent) / (1.1 * (8 * b.continent + 5));
+  if (!b || !inst.stats || typeof inst.stats !== 'object' || !GEAR_CURVES[from]) return false;
+  var ratio = 1, now = GEAR_CURVES[GEAR_VERSION], old = GEAR_CURVES[from];
+  if (b.continent != null) ratio = now(b.continent) / old(b.continent);
   else if (b.legend) {
-    // la terre où il est tombé : d'après ses stats (poids × 0,36 × L, au cycle près)
-    var wsum = 0, ssum = 0;
+    // la terre où il est tombé : celle dont l'unité (la force d'un accessoire) colle le mieux à ses stats
+    var wsum = 0, ssum = 0, unit = function (v, w) { return v === 1 ? 0.36 * (8 * w + 5) : 0.33 * GEAR_CURVES[v](w); };
     Object.keys(b.weights).forEach(function (k) { wsum += b.weights[k]; ssum += Math.max(0, inst.stats[k] || 0); });
-    var L = ssum / wsum / 0.36 / (1 + CYCLE.loot * (+inst.plus || 0)), w = Math.max(ISLAND_WORLDS, Math.min(BIOMES.length - 1, Math.round((L - 5) / 8)));
-    ratio = continentAcc(w) / (0.36 * (8 * w + 5));
-  } else return false;
+    var u = ssum / wsum / (1 + CYCLE.loot * (+inst.plus || 0)), best = ISLAND_WORLDS;
+    for (var w = ISLAND_WORLDS; w < BIOMES.length; w++) if (Math.abs(unit(from, w) - u) < Math.abs(unit(from, best) - u)) best = w;
+    ratio = unit(GEAR_VERSION, best) / unit(from, best);
+  }
+  var rm = RARITY_MULTS[GEAR_VERSION][inst.rar], ro = RARITY_MULTS[from] && RARITY_MULTS[from][inst.rar];
+  if (rm && ro && !b.legend) ratio *= rm / ro;
+  if (Math.abs(ratio - 1) < 0.001) return false;
   Object.keys(inst.stats).forEach(function (k) { var v = inst.stats[k]; if (typeof v === 'number' && v > 0) inst.stats[k] = Math.max(1, Math.round(v * ratio)); });
   return true;
 }

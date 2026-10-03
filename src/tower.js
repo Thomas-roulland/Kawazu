@@ -79,7 +79,7 @@ function towerTreasure(f) { return BASE_IDS.filter(function (id) { return ITEMS[
 function towerRewards(f) {
   var boss = f % 10 === 0, lvl = towerLevel(f), anc = isAncestor(f);
   // (chez les Ancêtres : bien plus de lucioles et d'XP, et une Relique tous les 50 étages)
-  return { gold: Math.round((anc ? 60 + f * 14 : 15 + f * 6) * (boss ? 3 : 1)), xp: Math.round((10 + 5 * lvl) * (boss ? 2.2 : 0.8) * (anc ? 1.6 : 1)), item: boss ? towerTreasure(f) : null };
+  return { gold: Math.round((anc ? 60 + f * 14 : 15 + f * 6) * (boss ? 3 : 1)), xp: Math.round(xpForLevel(lvl) * (boss ? 0.9 : 0.3) * (anc ? 1.3 : 1)), item: boss ? towerTreasure(f) : null };
 }
 
 // La fiche de combat d'un sage (même format que celles du dojo) : tout est tiré de l'étage, donc toujours pareil
