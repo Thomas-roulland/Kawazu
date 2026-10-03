@@ -584,7 +584,7 @@
   }
   function renderCombat(pr) {
     var pas = pr.pas, rows = [];
-    var row = function (ico, name, val, how) { rows.push('<li><img src="' + ico + '" alt=""><span class="cs-name">' + name + '<small>' + how + '</small></span><b>' + val + '</b></li>'); };
+    var row = function (ico, name, val, how) { rows.push('<li title="' + name + ' : ' + String(how).replace(/"/g, '&quot;') + '"><img src="' + ico + '" alt=""><span class="cs-name">' + name + '</span><b>' + val + '</b></li>'); };
     var temple = function (v, txt) { return v ? ', ' + (txt || '+' + pc(v)) + ' du temple' : ''; };
     var v = voieDef(chosenVoie(save)), main = mainStat(chosenVoie(save));
     row(STAT_ICON.vitalite, 'Points de vie', pr.maxHp, BAL.hpBase + ' + ' + BAL.hpVit + ' par Vitalité' + (v && v.hp !== 1 ? ', ×' + n1(v.hp) + ' (endurance de la voie)' : '') + temple(pas.hpMult));
@@ -597,8 +597,10 @@
     if (pr.dmgReduce) row(PASSIVE_ICON[chosenVoie(save) || 'baton'], 'Dégâts reçus', '−' + pc(pr.dmgReduce), [pr.armor ? 'armure de la voie ' + pc(pr.armor) : '', pas.dmgReduce ? 'passifs du temple ' + pc(pas.dmgReduce) : ''].filter(Boolean).join(' + '));
     var others = ['riposte', 'lifesteal', 'shield', 'regenHp', 'flow', 'multiHit', 'execute', 'stunChance', 'bleedMult', 'poisonMult'].filter(function (k) { return pas[k]; });
     if (pr.mut && (pr.mut.hp || pr.mut.dmg || pr.mut.crit || pr.mut.dodge || pr.mut.spell)) row(STAT_ICON.vitalite, 'Mutation', [pr.mut.hp ? '+' + pc(pr.mut.hp) + ' PV' : '', pr.mut.dmg ? '+' + pc(pr.mut.dmg) + ' dégâts' : '', pr.mut.crit ? '+' + pc(pr.mut.crit) + ' critique' : '', pr.mut.dodge ? '+' + pc(pr.mut.dodge) + ' esquive' : '', pr.mut.spell ? '+' + pc(pr.mut.spell) + ' sorts' : ''].filter(Boolean).join(' · '), 'les traits choisis en mutant');
-    $('combat-stats').innerHTML = '<h2>EN COMBAT</h2><ul class="cs-list">' + rows.join('') + '</ul>' +
-      (others.length ? '<p class="cs-pas"><b>Passifs :</b> ' + others.map(function (k) { return PASSIVE_TEXT[k](pas[k]); }).join(' · ') + '.</p>' : '');
+    // les passifs des dalles apprises : leurs noms, et leurs effets en infobulle
+    var passives = save.tree.map(nodeById).filter(function (n) { return n && n.passive; });
+    $('combat-stats').innerHTML = '<h2>EN COMBAT <small>survole une case pour le détail</small></h2><ul class="cs-list">' + rows.join('') + '</ul>' +
+      (others.length || passives.length ? '<p class="cs-pas"><b>Passifs :</b> ' + (others.length ? others.map(function (k) { return PASSIVE_TEXT[k](pas[k]); }).join(' · ') : passives.map(function (n) { return n.name; }).join(' · ')) + '.</p>' : '');
   }
   // ---------- La mutation ----------
   // Au niveau MUTATION_LEVEL, la grenouille peut muter : trois traits au choix, puis elle repart au niveau 1.
@@ -635,28 +637,10 @@
     card.appendChild(f);
   }
 
-  // Hauts faits et passifs : l'encart n'apparaît que s'il y a quelque chose à montrer
+  // Les médailles des hauts faits (elles sont dans l'Album, sur leur double page)
   var medalUrls = {};
-  function renderFeats() {
-    var feats = FEATS.filter(function (f) { return save.ach && save.ach.indexOf(f.id) >= 0; });
-    var passives = save.tree.map(nodeById).filter(function (n) { return n && n.passive; });
-    var box = $('feats');
-    box.hidden = !feats.length && !passives.length;
-    if (box.hidden) return;
-    var chip = function (img, name, desc, style, cls) {
-      return '<div class="feat' + (cls || '') + '"' + (style ? ' style="' + style + '"' : '') + ' title="' + desc + '"><img src="' + img + '" alt=""><span><b>' + name + '</b><small>' + desc + '</small></span></div>';
-    };
-    var html = '';
-    if (feats.length) {
-      html += '<div class="feats-head"><h2>HAUTS FAITS</h2><span class="muted">' + feats.length + ' / ' + FEATS.length + '</span></div><div class="feats">' +
-        feats.map(function (f) { if (!medalUrls[f.id]) medalUrls[f.id] = medalCanvas(f).toDataURL(); return chip(medalUrls[f.id], f.name, f.desc); }).join('') + '</div>';
-    }
-    if (passives.length) {
-      html += '<div class="feats-head"><h2>PASSIFS ACTIFS</h2></div><div class="feats">' +
-        passives.map(function (n) { return chip(n.summit ? armeIcon(n.voie) : branchIcon(n.voie, n.path), n.name, n.desc, '--voie:' + voieOf(n.voie).color, ' passive'); }).join('') + '</div>';
-    }
-    box.innerHTML = html;
-  }
+  function medalUrl(f) { return medalUrls[f.id] || (medalUrls[f.id] = medalCanvas(f).toDataURL()); }
+  var FEAT_GROUPS = [['niveau', 'Niveaux'], ['combat', 'Combats'], ['boss', 'Boss et conquêtes'], ['arbre', 'La Voie'], ['objets', 'Objets']];
   // Annonce les hauts faits tout juste obtenus
   function checkFeats() {
     if (!save.hero) return;
@@ -2458,10 +2442,23 @@
       '<div class="ac-art item"><img class="px" src="' + iconUrls[e] + '" alt=""></div>' +
       '<span class="ac-sub">' + statLine(it.stats) + '</span><span class="ac-foot">' + slot.toUpperCase() + (it.reward ? ' · TRÉSOR' : ' · RANG ' + (ITEM_TIER[e] || 1)) + '</span></div></div>';
   }
+  // la dernière double page du livre : les hauts faits (FEATS_SPREAD)
+  var FEATS_SPREAD = { cat: 'hauts', name: 'Hauts faits' };
+  function albumSpreads() { return [null].concat(ALBUM_CHAPTERS, [FEATS_SPREAD]); }
+  function featsPage(groups) {
+    return groups.map(function (g) {
+      var list = FEATS.filter(function (f) { return (f.cat || 'boss') === g[0]; });
+      if (!list.length) return '';
+      return '<h2 class="bk-feat-h">' + g[1].toUpperCase() + '</h2><div class="bk-feats">' + list.map(function (f) {
+        var got = save.ach && save.ach.indexOf(f.id) >= 0;
+        return '<div class="bk-feat' + (got ? '' : ' locked') + '" title="' + f.desc + '"><img src="' + medalUrl(f) + '" alt=""><span><b>' + (got ? f.name : '???') + '</b><small>' + f.desc + '</small></span></div>';
+      }).join('') + '</div>';
+    }).join('');
+  }
   function renderAlbum() {
-    var spreads = [null].concat(ALBUM_CHAPTERS), sp = album.spread = Math.max(0, Math.min(spreads.length - 1, album.spread)), ch = spreads[sp];
+    var spreads = albumSpreads(), sp = album.spread = Math.max(0, Math.min(spreads.length - 1, album.spread)), ch = spreads[sp], featsAt = spreads.length - 1;
     var firstObj = 1 + ALBUM_CHAPTERS.map(function (c) { return c.cat; }).indexOf('objets'), ready = ALBUM_MILESTONES.some(function (m) { return milestoneReady(save, m); });
-    $('book-tabs').innerHTML = [['Sommaire', 0, sp === 0, ICON.album], ['Bestiaire', 1, sp >= 1 && sp < firstObj, BOOKMARK_MONSTER], ['Objets', firstObj, sp >= firstObj, iconUrls.lame_jade]].map(function (t, i) {
+    $('book-tabs').innerHTML = [['Sommaire', 0, sp === 0, ICON.album], ['Bestiaire', 1, sp >= 1 && sp < firstObj, BOOKMARK_MONSTER], ['Objets', firstObj, sp >= firstObj && sp < featsAt, iconUrls.lame_jade], ['Hauts faits', featsAt, sp === featsAt, medalUrl(FEATS[0])]].map(function (t, i) {
       return '<button data-book-go="' + t[1] + '" aria-selected="' + t[2] + '" class="bmark bm-' + i + '" title="' + t[0] + '"><img class="px" src="' + t[3] + '" alt=""><span>' + t[0] + '</span>' + (i === 0 && ready ? '<i class="badge-dot"></i>' : '') + '</button>';
     }).join('');
     var left, right;
@@ -2481,13 +2478,20 @@
       };
       left = '<h1 class="bk-title">ALBUM DU MARAIS</h1><p class="bk-intro">Chaque créature vaincue et chaque objet trouvé colle sa carte dans ce livre. Les cartes rares et épiques ont leur cadre bleu ou violet.</p>' +
         bar('monstres', 'Bestiaire') + bar('objets', 'Objets') +
-        '<h2 class="bk-h">BESTIAIRE</h2><div class="bk-tocs">' + toc('monstres') + '</div><h2 class="bk-h">OBJETS</h2><div class="bk-tocs">' + toc('objets') + '</div>';
+        '<h2 class="bk-h">BESTIAIRE</h2><div class="bk-tocs">' + toc('monstres') + '</div><h2 class="bk-h">OBJETS</h2><div class="bk-tocs">' + toc('objets') + '</div>' +
+        '<h2 class="bk-h">HAUTS FAITS</h2><div class="bk-tocs"><button class="bk-toc" data-book-go="' + (albumSpreads().length - 1) + '"><span>Les médailles</span><i></i><b>' + FEATS.filter(function (f) { return save.ach && save.ach.indexOf(f.id) >= 0; }).length + ' / ' + FEATS.length + '</b></button></div>';
       right = '<h2 class="bk-h">RÉCOMPENSES</h2><p class="bk-intro">Remplis le livre pour gagner des lucioles, de l’expérience… et deux trésors.</p><div class="bk-miles">' +
         ALBUM_MILESTONES.map(function (m) {
           var done = albumOf(save).paliers.indexOf(m.id) >= 0, rdy = milestoneReady(save, m), have = albumCount(save, m.cat), n = milestoneTarget(save, m);
           return '<div class="bk-mile' + (done ? ' done' : (rdy ? ' ready' : '')) + '"><span class="bm-n">' + n + '</span><span class="bm-txt"><b>' + (m.cat === 'monstres' ? 'créatures' : 'objets') + '</b>' + m.gold + ' lucioles · ' + m.xp + ' XP' + (m.item ? ' · <em>' + ITEMS[m.item].name + '</em>' : '') + '</span>' +
             (done ? '<span class="bm-state">Reçu</span>' : (rdy ? '<button class="btn" data-claim="' + m.id + '">Réclamer</button>' : '<span class="bm-state">' + Math.min(have, n) + ' / ' + n + '</span>')) + '</div>';
         }).join('') + '</div>';
+    } else if (ch === FEATS_SPREAD) {
+      var got = FEATS.filter(function (f) { return save.ach && save.ach.indexOf(f.id) >= 0; }).length;
+      left = '<div class="bk-chap"><span class="bk-kicker">HAUTS FAITS</span><h1 class="bk-title">LES MÉDAILLES</h1><p class="bk-intro">Chaque exploit de ta grenouille lui vaut une médaille : bronze, argent ou or. Une fois gagnée, elle est à toi pour toujours.</p>' +
+        '<div class="bk-prog"><span>Médailles gagnées <b>' + got + ' / ' + FEATS.length + '</b></span><span class="al-bar"><i style="width:' + (got / FEATS.length * 100) + '%"></i></span></div></div>' +
+        featsPage(FEAT_GROUPS.filter(function (g) { return g[0] !== 'boss'; }));
+      right = featsPage(FEAT_GROUPS.filter(function (g) { return g[0] === 'boss'; }));
     } else {
       var found = chapterFound(ch), total = chapterTotal(ch), cards = ch.list.map(function (e) { return albumCard(ch, e); });
       left = '<div class="bk-chap"><span class="bk-kicker">' + (ch.cat === 'monstres' ? 'BESTIAIRE' : 'OBJETS') + '</span><h1 class="bk-title">' + ch.name.toUpperCase() + '</h1><p class="bk-intro">' + ch.desc + '</p>' +
@@ -2497,7 +2501,7 @@
     }
     $('book-left').innerHTML = left;
     $('book-right').innerHTML = right;
-    $('book-folio').textContent = sp === 0 ? 'Sommaire' : 'Chapitre ' + sp + ' / ' + ALBUM_CHAPTERS.length;
+    $('book-folio').textContent = sp === 0 ? 'Sommaire' : (sp === featsAt ? 'Hauts faits' : 'Chapitre ' + sp + ' / ' + ALBUM_CHAPTERS.length);
     $('book-prev').disabled = sp === 0;
     $('book-next').disabled = sp === spreads.length - 1;
   }
@@ -2526,7 +2530,7 @@
   }
   window.addEventListener('keydown', function (e) {
     if (state.page !== 'album' || $('app').hidden || !$('battle').hidden) return;
-    if (e.key === 'ArrowRight') turnPage(Math.min(ALBUM_CHAPTERS.length, album.spread + 1));
+    if (e.key === 'ArrowRight') turnPage(Math.min(albumSpreads().length - 1, album.spread + 1));
     if (e.key === 'ArrowLeft') turnPage(Math.max(0, album.spread - 1));
   });
 
@@ -2543,7 +2547,6 @@
     renderMutation();
     renderInventory();
     renderDetails();
-    renderFeats();
     Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) { b.classList.toggle('is-active', b.dataset.view === state.view); });
     if (state.page === 'skills') renderTree();
     if (state.page === 'map') renderWorldMap();

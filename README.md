@@ -71,9 +71,9 @@ Les **lucioles** sont la monnaie du jeu.
 - **Personnage** : la grenouille dans un cadre simple (sans décor, juste son ombre), ses 5 emplacements autour
   (tête, arme, écharpe, **ceinture**, anneau : l'écharpe et la ceinture changent de couleur sur le sprite),
   les caractéristiques en cartes détaillées (base de la voie, points répartis × la voie, dalles du Temple, objets ;
-  ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** (PV, dégâts, critique,
-  esquive, initiative, puissance et relance des sorts, passifs : chaque chiffre avec son calcul), les **hauts faits**
-  et les **passifs** débloqués, et l'inventaire (filtres Corps à corps / Distance). « **Vendre en masse** » : on coche
+  ce que la stat donne et la règle, « + » pour répartir les points), la fiche **En combat** en petites tuiles (PV,
+  dégâts, critique, esquive, initiative, puissance et relance des sorts, dégâts reçus ; le calcul de chaque chiffre
+  en infobulle, et les passifs sur une ligne), et l'inventaire sur toute la hauteur (filtres Corps à corps / Distance). « **Vendre en masse** » : on coche
   les objets (ou par rareté : communs, rares, tout), le total s'affiche et on vend d'un coup ; les objets équipés restent.
   Les cartes des caractéristiques mettent l’**attribut principal** en tête (en or), puis la **Vitalité** ; le reste est
   un bonus. « **Répartir pour moi** » place les points libres : 60 % dans l’attribut principal, 40 % en Vitalité.
@@ -200,7 +200,9 @@ Les **lucioles** sont la monnaie du jeu.
     qui reste, les grenouilles d’en face, son journal) ou les clans à défier, l’Alpha, le classement des clans par
     renommée et le journal.
 - **Album** : un grand **livre** à feuilleter : la page tourne vraiment autour de la reliure (flèches, touches ← →, ou les
-  marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets).
+  marque-pages en ruban de cuir sur la tranche : Sommaire, Bestiaire, Objets, Hauts faits). La dernière double page,
+  **les Médailles**, range tous les hauts faits par catégorie (niveaux, combats, voie, objets ; boss et conquêtes) :
+  en couleur ceux qu'on a gagnés, en silhouette (« ??? ») ceux qui restent, avec ce qu'il faut faire.
   Le sommaire donne les chapitres et les **récompenses** à réclamer (paliers de découvertes : lucioles, XP, et au
   bout l’Anneau du naturaliste et l’Écharpe du collectionneur). Puis une double page par **famille** : Limons,
   Moustiques, Champis, Chauves-souris, Boss des terres, Grands Sages ; Bâtons, Harpons, Katanas, Masses, Kunaïs, Shurikens, Couvre-chefs,
