@@ -237,12 +237,16 @@ grenouille, avec l’événement en cours (le week-end double XP).
   de niveau, gardien ×1,8, boss ×3) : finir une terre fait gagner ~3,5 niveaux, une vingtaine de combats de plus font
   le reste (au lieu de heures de farm). Les objets du Continent montent fort de terre en terre, et le Rare (×1,5) et
   l’Épique (×2,1) pèsent : une trouvaille se sent (un boss passé à 34 % en commun l’est à ~80 % en rare).
-- **Les Donjons**, comme dans Shakes & Fidget : trente donjons, un tous les dix niveaux de la grenouille (10 à 300), dix
-  salles chacun, des monstres d’un niveau de plus à chaque salle (un gardien à la 5e) et un boss à lui au fond, dans le
-  décor d’une terre de son niveau, plongé dans le noir. La première victoire dans une salle rapporte beaucoup d’XP et
-  de lucioles, 30 % de chance d’objet et **12 % d’objet Unique** (25 % au boss) ; un donjon vidé, son boss se redéfie
-  une fois par jour. **Unique** : une rareté **vert rayonnant**, plus forte qu’un Épique, et chaque exemplaire porte le
-  nom de son donjon (« Katana de la Crypte »).
+- **Les Donjons**, comme dans Shakes & Fidget : trente donjons, un tous les dix niveaux de la grenouille (10 à 300),
+  qu’on ouvre l’un après l’autre (le suivant s’ouvre quand le précédent est vidé et qu’on a son niveau). Une grande
+  carte illustrée par donjon (sa salle, sa porte et son boss qui attend), qu’on fait glisser de l’une à l’autre ; à
+  droite, le monstre de la prochaine salle et sa force comparée à la tienne. Dix salles, un gardien à la 5e, un boss au
+  fond. Leurs **douze créatures n’existent nulle part ailleurs** (gargouille, mimique, spectre, liche, golem runique,
+  minotaure, chimère, basilic, feu-follet, crâne flottant, hydre, œil flottant), et leurs **objets Uniques** non plus :
+  dix modèles par donjon, à ses couleurs et à ses noms (« Couperet des Gargouilles »), une rareté vert rayonnant plus
+  forte qu’un Épique (10 % par salle, 25 % au boss). Coriaces (réglés au simulateur : à leur niveau, il faut de bons
+  objets pour la fin et le boss) ; une salle rapporte un peu plus d’un dixième de niveau, le boss la moitié d’un ; un
+  donjon vidé, son boss se redéfie une fois par jour.
 - **Une difficulté qui monte en pente douce** (réglée au simulateur, grenouille au niveau de l’étape, objets communs
   de sa terre) : sur l’île, les ordinaires restent du gibier, mais gardiens et boss demandent **un peu de farm** —
   boss gagnés ~100 % au Marais-Brume, puis 92, 80, 71, 60 et ~50 % pour le Héron (77 à 100 % avec 3 niveaux de plus).
@@ -313,9 +317,11 @@ grenouille, avec l’événement en cours (le week-end double XP).
   d’éclats). Un badge sur « Camp » dit quand une récompense attend (`src/quetes.js`).
 - **Les événements** : le **week-end double XP** (samedi et dimanche, tout ce qui rapporte de l’XP en rapporte deux fois
   plus) et le **mercredi du butin** (+50 % de chances d’objet). Le camp annonce le prochain.
-- **La forge** (`src/forge.js`), sur la fiche de chaque objet : **recycler** un objet donne des éclats de jade (selon sa
-  rareté et son rang ; la vente en masse sait aussi recycler), et ces éclats **renforcent** un objet de +1 à **+10**
-  (+5 % de stats par niveau, +50 % à +10), pour un peu de lucioles aussi. Plus rien de ce qui tombe n’est inutile.
+- **La forge** (`src/forge.js`), une page à elle : l’atelier, son four et son enclume. À gauche, les objets à forger
+  (ceux qu’on porte d’abord) ; au milieu, l’objet sur l’enclume, ce que donne le niveau suivant, son prix et ses chances ;
+  à droite, le **recyclage en masse** (par rareté, ou objet par objet) en éclats de jade. Renforcer un objet de +1 à
+  **+10** (+5 % de stats par niveau) coûte de plus en plus d’éclats et de lucioles, et **peut rater à partir de +4**
+  (90 %, puis 80 %… 30 % pour +10 : les éclats sont perdus, l’objet garde son niveau).
 - **Les panoplies d’Uniques** : les Uniques d’un même donjon forment une panoplie ; en porter 2, 3 puis 4 donne un bonus
   de plus à chaque palier. Six sortes, une par donjon à tour de rôle : du Colosse (PV, dégâts reçus), du Fauve (dégâts,
   critique), de l’Ombre (esquive), du Sage (sorts), de Fortune (XP, lucioles, objets) et du Sang (vol de vie).
@@ -331,7 +337,8 @@ grenouille, avec l’événement en cours (le week-end double XP).
   ses PV s’ajustent d’une semaine à l’autre selon qu’il est tombé ou non.
 - **Les saisons de classement** : un mois chacune. Chaque exploit rapporte des points (quêtes, coffre, boss, salles de
   donjon, étages de la tour, attaques du Titan, duels, assauts du clan) ; l’onglet **Saison** du classement les compare.
-  Le premier du mois, les dix premières reçoivent un cadeau (lucioles, éclats, XP), et les trois premières une peau qu’on
+  (Le classement des clans est aussi dans la page Classement, onglet **Clans** ; sur la page du clan, il a laissé sa place
+  au **chat du clan**, et le journal est passé sous l’Alpha.) Le premier du mois, les dix premières reçoivent un cadeau (lucioles, éclats, XP), et les trois premières une peau qu’on
   ne trouve nulle part ailleurs : **Champion d’or**, **d’argent** et **de bronze**.
 
 ## Objets et raretés

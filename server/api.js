@@ -29,6 +29,7 @@
 //   POST /api/clans/:id/guerre { cible }                le chef déclare la guerre à un autre clan (5 grenouilles au moins)
 //   POST /api/clans/:id/defi { adversaire }             un combat de la guerre : la fiche de la grenouille d'en face
 //   POST /api/clans/:id/combat { adversaire, victoire } son résultat : des points pour son clan
+//   POST /api/clans/:id/message { texte }               un message dans le chat du clan
 //   GET  /api/titan/:id                                 le Titan de la semaine (PV partagés par toutes les grenouilles),
 //                                                       ses attaques du jour, le classement des dégâts, ses cadeaux
 //   POST /api/titan/:id/attaque { degats }              une attaque contre le Titan
@@ -571,7 +572,7 @@ async function clanRoute(req, res, account, id, action, method) {
     if (exclu) await store.del('clan-exclu:' + id); // on ne le dit qu'une fois
     if (m) {
       out.clan = Object.assign({}, m, {
-        bannis: undefined, repos: undefined,
+        bannis: undefined, repos: undefined, chatDernier: undefined, chat: (m.chat || []).slice(-40),
         membres: m.membres.map((f) => Object.assign({ contribution: (m.contributions || {})[f] || 0, part: m.raid.parts[f] || 0, don: m.dons[f] || 0, role: roleOf(m, f) }, fiches[f] || { id: f, nom: '?' })),
         bonus: { xp: bonusLvl(m, 'xp'), lucioles: bonusLvl(m, 'lucioles'), butin: bonusLvl(m, 'butin'), force: bonusLvl(m, 'force'), vie: bonusLvl(m, 'vie') },
         monRole: roleOf(m, id),
@@ -625,6 +626,16 @@ async function clanRoute(req, res, account, id, action, method) {
   }
   const m = await clanOf(id);
   if (!m) return send(res, 400, { erreur: 'Ta grenouille n’est dans aucun clan.' });
+  if (action === 'message' && method === 'POST') { // le chat du clan : les 60 derniers messages, un toutes les 3 secondes au plus
+    const b = await readBody(req, 4096), texte = String(b.texte || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 200);
+    if (!texte) return send(res, 400, { erreur: 'Le message est vide.' });
+    m.chatDernier = m.chatDernier || {};
+    if (Date.now() - (m.chatDernier[id] || 0) < 3000) return send(res, 429, { erreur: 'Doucement : un message toutes les 3 secondes.' });
+    m.chatDernier[id] = Date.now();
+    m.chat = (m.chat || []).concat([{ t: Date.now(), id: id, nom: me.nom, texte: texte }]).slice(-60);
+    await saveClan(m);
+    return send(res, 200, { ok: true, chat: m.chat });
+  }
   if (action === 'blason' && method === 'POST') {
     const b = await readBody(req, 4096);
     if (!canManage(m, id)) return send(res, 403, { erreur: 'Seuls le chef et ses bras droits peuvent changer le blason.' });
@@ -799,10 +810,11 @@ async function route(req, res, p) {
 
   if (p === '/api/classement' && method === 'GET') {
     await seasonGifts();
-    const [fiches, reps] = await Promise.all([store.hgetall(RANK), store.hgetall(REP)]);
+    const [fiches, reps, clans] = await Promise.all([store.hgetall(RANK), store.hgetall(REP), store.hgetall(CLANS)]);
     const all = Object.values(fiches), mine = me ? me.compte.grenouilles : [];
     all.forEach((e) => { e.moi = mine.indexOf(e.id) >= 0; e.rep = +reps[e.id] || 0; });
-    return send(res, 200, { grenouilles: all, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX }, saison: { id: seasonOf(new Date()), fin: nextSeason(new Date()), recompenses: SAISON_CADEAUX } });
+    const clanList = Object.values(clans).sort((a, b) => b.renommee - a.renommee || b.rang - a.rang).slice(0, 100);
+    return send(res, 200, { grenouilles: all, clans: clanList, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX }, saison: { id: seasonOf(new Date()), fin: nextSeason(new Date()), recompenses: SAISON_CADEAUX } });
   }
 
   // tout le reste demande d'être connecté
@@ -828,7 +840,7 @@ async function route(req, res, p) {
     if (account.grenouilles.indexOf(dj[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return dojoRoute(req, res, account, dj[1], dj[2], method);
   }
-  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|role|blason|don|ameliorer|raid|guerre|defi|combat))?$/.exec(p);
+  const cl = /^\/api\/clans\/([0-9a-f-]{36})(?:\/(fonder|rejoindre|quitter|exclure|role|blason|don|ameliorer|raid|guerre|defi|combat|message))?$/.exec(p);
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return clanRoute(req, res, account, cl[1], cl[2], method);

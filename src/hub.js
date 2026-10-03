@@ -417,6 +417,8 @@
     else if (state.page === 'skills') drawTempleFx(now);
     else if (state.page === 'dojo') drawCascade(now);
     else if (state.page === 'tower') TowerPage.animate(now);
+    else if (state.page === 'forge') drawForge(now);
+    else if (state.page === 'titan') drawTitan(now);
     if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); if (state.page === 'camp' && save.meditation) renderMeditation(); }
     raf = requestAnimationFrame(tick);
   }
@@ -820,25 +822,12 @@
     notice(sold.length + ' objet' + (sold.length > 1 ? 's' : '') + ' vendu' + (sold.length > 1 ? 's' : '') + ' : +' + total + ' lucioles.');
   }
 
-  // La forge d'un exemplaire : son niveau, ce que donne le suivant, et ce qu'il coûte
-  function forgeBlock(id) {
-    if (!forgeable(id)) return '';
-    var k = forgeOf(id), pips = '', it = ITEMS[id];
-    for (var i = 0; i < FORGE_MAX; i++) pips += '<i' + (i < k ? ' class="on"' : '') + '></i>';
-    if (k >= FORGE_MAX) return '<div class="forge is-max"><h3>FORGE <b>+' + k + '</b></h3><span class="fg-pips">' + pips + '</span><p>Forgé au plus haut : +' + Math.round(k * FORGE_STEP * 100) + ' % de stats.</p></div>';
-    var c = forgeCost(id), ok = (save.eclats || 0) >= c.eclats && save.gold >= c.gold;
-    var gain = Object.keys(it.raw).filter(function (s) { return it.raw[s] > 0; }).map(function (s) { return statName(s) + ' +' + (Math.round(it.raw[s] * (1 + FORGE_STEP * (k + 1))) - it.stats[s]); }).join(' · ');
-    return '<div class="forge"><h3>FORGE' + (k ? ' <b>+' + k + '</b>' : '') + ' <small>+' + Math.round(FORGE_STEP * 100) + ' % de stats par niveau</small></h3><span class="fg-pips">' + pips + '</span>' +
-      '<p>Au niveau +' + (k + 1) + ' : <span class="st-up">' + gain + '</span></p>' +
-      '<button class="btn fg-go" data-forge="' + id + '"' + (ok ? '' : ' disabled') + '>Forger +' + (k + 1) + ' · ' + c.eclats + ' éclats · ' + c.gold.toLocaleString('fr-FR') + ' lucioles</button>' +
-      (ok ? '' : '<small class="sc-miss">Il te manque ' + [(save.eclats || 0) < c.eclats ? (c.eclats - (save.eclats || 0)) + ' éclats (recycle des objets)' : '', save.gold < c.gold ? (c.gold - save.gold).toLocaleString('fr-FR') + ' lucioles' : ''].filter(Boolean).join(' et ') + '.</small>') + '</div>';
-  }
   // La panoplie d'un Unique : ses trois paliers, et combien on en porte
   function setBlock(id) {
     var it = ITEMS[id], d = it && it.rarity === 'unique' && dungeonById(it.dungeon);
     if (!d) return '';
     var n = setCounts(save.equip)[d.id] || 0, k = setOf(d);
-    return '<div class="set-info"><h3>' + setName(d).toUpperCase() + ' <small>· ' + k.name + '</small></h3><p class="muted">Les Uniques de ' + d.name + ' : tu en portes ' + n + '.</p><ul>' +
+    return '<div class="set-info"><h3>' + setName(d).toUpperCase() + ' <small>· ' + k.name + ' · ' + n + ' portée' + (n > 1 ? 's' : '') + '</small></h3><ul>' +
       k.tiers.map(function (b, i) { return '<li class="' + (n >= SET_AT[i] ? 'on' : '') + '"><b>' + SET_AT[i] + ' pièces</b><span>' + bonusText(b) + '</span></li>'; }).join('') + '</ul></div>';
   }
   function renderPetDetails() {
@@ -852,38 +841,128 @@
   }
   function renderDetails() {
     if (state.filter === 'pet') { renderPetDetails(); return; }
-    if (state.sellMode) { $('details').innerHTML = '<p class="muted">Touche les objets à vendre, ou coche-les par rareté. Les objets équipés restent.</p>'; return; }
+    if (state.sellMode) { $('details').innerHTML = '<p class="muted">Touche les objets à vendre ou à recycler, ou coche-les par rareté. Les objets équipés restent.</p>'; return; }
     var id = state.selected, it = ITEMS[id];
-    if (!it) { $('details').innerHTML = '<p class="muted">Choisis un objet pour voir ses effets. Les objets « ??? » se gagnent en combat, en mission ou à la boutique.</p>'; return; }
-    var slotName = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name + (it.kind ? ' · ' + weaponLabel(it) : '');
-    if (!owns(id)) {
-      var where = BIOMES[Math.min(BIOMES.length, ITEM_TIER[id] || 1) - 1];
-      $('details').innerHTML = '<div class="det-head"><img src="' + lockedUrls[id] + '" alt=""><div><h3>Objet inconnu</h3><span class="muted">' + slotName + '</span></div></div>' +
-        '<p class="muted">Pas encore trouvé. Peut tomber à partir de : <b>' + where.name + '</b>, ou apparaître chez l’Aïeule Gamako.</p>';
-      return;
-    }
-    var equipped = save.equip[it.slot] === id;
+    if (!it) { $('details').innerHTML = ''; return; }
+    var slotName = SLOTS.filter(function (s) { return s.id === it.slot; })[0].name + (it.kind ? ' · ' + WEAPON_TYPES[weaponType(it)].name.toLowerCase() : '');
+    if (!owns(id)) { $('details').innerHTML = '<div class="det2-head"><img class="px" src="' + lockedUrls[id] + '" alt=""><div><h3>Objet inconnu</h3><span>' + slotName + '</span></div></div>'; return; }
+    var equipped = save.equip[it.slot] === id, rar = RARITIES[rarityOf(id)];
+    // ses stats, et ce qu'elles changeraient par rapport à ce qu'on porte
     var now = computeStats(save.equip), tryEquip = Object.assign({}, save.equip);
-    tryEquip[it.slot] = equipped ? null : id;
-    var after = computeStats(tryEquip);
-    var diffs = equipped && it.slot === 'arme' ? '' : STATS.map(function (st) {
-      var d = after[st.id] - now[st.id];
-      return d ? '<li><span>' + st.name + '</span><span class="' + (d > 0 ? 'st-up' : 'st-down') + '">' + fmt(d) + '</span></li>' : '';
+    tryEquip[it.slot] = id;
+    var after = computeStats(tryEquip), keys = STATS.map(function (s) { return s.id; }).filter(function (k) { return it.stats[k] || (!equipped && after[k] !== now[k]); });
+    var rows = keys.map(function (k) {
+      var dv = equipped ? 0 : after[k] - now[k];
+      return '<li><span>' + statName(k) + '</span><b class="' + ((it.stats[k] || 0) < 0 ? 'st-down' : '') + '">' + fmt(it.stats[k] || 0) + '</b>' + (dv ? '<i class="' + (dv > 0 ? 'up' : 'down') + '">' + (dv > 0 ? '▲' : '▼') + Math.abs(dv) + '</i>' : '<i></i>') + '</li>';
     }).join('');
-    $('details').innerHTML = '<div class="det-head rar-frame" style="' + rarStyle(id) + '"><img src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span class="muted">' + slotName + '</span>' + rarTag(id) + '</div></div>' +
-      '<p class="det-stats">' + statLine(it.stats) + '</p><p>' + it.desc + '</p>' +
-      (it.kind ? '<p class="st-up">Attaque de base : <b>' + baseSkill(it).name + '</b> — ' + baseSkill(it).desc + '</p>' : '') +
-      (diffs ? '<ul class="diff">' + diffs + '</ul>' : '') + setBlock(id) + forgeBlock(id) +
-      '<div class="modal-actions">' +
-      (it.slot === 'arme' && playerHermit ? '<p class="muted">Mode Ermite : pas d’arme, on se bat à mains nues. Quitte le mode Ermite pour reprendre une arme.</p>'
-        : equipped && it.slot === 'arme' ? '<p class="muted">Arme en main : équipe-en une autre pour la changer.</p>'
-        : it.slot === 'arme' && !weaponAllowed(save, it) ? '<p class="muted">Réservée à la ' + voieDef(it.kind).name + ' : la ' + voieDef(chosenVoie(save)).name + ' se bat ' + (chosenVoie(save) === 'kunai' ? 'à distance' : 'au corps à corps') + '.</p>'
-        : '<button id="equip-btn" class="btn' + (equipped ? ' btn-ghost' : '') + '">' + (equipped ? 'Retirer' : 'Équiper') + '</button>') +
-      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre (' + sellPrice(id) + ' lucioles)</button><button id="salvage-btn" class="btn btn-ghost" title="Recycler à la forge">Recycler (+' + salvageValue(id) + ' éclats)</button>') + '</div>';
+    var setD = it.rarity === 'unique' && dungeonById(it.dungeon), setN = setD ? (setCounts(save.equip)[setD.id] || 0) : 0;
+    var chips = (it.forge ? '<span class="det2-chip fg">Forge +' + it.forge + '</span>' : '') + (setD ? '<span class="det2-chip set">Panoplie ' + setN + ' / 4</span>' : '') + (it.plus ? '<span class="det2-chip">Cycle +' + it.plus + '</span>' : '');
+    var can = !(it.slot === 'arme' && (playerHermit || !weaponAllowed(save, it)));
+    var main = !can ? '<p class="muted det2-why">' + (playerHermit ? 'Mode Ermite : on se bat à mains nues.' : 'Réservée à la ' + voieDef(it.kind).name + '.') + '</p>'
+      : (equipped && it.slot === 'arme' ? '' : '<button id="equip-btn" class="btn' + (equipped ? ' btn-ghost' : '') + '">' + (equipped ? 'Retirer' : 'Équiper') + '</button>');
+    $('details').innerHTML = '<div class="det2" style="--rar:' + rar.color + '">' +
+      '<div class="det2-head"><img class="px" src="' + iconUrls[id] + '" alt=""><div><h3>' + it.name + '</h3><span><b>' + (it.reward ? 'Trésor' : rar.name) + '</b> · ' + slotName + (equipped ? ' · <b class="on">équipé</b>' : '') + '</span>' + (chips ? '<span class="det2-chips">' + chips + '</span>' : '') + '</div></div>' +
+      '<ul class="det2-stats">' + rows + '</ul>' +
+      '<div class="det2-actions">' + main + (forgeable(id) ? '<button class="btn btn-ghost" data-forge-go="' + id + '">Forger' + (it.forge ? ' (+' + it.forge + ')' : '') + '</button>' : '') +
+      (equipped ? '' : '<button id="sell-btn" class="btn btn-ghost">Vendre · ' + sellPrice(id).toLocaleString('fr-FR') + '</button><button id="salvage-btn" class="btn btn-ghost">Recycler · +' + salvageValue(id) + ' éclats</button>') + '</div>' +
+      '<details class="det2-more"><summary>En savoir plus</summary><p>' + it.desc + '</p>' + (it.kind ? '<p>Attaque de base : <b>' + baseSkill(it).name + '</b> — ' + baseSkill(it).desc + '</p>' : '') + setBlock(id) + '</details></div>';
   }
 
   // « katana (corps à corps) », « shuriken (distance) »
   function weaponLabel(it) { return WEAPON_TYPES[weaponType(it)].name.toLowerCase() + ' (' + (it.kind === 'kunai' ? 'distance' : 'corps à corps') + ')'; }
+
+  // ---------- La Forge (forge.js) : l'atelier ----------
+  // Au milieu, l'enclume et l'objet choisi : son niveau, ce que donne le suivant, la chance de réussir et ce que ça
+  // coûte ; à gauche, les objets qu'on peut forger (ceux qu'on porte d'abord) ; à droite, le recyclage en masse.
+  var forge = { sel: null, tab: 'portes', pick: [], armed: false, msg: null, sparks: [], strike: 0, bg: null };
+  function forgeList() {
+    var worn = SLOTS.map(function (s) { return save.equip[s.id]; });
+    var ids = save.owned.filter(function (id) { return forgeable(id) && (forge.tab !== 'portes' || worn.indexOf(id) >= 0); });
+    return ids.sort(function (a, b) { return (worn.indexOf(b) >= 0) - (worn.indexOf(a) >= 0) || ITEM_RARITIES.indexOf(rarityOf(b)) - ITEM_RARITIES.indexOf(rarityOf(a)) || forgeOf(b) - forgeOf(a) || tierOf(b) - tierOf(a); });
+  }
+  function openForge() {
+    var list = forgeList();
+    if (!list.length && forge.tab === 'portes') { forge.tab = 'tous'; list = forgeList(); }
+    if (!forge.sel || !owns(forge.sel) || !forgeable(forge.sel)) forge.sel = list[0] || null;
+    forge.pick = forge.pick.filter(function (id) { return owns(id); });
+    renderForge();
+  }
+  function renderForge() {
+    var list = forgeList(), worn = SLOTS.map(function (s) { return save.equip[s.id]; });
+    $('fg-list').innerHTML = '<h2>À FORGER</h2><div class="tabs fg-tabs">' + [['portes', 'Portés'], ['tous', 'Tous']].map(function (t) { return '<button class="tab' + (forge.tab === t[0] ? ' is-active' : '') + '" data-forge-tab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+      (list.length ? '<div class="fg-items">' + list.map(function (id) {
+        return '<button class="fg-item' + (forge.sel === id ? ' is-on' : '') + '" style="' + rarStyle(id) + '" data-forge-pick="' + id + '" title="' + ITEMS[id].name + '"><img class="px" src="' + itemIconUrl(id) + '" alt=""><span>' + ITEMS[id].name + '</span><b>' + (forgeOf(id) ? '+' + forgeOf(id) : '') + '</b>' + (worn.indexOf(id) >= 0 ? '<i>porté</i>' : '') + '</button>';
+      }).join('') + '</div>' : '<p class="muted">Rien à forger ici : les objets trouvés en combat, en mission ou à la boutique se forgent (pas les trésors).</p>');
+    renderAnvil();
+    renderRecycle();
+  }
+  function renderAnvil() {
+    var id = forge.sel, it = ITEMS[id], box = $('fg-anvil');
+    if (!it || !owns(id)) { box.innerHTML = '<div class="fg-card"><h2>LA FORGE</h2><p>Choisis un objet à gauche pour le renforcer, jusqu’à +' + FORGE_MAX + '.</p></div>'; return; }
+    var k = forgeOf(id), pips = '', max = k >= FORGE_MAX, c = max ? null : forgeCost(id), rar = RARITIES[rarityOf(id)];
+    for (var i = 0; i < FORGE_MAX; i++) pips += '<i' + (i < k ? ' class="on"' : (i === k ? ' class="next"' : '')) + '></i>';
+    var rows = Object.keys(it.raw).filter(function (s) { return it.raw[s] > 0; }).map(function (s) {
+      var nxt = Math.round(it.raw[s] * (1 + FORGE_STEP * (k + 1)));
+      return '<li><span>' + statName(s) + '</span><b>' + it.stats[s] + '</b>' + (max ? '' : '<i>→ ' + nxt + '</i>') + '</li>';
+    }).join('');
+    var okE = c && (save.eclats || 0) >= c.eclats, okG = c && save.gold >= c.gold;
+    box.innerHTML = '<div class="fg-card' + (forge.msg ? ' ' + forge.msg.kind : '') + '" style="--rar:' + rar.color + '">' +
+      '<div class="fg-item-big' + (forge.strike ? ' strike' : '') + '"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + (k ? '<b>+' + k + '</b>' : '') + '</div>' +
+      '<h2>' + it.name + '</h2><div class="fg-pips">' + pips + '</div>' +
+      (forge.msg ? '<p class="fg-msg">' + forge.msg.text + '</p>' : '') +
+      (max ? '<p class="fg-max">Forgé au plus haut : +' + Math.round(k * FORGE_STEP * 100) + ' % de stats.</p>' :
+        '<ul class="fg-stats">' + rows + '</ul>' +
+        '<div class="fg-cost"><span class="' + (okE ? '' : 'miss') + '"><img class="px" src="' + ICON.eclat + '" alt=""><b>' + c.eclats.toLocaleString('fr-FR') + '</b> / ' + (save.eclats || 0).toLocaleString('fr-FR') + ' éclats</span>' +
+        '<span class="' + (okG ? '' : 'miss') + '"><i class="luciole"></i><b>' + c.gold.toLocaleString('fr-FR') + '</b> lucioles</span>' +
+        '<span class="fg-chance' + (c.chance < 1 ? ' risky' : '') + '">Réussite <b>' + Math.round(c.chance * 100) + ' %</b></span></div>' +
+        '<button class="btn fg-strike" data-forge="' + id + '"' + (okE && okG ? '' : ' disabled') + '>Forger +' + (k + 1) + ' ⚒</button>' +
+        (c.chance < 1 ? '<small class="fg-warn">Raté : les éclats et les lucioles sont perdus, l’objet garde son niveau.</small>' : '')) + '</div>';
+  }
+  function renderRecycle() {
+    var worn = SLOTS.map(function (s) { return save.equip[s.id]; }), ids = save.owned.filter(function (id) { return ITEMS[id] && worn.indexOf(id) < 0; });
+    ids.sort(function (a, b) { return ITEM_RARITIES.indexOf(rarityOf(a)) - ITEM_RARITIES.indexOf(rarityOf(b)) || tierOf(a) - tierOf(b); });
+    forge.pick = forge.pick.filter(function (id) { return ids.indexOf(id) >= 0; });
+    var total = forge.pick.reduce(function (s, id) { return s + salvageValue(id); }, 0), n = forge.pick.length;
+    $('fg-recycle').innerHTML = '<h2>RECYCLER</h2><p class="muted">Les objets qu’on ne porte pas deviennent des éclats de jade.</p>' +
+      '<div class="fg-picks">' + [['commun', 'Communs'], ['rare', 'Rares'], ['epique', 'Épiques'], ['tout', 'Tout'], ['aucun', 'Aucun']].map(function (p) { return '<button class="tab" data-recycle-pick="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div>' +
+      (ids.length ? '<div class="fg-grid">' + ids.map(function (id) {
+        return '<button class="fg-cell' + (forge.pick.indexOf(id) >= 0 ? ' is-on' : '') + '" style="' + rarStyle(id) + '" data-recycle="' + id + '" title="' + ITEMS[id].name + ' · +' + salvageValue(id) + ' éclats"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + (forgeOf(id) ? '<b>+' + forgeOf(id) + '</b>' : '') + '</button>';
+      }).join('') + '</div>' : '<p class="muted">Rien à recycler : tout ce que tu as est porté.</p>') +
+      '<div class="fg-total"><span><b>' + n + '</b> objet' + (n > 1 ? 's' : '') + ' · <b>+' + total.toLocaleString('fr-FR') + '</b> éclats</span>' +
+      '<button class="btn' + (forge.armed ? ' is-armed' : '') + '" data-recycle-go' + (n ? '' : ' disabled') + '>' + (forge.armed ? 'Confirmer' : 'Recycler') + '</button></div>';
+  }
+  // l'atelier : les murs de pierre, le four, l'enclume (dessiné une fois), puis le feu et les étincelles
+  function buildForgeBg() {
+    var c = document.createElement('canvas'); c.width = 320; c.height = 180;
+    var x = c.getContext('2d'), R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
+    for (var y = 0; y < 140; y += 6) for (var bx = (y / 6) % 2 ? -8 : 0; bx < 320; bx += 16) { R(bx, y, 15, 5, (bx + y) % 32 ? '#2a221e' : '#30261f'); R(bx, y, 15, 1, '#3a2e26'); }
+    R(0, 138, 320, 42, '#1e1612'); for (var p = 0; p < 320; p += 20) { R(p, 140, 19, 40, p % 40 ? '#2a1e16' : '#261a12'); R(p, 140, 19, 1, '#3a2a1e'); }
+    // le four
+    R(118, 20, 84, 100, '#1a1412'); R(120, 22, 80, 98, '#4a3a30'); for (var fy = 24; fy < 118; fy += 6) R(120, fy, 80, 1, '#3a2e26');
+    R(138, 52, 44, 52, '#0a0604'); R(136, 50, 48, 3, '#5a4a3e'); R(146, 0, 28, 22, '#3a2e26'); R(146, 0, 3, 22, '#2a2018');
+    // l'enclume
+    R(124, 120, 72, 10, '#1a1c2c'); R(126, 121, 68, 8, '#5a5e6a'); R(126, 121, 68, 2, '#8a8e9a'); R(150, 129, 20, 12, '#3a3e48'); R(140, 140, 40, 5, '#2a2e38');
+    // les outils au mur, un tonneau
+    [[40, 40], [56, 46], [72, 38]].forEach(function (t, k) { R(t[0], t[1], 2, 34, '#6b4a2a'); R(t[0] - 4, t[1] - 2, 10, 6, k === 1 ? '#8a8e9a' : '#5a5e6a'); });
+    R(250, 104, 34, 38, '#1a1412'); R(252, 106, 30, 36, '#6b4a2a'); [112, 124, 136].forEach(function (yy) { R(252, yy, 30, 2, '#3a2a1e'); }); R(254, 104, 26, 3, '#2a5a7a');
+    return c;
+  }
+  function drawForge(now) {
+    var cv = $('forge-bg');
+    if (cv.width !== 320) { cv.width = 320; cv.height = 180; }
+    var x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+    if (!forge.bg) forge.bg = buildForgeBg();
+    x.drawImage(forge.bg, 0, 0);
+    var t = now / 1000;
+    for (var f = 0; f < 18; f++) { var h = 12 + Math.abs(Math.sin(t * 6 + f)) * 26, fx = 140 + f * 2.3; x.fillStyle = f % 3 ? '#ff7a1a' : '#ffd040'; x.fillRect(Math.round(fx), Math.round(104 - h), 2, Math.round(h)); }
+    var g = x.createRadialGradient(160, 90, 4, 160, 90, 110); g.addColorStop(0, 'rgba(255, 140, 50, ' + (0.2 + 0.05 * Math.sin(t * 7)) + ')'); g.addColorStop(1, 'rgba(255, 140, 50, 0)');
+    x.fillStyle = g; x.fillRect(0, 0, 320, 180);
+    for (var e = 0; e < 10; e++) { var ey = 104 - ((t * 20 + e * 13) % 90); x.fillStyle = e % 2 ? '#ffd040' : '#ff8a2a'; x.fillRect(Math.round(150 + Math.sin(t + e) * 14 + e * 2), Math.round(ey), 1, 1); }
+    forge.sparks = forge.sparks.filter(function (s) { s.life -= 0.016; s.x += s.vx; s.y += s.vy; s.vy += 0.12; if (s.life > 0) { x.fillStyle = s.c; x.fillRect(Math.round(s.x), Math.round(s.y), 2, 2); } return s.life > 0; });
+  }
+  function forgeSparks(ok) {
+    for (var i = 0; i < (ok ? 40 : 18); i++) forge.sparks.push({ x: 160, y: 118, vx: (Math.random() - 0.5) * 5, vy: -1 - Math.random() * 4, life: 0.6 + Math.random() * 0.6, c: ok ? (i % 2 ? '#ffd040' : '#fff6c0') : '#8a8e9a' });
+  }
 
   // ---------- La Voie : le Temple des voies ----------
   // Un temple en pixel art, plein écran. Tant qu'aucune voie n'est choisie, trois grandes flaques attendent au bout
@@ -1342,6 +1421,37 @@
     }).join('') : '<p class="muted">Aucun sort appris. Chaque branche de ta voie commence par un sort : prends la première dalle d’une branche.</p>';
     $('deck').innerHTML = html;
     $('learned').innerHTML = lhtml;
+    if (!$('build').hidden) renderBuild();
+  }
+  // ---------- Mon build : le deck en grand, et tous les sorts appris, d'un seul coup d'œil ----------
+  function spellFacts(s, cdr) {
+    var f = [], cd = skillCd(s, cdr);
+    if (s.power > 0) f.push((s.hits > 1 ? s.hits + ' × ' : '') + Math.round(s.power * 100) + ' %');
+    if (s.heal) f.push('soin ' + Math.round(s.heal * 100) + ' %');
+    if (s.stun) f.push('étourdit'); if (s.bleed) f.push('saignement'); if (s.poison) f.push('poison'); if (s.guard) f.push('garde'); if (s.buff) f.push('+40 % dégâts'); if (s.mark) f.push('marque'); if (s.weaken) f.push('affaiblit');
+    f.push(s.base ? 'chaque tour' : 'relance ' + cd);
+    return f.join(' · ');
+  }
+  function renderBuild() {
+    var weapon = weaponOf(save.equip), pr = combatProfile(save), learned = learnedSkills(save), deck = deckSkills(save, weapon), base = deck[0];
+    var chosen = save.deck.map(skillById).filter(function (s) { return s && learned.indexOf(s) >= 0; });
+    var slot = function (s, i) {
+      if (!s) return '<div class="bd-slot empty"><span>' + (i + 1) + '</span><small>Libre</small></div>';
+      var ok = skillUsable(s, weapon);
+      return '<button class="bd-slot' + (ok ? '' : ' off') + '" style="--voie:' + voieOf(s.voie).color + '" data-undeck="' + s.id + '" title="Retirer du deck"><img class="px" src="' + spellIcon(s) + '" alt=""><b>' + s.name + '</b><small>' + (ok ? spellFacts(s, pr.cdr) : 'inutilisable avec cette arme') + '</small><i>✕</i></button>';
+    };
+    var html = '<header class="bd-head"><div><h2>MON BUILD</h2><p>Touche un sort pour l’ajouter à ton deck ou l’en retirer (4 au plus, plus l’attaque de base).</p></div>' +
+      '<div class="bd-me"><span>Dégâts <b>' + Math.round(pr.dmg) + '</b></span><span>Sorts <b>+' + Math.round((pr.spell - 1) * 100) + ' %</b></span><span>Relance <b>' + (pr.cdr ? '−' + pr.cdr : 'normale') + '</b></span></div>' +
+      '<button class="btn btn-ghost" data-build-close>Fermer ✕</button></header>';
+    html += '<div class="bd-deck"><div class="bd-slot base" style="--voie:' + voieOf(base.voie).color + '"><img class="px" src="' + spellIcon(base) + '" alt=""><b>' + base.name + '</b><small>attaque de base · ' + WEAPON_TYPES[weaponType(weapon)].name.toLowerCase() + '</small></div>';
+    for (var i = 0; i < DECK_SIZE; i++) html += slot(chosen[i], i);
+    html += '</div><h3 class="bd-h">SORTS APPRIS · ' + learned.length + '</h3>';
+    html += learned.length ? '<div class="bd-spells">' + learned.map(function (s) {
+      var inDeck = save.deck.indexOf(s.id) >= 0, ok = skillUsable(s, weapon), full = save.deck.length >= DECK_SIZE;
+      return '<button class="bd-spell' + (inDeck ? ' in' : '') + (ok ? '' : ' off') + '" style="--voie:' + voieOf(s.voie).color + '" ' + (inDeck ? 'data-undeck="' + s.id + '"' : (full ? 'disabled' : 'data-deck="' + s.id + '"')) + '>' +
+        '<img class="px" src="' + spellIcon(s) + '" alt=""><span><b>' + s.name + '</b><small>' + spellFacts(s, pr.cdr) + '</small><em>' + s.desc + '</em></span><i>' + (inDeck ? '✓' : (full ? '' : '+')) + '</i></button>';
+    }).join('') + '</div>' : '<p class="muted">Aucun sort appris pour l’instant : prends la première dalle d’une branche du Temple.</p>';
+    $('build').innerHTML = '<div class="bd-card">' + html + '</div>';
   }
 
   // La voie choisie (définitive) et le bouton pour en changer : tout oublier contre le prix du Thé de l'oubli
@@ -1829,6 +1939,7 @@
       metric: function (e) { return 'Étage ' + (e.tour || 0) + ' / ' + ((e.tour || 0) >= TOWER_FLOORS ? TOWER_TOP : TOWER_FLOORS); } },
     saison: { name: 'Saison', cmp: function (a, b) { return rankPts(b) - rankPts(a) || b.niveau - a.niveau; },
       metric: function (e) { return rankPts(e).toLocaleString('fr-FR') + ' pts'; } },
+    clans: { name: 'Clans', cmp: function () { return 0; }, metric: function () { return ''; } },
     reputation: { name: 'Duels', cmp: function (a, b) { return (b.rep || 0) - (a.rep || 0) || b.niveau - a.niveau; },
       metric: function (e) { return (e.rep || 0) + ' réputation'; } }
   };
@@ -1861,7 +1972,7 @@
       if (!r.ok) throw new Error();
       return r.json();
     }).then(function (d) {
-      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.duels = d.duels; rank.saison = d.saison || null; rank.loading = false;
+      rank.data = d.grenouilles; rank.joueurs = d.joueurs; rank.duels = d.duels; rank.saison = d.saison || null; rank.clans = d.clans || []; rank.loading = false;
       renderRank();
     }, function () { rank.loading = false; rank.error = 'Le classement n’a pas pu être chargé. Réessaie dans un instant.'; renderRank(); });
   }
@@ -1909,6 +2020,18 @@
     }
     if (rank.loading && !rank.data) { list.innerHTML = '<li class="rk-msg"><span>Les grenouilles se rassemblent…</span></li>'; return; }
     if (rank.error) { list.innerHTML = '<li class="rk-msg"><span>' + rank.error + '</span><button class="btn" data-rank-refresh>Réessayer</button></li>'; return; }
+    $('rank-filters').hidden = rank.sort === 'clans';
+    if (rank.sort === 'clans') { // les clans : leur renommée, leurs grenouilles, leur Alpha
+      var cl = rank.clans || [], myClan = clans.data && clans.data.clan ? clans.data.clan.id : null;
+      $('rank-sub').textContent = cl.length + ' clan' + (cl.length > 1 ? 's' : '') + ' · classés par renommée';
+      list.innerHTML = cl.length ? cl.map(function (c, i) {
+        return '<li class="rk-row rk-clan' + (i < 3 ? ' top' + (i + 1) : '') + (c.id === myClan ? ' is-current' : '') + '"><div class="rk-line"><span class="rk-pos">' + (i + 1) + '</span>' + emblem(c) +
+          '<span class="rk-name"><b>' + escapeHtml(c.nom) + (c.id === myClan ? ' <i>TON CLAN</i>' : '') + (c.guerreFin > Date.now() ? ' <i class="war">⚔ en guerre</i>' : '') + '</b><small>Chef : ' + escapeHtml(c.chef || '?') + ' · ' + c.membres + ' / 10 grenouilles</small></span>' +
+          '<span class="rk-metric">' + c.renommee + ' renommée</span><span class="rk-gift">Alpha n° ' + (c.rang + 1) + '</span></div></li>';
+      }).join('') : '<li class="rk-msg"><span>Aucun clan pour l’instant : fondes-en un depuis la page Clans !</span></li>';
+      foot.innerHTML = '<button class="btn btn-ghost" data-rank-refresh>Actualiser</button>';
+      return;
+    }
     var all = rank.data || [], ranked = rankedList(), mine = ranked.map(function (e) { return e.id; }).indexOf(Cloud.id), season = rank.sort === 'saison' && rank.saison;
     var gifts = rank.sort === 'reputation' && rank.duels ? rank.duels.recompenses : (season ? rank.saison.recompenses : null);
     $('rank-sub').textContent = all.length + ' grenouille' + (all.length > 1 ? 's' : '') + ' · ' + rank.joueurs + ' joueur' + (rank.joueurs > 1 ? 's' : '') +
@@ -2279,7 +2402,7 @@
       setClanBonus(d.bonus); save.inClan = !!d.clan;
       if (d.exclu) notice('Ta grenouille a été exclue du clan « ' + d.exclu + ' » par son chef.', true);
       applyGifts(d.cadeaux);
-      if (state.page === 'clans') renderClans();
+      if (state.page === 'clans') { renderClans(); scrollChat(); }
     }, function (e) { clans.loading = false; clans.error = e.message; if (state.page === 'clans') renderClans(); });
   }
   // les bonus du clan, gardés dans la sauvegarde (le jeu les applique à ses gains, même hors ligne)
@@ -2418,19 +2541,49 @@
       '<div class="cl-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(m.raid.pv) + ' / ' + fmtN(m.raid.pvMax) + ' PV</em></div>' +
       '<p class="cl-help">Ses PV sont partagés par tout le clan. Chaque grenouille l’attaque ' + d.raidsMax + ' fois par jour, pendant ' + d.tours + ' tours ; <b>chaque assaut rapporte</b> des lucioles, de l’XP (plus tu fais mal, plus il en rapporte) et une chance d’objet. Quand il tombe : ' + (300 + 200 * m.raid.rang) + ' lucioles et de l’XP en plus pour chaque grenouille qui l’a attaqué.</p>' +
       (mine.part ? '<p class="cl-part is-in">Ta part est assurée : ' + fmtN(mine.part) + ' dégâts sur cet Alpha.</p>' : '<p class="cl-part">Attaque cet Alpha au moins une fois pour avoir ta part quand il tombera.</p>') +
-      '<button class="btn" data-clan-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button></section>' +
-      '<section class="panel cl-members"><h2>LE CLAN · ' + m.membres.length + ' / ' + d.max + '</h2><ul' + (chief ? ' class="can-kick"' : '') + '>' + members.map(function (e) {
+      '<button class="btn" data-clan-raid' + (d.raids > 0 ? '' : ' disabled') + '>' + (d.raids > 0 ? 'Attaquer l’Alpha ▶ · ' + d.raids + ' / ' + d.raidsMax : 'Reviens demain') + '</button>' +
+      '<div class="cl-log cl-log-in"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></div></section>' +
+      '<div class="cl-mid"><section class="panel cl-members"><h2>LE CLAN · ' + m.membres.length + ' / ' + d.max + '</h2><ul' + (chief ? ' class="can-kick"' : '') + '>' + members.map(function (e) {
         var role = e.role || (e.id === m.chef ? 'chef' : 'membre'), canKick = chief && e.id !== Cloud.id && role !== 'chef' && (boss || role !== 'bras');
         var kick = canKick ? '<button class="cl-kick' + (clans.kicking === e.id ? ' is-armed' : '') + '" data-clan-kick="' + e.id + '" aria-label="Exclure ' + escapeHtml(e.nom) + '">' + (clans.kicking === e.id ? 'Exclure ?' : '✕') + '</button>' : (chief ? '<span></span>' : '');
         var pick = boss && e.id !== Cloud.id ? '<select class="cl-role-pick" data-clan-role="' + e.id + '" aria-label="Rôle de ' + escapeHtml(e.nom) + '">' + [['membre', 'Membre'], ['veteran', 'Vétéran'], ['bras', 'Bras droit'], ['chef', 'Passer la main…']].map(function (o) { return '<option value="' + o[0] + '"' + (role === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' : '';
         return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="' + fmtN(e.contribution) + ' dégâts sur les Alphas du clan"><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + (ROLE_NAME[role] ? '<i class="cl-role ' + role + '">' + ROLE_NAME[role] + '</i> ' : '') + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small>' + pick + '</span>' +
           dojoVoie(e) + '<span class="cl-meta' + (e.part ? '' : ' is-zero') + '">' + (e.part ? fmtN(e.part) : '—') + '<small>' + (e.part ? 'sur cet Alpha' : 'pas de part') + '</small></span>' + kick + '</li>';
       }).join('') + '</ul>' + (boss ? '<p class="cl-help">Tu es le chef : donne des rôles (2 bras droits, qui peuvent exclure, déclarer la guerre et dépenser le trésor ; 3 vétérans, pour l’honneur) ou passe la main. ✕ exclut une grenouille, qui ne pourra pas revenir avant 3 jours.</p>' : (chief ? '<p class="cl-help">Tu es bras droit : tu peux exclure un membre, déclarer la guerre, changer le blason et dépenser le trésor.</p>' : '')) + '</section>' +
-      '<div class="cl-side">' + renderLoot(d, m, chief) + (d.guerre ? '' : renderWarPick(d, m, chief)) +
-      '<section class="panel cl-rank"><h2>CLASSEMENT DES CLANS</h2>' + clanList(d, m.id, 8) + '</section>' +
-      '<section class="panel cl-log"><h2>LE JOURNAL</h2><ul>' + (m.journal || []).slice(0, 10).map(function (j) { return '<li><span>' + clanEvent(j) + '</span><small>' + agoMs(j.t) + '</small></li>'; }).join('') + '</ul></section>' +
+      renderChat(m) + '</div><div class="cl-side">' + renderLoot(d, m, chief) + (d.guerre ? '' : renderWarPick(d, m, chief)) +
       '</div></div>';
   }
+  // ---------- Le chat du clan ----------
+  function chatItems(m) {
+    var list = m.chat || [];
+    return list.length ? list.map(function (c) {
+      return '<li class="' + (c.id === Cloud.id ? 'me' : '') + '"><b>' + escapeHtml(c.nom) + '</b><span>' + escapeHtml(c.texte) + '</span><small>' + agoMs(c.t) + '</small></li>';
+    }).join('') : '<li class="cl-chat-empty">Personne n’a encore rien dit. Lance la conversation !</li>';
+  }
+  function renderChat(m) {
+    return '<section class="panel cl-chat"><h2>LA MARE DU CLAN</h2><ul class="cl-chat-list" id="cl-chat-list">' + chatItems(m) + '</ul>' +
+      '<form id="cl-chat-form" class="cl-chat-form" autocomplete="off"><input id="cl-chat-input" maxlength="200" placeholder="Écris à ton clan…"><button class="btn">Envoyer</button></form></section>';
+  }
+  function scrollChat() { var l = $('cl-chat-list'); if (l) l.scrollTop = l.scrollHeight; }
+  function updateChat() { var l = $('cl-chat-list'); if (l && clans.data && clans.data.clan) { l.innerHTML = chatItems(clans.data.clan); scrollChat(); } }
+  document.addEventListener('submit', function (e) {
+    if (e.target.id !== 'cl-chat-form') return;
+    e.preventDefault();
+    var inp = $('cl-chat-input'), texte = inp.value.trim();
+    if (!texte || !clans.data || !clans.data.clan) return;
+    inp.value = '';
+    clanApi('POST', '/message', { texte: texte }).then(function (r) { clans.data.clan.chat = r.chat.slice(-40); updateChat(); Sfx.play('drip'); }, function (err) { inp.value = texte; notice(err.message); });
+  });
+  // le chat se met à jour tout seul sur la page des clans (sans effacer ce qu'on est en train d'écrire)
+  setInterval(function () {
+    if (state.page !== 'clans' || !Cloud.id || !clans.data || !clans.data.clan || $('app').hidden) return;
+    clanApi('GET', '').then(function (d) {
+      var typing = $('cl-chat-input') && (document.activeElement === $('cl-chat-input') || $('cl-chat-input').value);
+      clans.data = d; setClanBonus(d.bonus);
+      if (typing) updateChat(); else { renderClans(); scrollChat(); }
+    }, function () {});
+  }, 12000);
+
   // L'assaut contre l'Alpha : un combat de quelques tours contre ses PV partagés, dans son pays
   function raidFight(d) {
     var r = d.clan.raid, a = alphaOf(r.rang, save.level);
@@ -2488,7 +2641,7 @@
     return fetch('/api/titan/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
   };
-  function openTitan() { renderTitan(); if (Cloud.id) loadTitan(); }
+  function openTitan() { renderTitan(); drawTitan(performance.now()); if (Cloud.id) loadTitan(); }
   function loadTitan() {
     if (!Cloud.id) return;
     titan.loading = true;
@@ -2499,52 +2652,75 @@
       if (state.page === 'titan') renderTitan();
     }, function (e) { titan.loading = false; titan.error = e.message; if (state.page === 'titan') renderTitan(); });
   }
-  // le décor : une mer démontée sous l'orage, et le Titan qui en sort, immense
-  function drawTitanBg(idx) {
-    var c = $('titan-bg');
-    if (titan.bg === idx && c.width === 320) return;
-    titan.bg = idx; c.width = 320; c.height = 180;
+  // le décor : la mer démontée sous l'orage (dessinée une fois), puis, à chaque image, le Titan qui respire en sortant
+  // des flots, la pluie, les vagues devant lui, et un éclair de temps en temps
+  function titanSky() {
+    if (titan.sky) return titan.sky;
+    var c = document.createElement('canvas'); c.width = 320; c.height = 180;
     var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
     g.addColorStop(0, '#0a0814'); g.addColorStop(0.55, '#1c1630'); g.addColorStop(1, '#0a1220');
     x.fillStyle = g; x.fillRect(0, 0, 320, 180);
     for (var i = 0; i < 60; i++) { x.fillStyle = 'rgba(90, 80, 140, ' + (0.08 + hash(i, 1, 21) * 0.12) + ')'; x.fillRect(Math.round(hash(i, 2, 21) * 320), Math.round(hash(i, 3, 21) * 90), 10 + Math.round(hash(i, 4, 21) * 30), 3); }
-    var bolt = [[212, 0], [204, 22], [214, 26], [198, 58], [210, 62], [192, 98]];
-    x.strokeStyle = 'rgba(220, 230, 255, 0.85)'; x.lineWidth = 1; x.beginPath(); bolt.forEach(function (p, k) { if (k) x.lineTo(p[0], p[1]); else x.moveTo(p[0], p[1]); }); x.stroke();
-    var en = titanOf(idx, 0, save.level), s = SPECIES[en.species], img = stringsToCanvas(s.frames[0], Object.assign({}, s.pal, en.pal)), size = s.size === 32 ? 128 : 96;
-    var halo = x.createRadialGradient(110, 100, 10, 110, 100, 110); halo.addColorStop(0, 'rgba(140, 100, 220, 0.35)'); halo.addColorStop(1, 'rgba(140, 100, 220, 0)');
+    x.fillStyle = 'rgba(14, 26, 48, 0.9)'; x.fillRect(0, 138, 320, 42);
+    return (titan.sky = c);
+  }
+  function titanFrames(idx) {
+    if (titan.framesIdx === idx && titan.frames) return titan.frames;
+    var en = titanOf(idx, 0, save.level), s = SPECIES[en.species];
+    titan.framesIdx = idx;
+    return (titan.frames = s.frames.map(function (f) { return stringsToCanvas(f, Object.assign({}, s.pal, en.pal)); }));
+  }
+  function drawTitan(now) {
+    var cv = $('titan-bg');
+    if (cv.width !== 320) { cv.width = 320; cv.height = 180; }
+    var x = cv.getContext('2d'), idx = titan.data ? titan.data.titan.idx : 0, fr = titanFrames(idx), size = 112, t = now / 1000;
+    x.imageSmoothingEnabled = false;
+    x.drawImage(titanSky(), 0, 0);
+    var halo = x.createRadialGradient(160, 96, 10, 160, 96, 110); halo.addColorStop(0, 'rgba(140, 100, 220, ' + (0.28 + 0.08 * Math.sin(t * 1.3)) + ')'); halo.addColorStop(1, 'rgba(140, 100, 220, 0)');
     x.fillStyle = halo; x.fillRect(0, 0, 320, 180);
-    x.imageSmoothingEnabled = false; x.drawImage(img, 110 - size / 2, 150 - size, size, size);
-    for (var y = 132; y < 180; y += 2) for (var k2 = 0; k2 < 6; k2++) { x.fillStyle = y < 150 ? 'rgba(40, 60, 100, 0.7)' : 'rgba(20, 34, 60, 0.9)'; x.fillRect(Math.round(hash(y, k2, 23) * 320), y, 18 + Math.round(hash(y, k2, 24) * 30), 2); }
-    x.fillStyle = 'rgba(14, 26, 48, 0.75)'; x.fillRect(0, 150, 320, 30);
-    for (var w = 0; w < 40; w++) { x.fillStyle = 'rgba(200, 220, 255, 0.35)'; x.fillRect(Math.round(hash(w, 5, 25) * 320), 140 + Math.round(hash(w, 6, 25) * 36), 4, 1); }
-    for (var rn = 0; rn < 70; rn++) { x.fillStyle = 'rgba(160, 180, 230, 0.25)'; x.fillRect(Math.round(hash(rn, 7, 26) * 320), Math.round(hash(rn, 8, 26) * 180), 1, 4); }
+    var bob = Math.sin(t * 1.4) * 4, sway = Math.sin(t * 0.7) * 3, img = fr[Math.floor(now / 650) % fr.length];
+    x.drawImage(img, Math.round(160 - size / 2 + sway), Math.round(150 - size + bob), size, size);
+    // les vagues devant lui
+    for (var y = 136; y < 180; y += 3) for (var k = 0; k < 7; k++) {
+      var wx = ((hash(y, k, 23) * 360 + t * (12 + (y - 136) * 0.6) * (k % 2 ? 1 : -1)) % 360 + 360) % 360 - 20;
+      x.fillStyle = y < 150 ? 'rgba(60, 84, 130, 0.75)' : 'rgba(30, 46, 80, 0.9)'; x.fillRect(Math.round(wx), y, 16 + Math.round(hash(y, k, 24) * 20), 2);
+    }
+    for (var w = 0; w < 26; w++) { var fx = ((hash(w, 5, 25) * 340 + t * 18) % 340) - 10; x.fillStyle = 'rgba(200, 220, 255, 0.35)'; x.fillRect(Math.round(fx), 140 + Math.round(hash(w, 6, 25) * 36), 4, 1); }
+    // la pluie
+    x.fillStyle = 'rgba(160, 180, 230, 0.3)';
+    for (var r = 0; r < 70; r++) { var rx = ((hash(r, 7, 26) * 340 - t * 40) % 340 + 340) % 340, ry = ((hash(r, 8, 26) * 200 + t * 170) % 200) - 10; x.fillRect(Math.round(rx), Math.round(ry), 1, 5); }
+    // un éclair toutes les cinq secondes environ
+    var cyc = now % 5300;
+    if (cyc < 180) {
+      x.fillStyle = 'rgba(230, 236, 255, ' + (0.35 * (1 - cyc / 180)) + ')'; x.fillRect(0, 0, 320, 180);
+      var bx = 60 + hash(Math.floor(now / 5300), 1, 27) * 200, by = 0; x.strokeStyle = '#f0f4ff'; x.lineWidth = 1; x.beginPath(); x.moveTo(bx, 0);
+      for (var s2 = 0; s2 < 6; s2++) { bx += (hash(s2, Math.floor(now / 5300), 28) - 0.5) * 24; by += 16; x.lineTo(bx, by); }
+      x.stroke();
+    }
   }
   function renderTitan() {
     var box = $('titan-body');
-    drawTitanBg(titan.data ? titan.data.titan.idx : 0);
     if (!Cloud.id) {
-      box.innerHTML = '<div class="panel cl-center"><h2>JOUE AVEC UN COMPTE</h2><p>Le Titan de la semaine est le même pour toutes les grenouilles de tous les joueurs : crée un compte depuis l’accueil pour le combattre avec elles.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
+      box.innerHTML = '<div class="panel cl-center tt-center"><h2>JOUE AVEC UN COMPTE</h2><p>Le Titan de la semaine est le même pour toutes les grenouilles de tous les joueurs : crée un compte depuis l’accueil pour le combattre avec elles.</p><a class="btn" href="/?connexion">Aller à l’accueil</a></div>';
       return;
     }
     var d = titan.data;
-    if (!d) { box.innerHTML = '<div class="panel cl-center"><p>' + (titan.error ? escapeHtml(titan.error) + ' <button class="btn btn-ghost" data-titan-reload>Réessayer</button>' : 'Le Titan sort des flots…') + '</p></div>'; return; }
+    if (!d) { box.innerHTML = '<div class="panel cl-center tt-center"><p>' + (titan.error ? escapeHtml(titan.error) + ' <button class="btn btn-ghost" data-titan-reload>Réessayer</button>' : 'Le Titan sort des flots…') + '</p></div>'; return; }
     var t = d.titan, en = titanOf(t.idx, t.rang, save.level), pct = Math.max(0, t.pv / t.pvMax * 100), pips = '';
     for (var i = 0; i < d.max; i++) pips += '<i' + (i < d.restants ? ' class="on"' : '') + '></i>';
-    var html = '<header class="panel tt-head"><span class="tt-kicker">LE TITAN DE LA SEMAINE' + (t.vaincus ? ' · ' + t.vaincus + ' déjà tombé' + (t.vaincus > 1 ? 's' : '') : '') + ' · un autre Titan dans ' + untilMs(d.fin) + '</span>' +
-      '<h1>' + en.name.toUpperCase() + '</h1><p>Toutes les grenouilles de tous les joueurs le frappent ensemble : ses PV sont partagés. Quand il tombe, chacune de celles qui l’ont frappé reçoit sa part, et un Titan plus fort se dresse.</p>' +
-      '<div class="cl-hp tt-hp"><i style="width:' + pct + '%"></i><em>' + fmtN(t.pv) + ' / ' + fmtN(t.pvMax) + ' PV</em></div></header>';
-    html += '<div class="tt-cols"><section class="panel tt-me"><h2>TES ATTAQUES</h2>' +
+    var html = '<section class="panel tt-me2"><h2>TES ATTAQUES</h2><div class="tt-left"><b>' + d.restants + '</b><span>/ ' + d.max + ' aujourd’hui</span><span class="pips">' + pips + '</span></div>' +
       '<div class="tt-stats"><span><b>' + fmtN(d.mesDegats) + '</b>dégâts cette semaine</span><span><b>' + (d.place ? nth(d.place) : '—') + '</b>' + (d.place ? 'sur ' + d.classes : 'pas encore classée') + '</span></div>' +
-      '<div class="dm-duels"><span>Attaques du jour : <b>' + d.restants + ' / ' + d.max + '</b></span><span class="pips">' + pips + '</span></div>' +
-      '<p class="cl-help">' + d.tours + ' tours pour lui arracher le plus de PV possible. Chaque attaque rapporte des lucioles, de l’XP et des éclats de jade : plus tu fais mal, plus elle rapporte. Ton compagnon frappe avec toi.</p>' +
-      (d.maPart ? '<p class="cl-part is-in">Ta part est assurée sur ce Titan : ' + fmtN(d.maPart) + ' dégâts.</p>' : '<p class="cl-part">Frappe ce Titan au moins une fois pour avoir ta part quand il tombera.</p>') +
-      '<button class="btn" data-titan-attack' + (d.restants > 0 ? '' : ' disabled') + '>' + (d.restants > 0 ? 'Attaquer le Titan ▶ · ' + d.restants + ' / ' + d.max : 'Reviens demain') + '</button></section>';
-    html += '<section class="panel tt-top"><h2>LES PLUS GRANDS COUPS DE LA SEMAINE</h2>' + (d.top.length ? '<ol class="tt-list">' + d.top.map(function (e, k) {
-      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo || '') + ' · niv. ' + (e.niveau || 1) + '</small></span>' +
-        '<span class="tt-dmg">' + fmtN(e.degats) + '<small>dégâts</small></span><span class="tt-gift">' + giftText(d.recompenses[k]) + '</span></li>';
+      (d.maPart ? '<p class="cl-part is-in">Ta part est assurée : ' + fmtN(d.maPart) + ' dégâts sur ce Titan.</p>' : '<p class="cl-part">Frappe-le une fois pour avoir ta part quand il tombera.</p>') +
+      '<button class="btn" data-titan-attack' + (d.restants > 0 ? '' : ' disabled') + '>' + (d.restants > 0 ? 'Attaquer ▶' : 'Reviens demain') + '</button></section>';
+    html += '<section class="panel tt-top2"><h2>LES PLUS GRANDS COUPS</h2>' + (d.top.length ? '<ol class="tt-list">' + d.top.map(function (e, k) {
+      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="Lundi : ' + giftText(d.recompenses[k]) + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>niv. ' + (e.niveau || 1) + '</small></span><span class="tt-dmg">' + fmtN(e.degats) + '</span></li>';
     }).join('') + '</ol>' : '<p class="muted">Personne ne l’a encore frappé cette semaine : sois la première !</p>') +
-      '<p class="cl-help">Lundi à minuit, les dix premières reçoivent le cadeau de leur place ; toutes les autres grenouilles qui l’ont frappé : ' + giftText(d.part) + '.</p></section></div>';
+      '<p class="tt-note">Lundi, les dix premières reçoivent un cadeau (survole une ligne), toutes les autres : ' + giftText(d.part) + '.</p></section>';
+    html += '<div class="tt-bottom"><span class="tt-kicker">LE TITAN DE LA SEMAINE' + (t.vaincus ? ' · ' + t.vaincus + ' déjà tombé' + (t.vaincus > 1 ? 's' : '') : '') + ' · un autre dans ' + untilMs(d.fin) + '</span>' +
+      '<h1>' + en.name.toUpperCase() + '</h1><div class="cl-hp tt-hp"><i id="tt-hp-fill" style="width:' + (titan.lastPct != null ? titan.lastPct : pct) + '%"></i><em>' + fmtN(t.pv) + ' / ' + fmtN(t.pvMax) + ' PV</em></div></div>';
     box.innerHTML = html;
+    requestAnimationFrame(function () { var f = $('tt-hp-fill'); if (f) f.style.width = pct + '%'; }); // la barre descend jusqu'à ses PV
+    titan.lastPct = pct;
   }
   // L'attaque : quelques tours contre ses PV partagés, dans son pays
   function titanFight(d) {
@@ -2697,44 +2873,96 @@
   // À gauche, une porte par donjon (ouverte ou non selon le niveau, sa progression) ; à droite, celui qu'on a choisi :
   // ses dix salles, l'ennemi de la prochaine (comparé à soi), ce qu'elle rapporte, et ses objets Uniques.
   var dj = { sel: null };
+  // les donjons qu'on voit : ceux qui sont ouverts, et le suivant (fermé, en silhouette)
+  function djVisible() { var list = []; for (var i = 0; i < DUNGEONS.length; i++) { list.push(DUNGEONS[i]); if (!dungeonOpen(save, DUNGEONS[i])) break; } return list; }
   function openDonjons() {
-    if (!dungeonById(dj.sel) || !dungeonOpen(save, dungeonById(dj.sel))) {
-      var open = DUNGEONS.filter(function (d) { return dungeonOpen(save, d); });
-      var todo = open.filter(function (d) { return dungeonState(save, d).room < DUNGEON_ROOMS; });
-      dj.sel = (todo[todo.length - 1] || open[open.length - 1] || DUNGEONS[0]).id; // le plus haut pas encore vidé
+    var vis = djVisible(), open = vis.filter(function (d) { return dungeonOpen(save, d); });
+    if (!dungeonById(dj.sel) || vis.indexOf(dungeonById(dj.sel)) < 0) {
+      var todo = open.filter(function (d) { return !dungeonCleared(save, d); });
+      dj.sel = (todo[0] || open[open.length - 1] || DUNGEONS[0]).id; // le premier pas encore vidé
     }
     renderDonjons();
   }
-  function renderDonjons() {
-    var shownTo = Math.min(DUNGEONS.length, Math.floor(save.level / DUNGEON_EVERY) + 2); // les ouverts, et les deux suivants
-    $('dj-grid').innerHTML = DUNGEONS.slice(0, Math.max(3, shownTo)).map(function (d) {
-      var open = dungeonOpen(save, d), st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS;
-      return '<button class="dj-card' + (open ? '' : ' locked') + (done ? ' done' : '') + (dj.sel === d.id ? ' is-selected' : '') + '" data-dj="' + d.id + '"' + (open ? '' : ' disabled') + '>' +
-        '<img class="px" src="' + DungeonArt.gate(d, open) + '" alt=""><b>' + d.name + '</b><small>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : 'Au niveau ' + d.level) + '</small>' +
-        '<span class="dj-bar"><i style="width:' + (st.room / DUNGEON_ROOMS * 100) + '%"></i></span><em>' + (done ? 'VIDÉ' : (open ? st.room + ' / ' + DUNGEON_ROOMS : '')) + '</em></button>';
-    }).join('');
-    var d = dungeonById(dj.sel);
-    if (!d) { $('dj-side').innerHTML = ''; return; }
-    var st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, next = Math.min(DUNGEON_ROOMS, st.room + 1), me = myFight();
-    var foe = dungeonFoe(d, next), cmp = function (a, b) { return a > b * 1.08 ? 'down' : (a < b * 0.92 ? 'up' : ''); };
-    var daily = done && st.day !== todayKey(), rw = dungeonRewards(d, next, done);
-    var html = '<div class="dj-title"><img class="px" src="' + DungeonArt.gate(d, true) + '" alt=""><div><h2>' + d.name.toUpperCase() + '</h2><p>' + d.desc + '</p></div></div>';
-    html += '<ol class="dj-rooms">' + Array.apply(null, Array(DUNGEON_ROOMS)).map(function (_, i) {
-      var r = i + 1, f = dungeonFoe(d, r), cls = r <= st.room ? 'cleared' : (r === next && !done ? 'next' : 'locked');
-      return '<li class="' + cls + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"><span>' + r + '</span><b>' + (r <= st.room || r === next ? f.name : '???') + '</b><small>niv. ' + f.level + '</small></li>';
-    }).join('') + '</ol>';
-    html += '<div class="tw-sheet' + (next === DUNGEON_ROOMS ? ' boss' : '') + '"><span class="tw-floor">' + (done ? 'LE BOSS, À NOUVEAU' : 'SALLE ' + next + (next === DUNGEON_ROOMS ? ' · LE BOSS' : (next === 5 ? ' · LE GARDIEN' : ''))) + '</span>' +
-      '<div class="tw-sage"><img class="px" src="' + monsterPortrait(foe) + '" alt=""><div><h3>' + foe.name + '</h3><span class="muted">Niveau ' + foe.level + '</span></div></div>' +
-      '<ul class="foe-stats"><li><span>PV</span><b class="' + cmp(foe.maxHp, me.maxHp) + '">' + foe.maxHp + '</b></li><li><span>Dégâts</span><b class="' + cmp(foe.dmg, me.dmg) + '">' + foe.dmg + '</b></li><li><span>Niveau</span><b class="' + cmp(foe.level, save.level) + '">' + foe.level + '</b></li></ul>' +
-      '<div class="tw-reward"><h2>' + (done ? 'UNE FOIS PAR JOUR' : 'PREMIÈRE VICTOIRE') + '</h2><p><span class="luciole"></span> ' + rw.gold + ' lucioles · ' + Math.round(rw.xp * xpGapMult(save.level, foe.level)) + ' XP' + (xpGapMult(save.level, foe.level) < 1 ? ' <small class="muted">(réduite : tu es bien plus fort)</small>' : '') + '</p>' +
-      '<p>' + (rw.item >= 1 ? 'Un objet sûr' : Math.round(rw.item * 100) + ' % de chance d’objet') + ' · <b class="dj-unique">' + Math.round(rw.unique * 100) + ' % d’Unique</b></p></div>' +
-      (done ? (daily ? '<button class="btn" data-dj-daily>Redéfier le boss ▶</button>' : '<button class="btn" disabled>Le boss se repose : reviens demain</button>')
-        : '<button class="btn" data-dj-fight="' + next + '">' + (next === DUNGEON_ROOMS ? 'Affronter le boss ▶' : 'Entrer dans la salle ' + next + ' ▶') + '</button>') + '</div>';
-    var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; });
-    html += '<div class="dj-uniques"><h2>OBJETS UNIQUES</h2><p class="muted">Des objets de rang ' + dungeonTier(d) + ' qui portent le nom du donjon (« … ' + d.of + ' »), plus forts qu’un Épique : ' + Math.round(DUNGEON_LOOT.unique * 100) + ' % par salle, ' + Math.round(DUNGEON_LOOT.bossUnique * 100) + ' % au boss.</p>' +
-      (uniq.length ? '<div class="dj-uq">' + uniq.map(function (id) { return '<span class="dj-uq-item" style="' + rarStyle(id) + '" title="' + ITEMS[id].name + ' · ' + statLine(ITEMS[id].stats) + '"><img class="px" src="' + itemIconUrl(id) + '" alt="">' + ITEMS[id].name + '</span>'; }).join('') + '</div>' : '<p class="muted">Aucun trouvé ici pour l’instant.</p>') + '</div>';
-    $('dj-side').innerHTML = html;
+  function djCard(d) {
+    var open = dungeonOpen(save, d), st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, pips = '';
+    for (var r = 1; r <= DUNGEON_ROOMS; r++) pips += '<i class="' + (r <= st.room ? 'on' : (r === st.room + 1 && open ? 'next' : '')) + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"></i>';
+    var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; }).length, pet = petById(d.id), pl = pet ? petLevel(save, pet.id) : 0;
+    return '<article class="dj-card2' + (open ? '' : ' locked') + (done ? ' done' : '') + (d.id === dj.sel ? ' is-active' : '') + '" data-dj-card="' + d.id + '" style="background-image:url(' + DungeonArt.scene(d, open) + ')">' +
+      '<div class="dj-c-top"><span>DONJON ' + (d.n + 1) + '</span><span>' + (open ? 'Niv. ' + d.level + '–' + (d.level + DUNGEON_ROOMS + 1) : '') + '</span></div>' +
+      '<div class="dj-c-body"><h2>' + (open ? d.name : '???') + '</h2>' +
+      (open ? '<p>' + d.desc + '</p><div class="dj-c-rooms" title="' + st.room + ' / ' + DUNGEON_ROOMS + ' salles">' + pips + '</div>' +
+        '<div class="dj-c-meta"><span>' + (done ? '<b class="ok">VIDÉ</b>' + (st.day === todayKey() ? ' · boss vaincu aujourd’hui' : ' · boss du jour à redéfier') : st.room + ' / ' + DUNGEON_ROOMS + ' salles') + '</span>' +
+        '<span><b class="dj-unique">' + uniq + '</b> Unique' + (uniq > 1 ? 's' : '') + ' · ' + setName(d) + '</span>' +
+        '<span>Compagnon : ' + (pl ? '<b>' + pet.name + '</b> niv. ' + pl : 'pas encore') + '</span></div>'
+        : '<p class="dj-c-lock">🔒 ' + dungeonLock(save, d) + '</p>') + '</div></article>';
   }
+  function renderDonjons() {
+    var vis = djVisible(), cleared = DUNGEONS.filter(function (d) { return dungeonCleared(save, d); }).length;
+    $('dj-count').textContent = cleared + ' / ' + DUNGEONS.length + ' vidés';
+    $('dj-carousel').innerHTML = '<button class="dj-arrow prev" data-dj-step="-1" aria-label="Donjon précédent">◀</button><div class="dj-viewport"><div class="dj-track" id="dj-track">' + vis.map(djCard).join('') + '</div></div>' +
+      '<button class="dj-arrow next" data-dj-step="1" aria-label="Donjon suivant">▶</button>';
+    $('dj-dots').innerHTML = vis.map(function (d) { return '<button class="dj-dot' + (dungeonCleared(save, d) ? ' done' : '') + (dungeonOpen(save, d) ? '' : ' locked') + '" data-dj="' + d.id + '" aria-label="' + (dungeonOpen(save, d) ? d.name : 'Donjon fermé') + '"></button>'; }).join('');
+    selectDungeon(dj.sel, true);
+  }
+  // choisir un donjon : la piste glisse jusqu'à sa carte, et le panneau montre son monstre
+  function selectDungeon(id, instant) {
+    var vis = djVisible(), d = dungeonById(id) || vis[0], idx = Math.max(0, vis.indexOf(d)), track = $('dj-track');
+    dj.sel = d.id;
+    Array.prototype.forEach.call(track.children, function (c) { c.classList.toggle('is-active', c.dataset.djCard === d.id); });
+    Array.prototype.forEach.call(document.querySelectorAll('.dj-dot'), function (b) { b.classList.toggle('is-on', b.dataset.dj === d.id); });
+    document.querySelector('.dj-arrow.prev').disabled = idx === 0;
+    document.querySelector('.dj-arrow.next').disabled = idx >= vis.length - 1;
+    var card = track.children[idx], vp = track.parentNode;
+    if (card) {
+      track.style.transition = instant ? 'none' : '';
+      track.style.transform = 'translateX(' + Math.round(vp.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2)) + 'px)';
+    }
+    renderDjSide();
+  }
+  function djStep(n) {
+    var vis = djVisible(), idx = vis.indexOf(dungeonById(dj.sel)), to = Math.max(0, Math.min(vis.length - 1, idx + n));
+    if (to !== idx) { Sfx.play('page'); selectDungeon(vis[to].id); }
+  }
+  // à droite : seulement le monstre de la prochaine salle, sa force comparée à la tienne, et ce qu'il rapporte
+  function renderDjSide() {
+    var d = dungeonById(dj.sel), box = $('dj-side');
+    if (!d) { box.innerHTML = ''; return; }
+    if (!dungeonOpen(save, d)) {
+      box.innerHTML = '<div class="dj-s-locked"><img class="px" src="' + DungeonArt.gate(d, false) + '" alt=""><h2>DONJON FERMÉ</h2><p>' + dungeonLock(save, d) + '.</p><p class="muted">Ses monstres et ses Uniques n’existent nulle part ailleurs.</p></div>';
+      return;
+    }
+    var st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, next = Math.min(DUNGEON_ROOMS, st.room + 1), daily = done && st.day !== todayKey();
+    var foe = dungeonFoe(d, next), me = myFight(), rw = dungeonRewards(d, next, done), gap = xpGapMult(save.level, foe.level), boss = next === DUNGEON_ROOMS;
+    var row = function (label, his, mine, f) { var worse = his > mine * 1.08, better = his < mine * 0.92; return '<li><span>' + label + '</span><b class="' + (worse ? 'down' : (better ? 'up' : '')) + '">' + f(his) + '</b><small>toi : ' + f(mine) + '</small></li>'; };
+    var n = function (v) { return Math.round(v).toLocaleString('fr-FR'); }, p = function (v) { return Math.round(v * 100) + ' %'; };
+    box.innerHTML = '<span class="dj-s-kicker">' + (done ? 'LE BOSS, À NOUVEAU' : 'SALLE ' + next + ' / ' + DUNGEON_ROOMS + (boss ? ' · BOSS' : (next === 5 ? ' · GARDIEN' : ''))) + '</span>' +
+      '<div class="dj-s-foe' + (boss ? ' boss' : '') + '"><img class="px" src="' + monsterPortrait(foe) + '" alt=""></div>' +
+      '<h2 class="dj-s-name">' + foe.name + '</h2><span class="dj-s-lvl">Niveau ' + foe.level + (foe.level > save.level ? ' · <b class="down">+' + (foe.level - save.level) + '</b>' : '') + '</span>' +
+      '<ul class="dj-s-stats">' + row('PV', foe.maxHp, me.maxHp, n) + row('Dégâts', foe.dmg, me.dmg, n) + row('Esquive', foe.dodge, me.dodge, p) + '</ul>' +
+      '<div class="dj-s-rew"><span><b>' + n(rw.xp * gap) + '</b> XP' + (gap < 1 ? ' <small>(réduite)</small>' : '') + '</span><span><b>' + n(rw.gold) + '</b> lucioles</span>' +
+      '<span><b>' + (rw.item >= 1 ? '100 %' : p(rw.item)) + '</b> objet</span><span class="dj-unique"><b>' + p(rw.unique) + '</b> Unique</span>' +
+      (boss ? '<span><b>' + p(done ? PET_CHANCE.daily : PET_CHANCE.first) + '</b> compagnon</span>' : '') + '</div>' +
+      (done ? (daily ? '<button class="btn dj-go" data-dj-daily>Redéfier le boss ▶</button>' : '<button class="btn dj-go" disabled>Le boss se repose : reviens demain</button>')
+        : '<button class="btn dj-go" data-dj-fight="' + next + '">' + (boss ? 'Affronter le boss ▶' : 'Entrer dans la salle ' + next + ' ▶') + '</button>');
+  }
+  // faire glisser les cartes (souris ou doigt), et les flèches du clavier
+  (function () {
+    var x0 = null, moved = false;
+    $('dj-carousel').addEventListener('pointerdown', function (e) { if (e.target.closest('button')) return; x0 = e.clientX; moved = false; });
+    window.addEventListener('pointermove', function (e) { if (x0 !== null && Math.abs(e.clientX - x0) > 8) moved = true; });
+    window.addEventListener('pointerup', function (e) {
+      if (x0 === null) return;
+      var dx = e.clientX - x0; x0 = null;
+      if (moved && Math.abs(dx) > 50) djStep(dx < 0 ? 1 : -1);
+      else if (!moved) { var card = e.target.closest && e.target.closest('[data-dj-card]'); if (card && card.dataset.djCard !== dj.sel) { Sfx.play('page'); selectDungeon(card.dataset.djCard); } }
+    });
+    window.addEventListener('keydown', function (e) {
+      if (state.page !== 'donjons' || $('app').hidden || !$('battle').hidden) return;
+      if (e.key === 'ArrowRight') djStep(1);
+      if (e.key === 'ArrowLeft') djStep(-1);
+    });
+    window.addEventListener('resize', function () { if (state.page === 'donjons') selectDungeon(dj.sel, true); });
+  })();
   function itemIconUrl(id) { return iconUrls[id] || iconUrls[baseOf(id)] || (iconUrls[id] = iconCanvas(ITEMS[id]).toDataURL()); }
   function donjonFight(d, r, daily) {
     return {
@@ -2764,7 +2992,9 @@
     persist();
     Sfx.play(uq ? 'glint' : (levels ? 'levelup' : 'pickup'));
     var line = function (id, label) { return '<p class="bt-loot" style="' + rarStyle(id) + '"><img src="' + itemIconUrl(id) + '" alt=""> ' + label + ' : <b>' + ITEMS[id].name + '</b> <em>' + RARITIES[rarityOf(id)].name + '</em></p>'; };
-    return '<p>' + (r === DUNGEON_ROOMS ? (daily ? 'Le boss tombe encore !' : '<b>Le donjon est vidé !</b> Son boss se redéfie une fois par jour.') : 'Salle ' + r + ' vidée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
+    var nd = r === DUNGEON_ROOMS && !daily ? DUNGEONS[d.n + 1] : null;
+    return (nd ? '<p class="bt-unlock">' + (dungeonOpen(save, nd) ? 'Le donjon suivant s’ouvre : <b>' + nd.name + '</b> !' : 'Le donjon suivant, <b>' + nd.name + '</b>, s’ouvrira au niveau ' + nd.level + '.') + '</p>' : '') +
+      '<p>' + (r === DUNGEON_ROOMS ? (daily ? 'Le boss tombe encore !' : '<b>Le donjon est vidé !</b> Son boss se redéfie une fois par jour.') : 'Salle ' + r + ' vidée !') + ' +' + xp + ' XP · +' + gold + ' lucioles' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') + '</p>' +
       (gap < 1 ? '<p class="bt-gap">XP réduite à ' + Math.round(gap * 100) + ' % : tu es bien plus fort que ce donjon.</p>' : '') +
       (loot ? line(loot, 'Butin') : '') + (uq ? line(uq, 'OBJET UNIQUE') : '') +
       (pet ? '<p class="bt-loot bt-pet"><img src="' + petIcon(pet.pet) + '" alt=""> ' + (pet.max ? pet.pet.name + ' est déjà au plus haut : <b>+' + pet.eclats + ' éclats</b>.' : (pet.up ? '<b>' + pet.pet.name + '</b> grandit : niveau ' + pet.lvl + ' !' : 'Le petit du boss te suit : <b>' + pet.pet.name + '</b> devient ton compagnon !' + (save.pet === pet.pet.id ? ' Il est déjà à tes côtés.' : ' (page Personnage, case Compagnon)'))) + '</p>' : '') + questLine(qd);
@@ -2925,7 +3155,7 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'forge', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
@@ -2935,6 +3165,7 @@
     if (page === 'dojo') openDojo();
     if (page === 'clans') openClans();
     if (page === 'titan') openTitan();
+    if (page === 'forge') openForge();
     if (page === 'skins') openSkins();
     if (page === 'tower') openTower();
     if (page === 'album') renderAlbum();
@@ -3000,7 +3231,8 @@
     if (t.dataset.towerScroll) { var sc = +t.dataset.towerScroll; tower.view = sc ? tower.view + sc : Math.max(1, towerNext() - 2); Sfx.play('click'); renderTower(); return; }
     if (t.dataset.floor) { tower.sel = +t.dataset.floor; Sfx.play('click'); renderTower(); return; }
     if (t.dataset.djGo) dj.sel = t.dataset.djGo; // depuis le camp : ce donjon-là (la page s'ouvre ensuite)
-    if (t.dataset.dj) { dj.sel = t.dataset.dj; Sfx.play('click'); renderDonjons(); return; }
+    if (t.dataset.dj) { Sfx.play('page'); selectDungeon(t.dataset.dj); return; }
+    if (t.dataset.djStep) { djStep(+t.dataset.djStep); return; }
     if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
     if (t.hasAttribute('data-dj-daily')) { var dd2 = dungeonById(dj.sel), st2 = dd2 && dungeonState(save, dd2); if (st2 && st2.room >= DUNGEON_ROOMS && st2.day !== todayKey()) { Sfx.play('click'); startFight(donjonFight(dd2, DUNGEON_ROOMS, true)); } return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
@@ -3111,6 +3343,8 @@
       return;
     }
     if (t.dataset.node) { state.node = t.dataset.node; renderTree(); return; }
+    if (t.hasAttribute('data-build-open')) { $('build').hidden = false; renderBuild(); return; }
+    if (t.hasAttribute('data-build-close')) { $('build').hidden = true; return; }
     if (t.dataset.deck) { if (save.deck.length < DECK_SIZE) { save.deck.push(t.dataset.deck); persist(); renderDeck(); } return; }
     if (t.dataset.undeck) { save.deck = save.deck.filter(function (id) { return id !== t.dataset.undeck; }); persist(); renderDeck(); return; }
     if (t.dataset.item) {
@@ -3147,13 +3381,35 @@
       if (cg) { persist(); Sfx.play('levelup'); notice('Le coffre du jour : ' + ITEMS[cg.item].name + ' (' + RARITIES[rarityOf(cg.item)].name + '), +' + cg.gold.toLocaleString('fr-FR') + ' lucioles, +' + cg.xp.toLocaleString('fr-FR') + ' XP, +' + cg.eclats + ' éclats' + (cg.levels ? '. Niveau ' + save.level + ' !' : '.')); renderAll(); }
       return;
     }
+    if (t.dataset.forgeGo) { forge.sel = t.dataset.forgeGo; forge.msg = null; forge.tab = SLOTS.some(function (s) { return save.equip[s.id] === forge.sel; }) ? 'portes' : 'tous'; showPage('forge'); return; }
+    if (t.dataset.forgeTab) { forge.tab = t.dataset.forgeTab; Sfx.play('click'); renderForge(); return; }
+    if (t.dataset.forgePick) { forge.sel = t.dataset.forgePick; forge.msg = null; Sfx.play('click'); renderForge(); return; }
     if (t.dataset.forge) {
-      var fid = t.dataset.forge, wasOn = SLOTS.some(function (s) { return save.equip[s.id] === fid; });
-      if (!forgeItem(save, fid)) return;
+      var fid = t.dataset.forge, wasOn = SLOTS.some(function (s) { return save.equip[s.id] === fid; }), res = forgeItem(save, fid);
+      if (!res) return;
       var fq = track(save, 'forge');
-      setPlayer(save); persist(); if (wasOn) buildHero(); Sfx.play('equip'); renderAll();
-      notice(ITEMS[fid].name + ' passe à +' + forgeOf(fid) + ' : ses stats gagnent ' + Math.round(FORGE_STEP * 100) + ' %.');
+      setPlayer(save); persist(); if (wasOn && res.ok) buildHero();
+      Sfx.play(res.ok ? 'levelup' : 'hurt'); forgeSparks(res.ok);
+      forge.msg = res.ok ? { kind: 'win', text: 'Réussi ! ' + ITEMS[fid].name.split(' ')[0] + ' passe à <b>+' + res.level + '</b>.' } : { kind: 'fail', text: 'Raté… le métal a cédé. Les éclats sont perdus.' };
+      forge.strike = 1; renderAll(); renderForge(); setTimeout(function () { forge.strike = 0; }, 400);
       quested(fq);
+      return;
+    }
+    if (t.dataset.recycle) { var ri = forge.pick.indexOf(t.dataset.recycle); if (ri >= 0) forge.pick.splice(ri, 1); else forge.pick.push(t.dataset.recycle); forge.armed = false; Sfx.play('click'); renderRecycle(); return; }
+    if (t.dataset.recyclePick) {
+      var rk = t.dataset.recyclePick, worn2 = SLOTS.map(function (s) { return save.equip[s.id]; });
+      forge.pick = rk === 'aucun' ? [] : save.owned.filter(function (id) { return ITEMS[id] && worn2.indexOf(id) < 0 && (rk === 'tout' || rarityOf(id) === rk); });
+      forge.armed = false; Sfx.play('click'); renderRecycle(); return;
+    }
+    if (t.hasAttribute('data-recycle-go')) {
+      if (!forge.pick.length) return;
+      if (!forge.armed) { forge.armed = true; renderRecycle(); return; }
+      var sv3 = salvageItems(save, forge.pick);
+      forge.pick = []; forge.armed = false;
+      var sq3 = track(save, 'recycle', sv3.n);
+      persist(); Sfx.play('pickup'); forgeSparks(true); renderAll(); renderForge();
+      notice(sv3.n + ' objet' + (sv3.n > 1 ? 's' : '') + ' recyclé' + (sv3.n > 1 ? 's' : '') + ' : +' + sv3.eclats.toLocaleString('fr-FR') + ' éclats de jade.');
+      quested(sq3);
       return;
     }
     if (t.id === 'salvage-btn') {

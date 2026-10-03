@@ -54,6 +54,7 @@
     <nav class="sb-menu" aria-label="Menu">
       <button class="menu-btn is-active" data-page="camp"><img data-ico="camp" alt=""><span>Camp</span><i class="badge" id="badge-camp" hidden></i></button>
       <button class="menu-btn" data-page="perso"><img data-ico="perso" alt=""><span>Personnage</span><i class="badge" id="badge-perso" hidden></i></button>
+      <button class="menu-btn" data-page="forge"><img data-ico="eclat" alt=""><span>Forge</span></button>
       <button class="menu-btn" data-page="skills"><img data-ico="skills" alt=""><span>La Voie</span><i class="badge" id="badge-skills" hidden></i></button>
       <button class="menu-btn" data-page="shop"><img data-ico="shop" alt=""><span>Boutique</span></button>
       <button class="menu-btn" data-page="skins"><img data-ico="skins" alt=""><span>Skins</span></button>
@@ -160,11 +161,20 @@
       </div>
     </section>
 
+    <!-- La Forge : l'atelier, l'enclume au milieu ; à gauche les objets à forger, à droite le recyclage -->
+    <section id="page-forge" class="page" aria-label="La forge" hidden>
+      <canvas id="forge-bg" aria-hidden="true"></canvas>
+      <aside id="fg-list" class="panel fg-list"></aside>
+      <div id="fg-anvil" class="fg-anvil"></div>
+      <aside id="fg-recycle" class="panel fg-recycle"></aside>
+    </section>
+
     <!-- La Voie : le Temple (l'arbre) et le deck -->
     <section id="page-skills" class="page" aria-label="La Voie" hidden>
       <canvas id="temple-bg" aria-hidden="true"></canvas>
       <canvas id="temple-fx" aria-hidden="true"></canvas>
       <div id="tree-nodes" class="temple-nodes"></div>
+      <div id="build" class="build" hidden></div>
       <header class="temple-head">
         <h1>TEMPLE DES VOIES</h1>
         <p>Trois branches de sorts, de caractéristiques et de passifs, qui se rejoignent au sommet. Chaque niveau te donne un point de voie.</p>
@@ -174,12 +184,10 @@
         <div id="voie-pick" class="voie-pick" hidden></div>
         <div id="deck-side" class="deck-side">
           <div id="arme-pick" class="arme-pick" hidden></div>
-          <h2>TON DECK</h2>
-          <p class="muted deck-help">L’attaque de base dépend de ton arme. Ajoute jusqu’à 4 sorts appris : chacun a son temps de relance.</p>
+          <div class="deck-head"><h2>TON DECK</h2><button class="btn deck-build" data-build-open>Mon build ▶</button></div>
           <div id="deck" class="deck"></div>
           <div id="mastery" class="mastery" hidden></div>
-          <h2>SORTS APPRIS</h2>
-          <div id="learned" class="learned"></div>
+          <div id="learned" class="learned" hidden></div>
           <div id="node-info" class="node-info"></div>
         </div>
       </aside>
@@ -188,11 +196,9 @@
     <!-- Les Donjons : un tous les dix niveaux, dix salles chacun -->
     <section id="page-donjons" class="page" aria-label="Donjons" hidden>
       <div class="dj-main">
-        <header class="dj-head">
-          <h1>LES DONJONS</h1>
-          <p>Un donjon s’ouvre tous les dix niveaux : dix salles, des monstres qui montent d’un niveau à chaque salle, un boss au fond. Beaucoup d’XP, du butin… et des objets <b class="dj-unique">Uniques</b>.</p>
-        </header>
-        <div id="dj-grid" class="dj-grid"></div>
+        <header class="dj-head"><h1>LES DONJONS</h1><span id="dj-count" class="dj-count"></span></header>
+        <div id="dj-carousel" class="dj-carousel"></div>
+        <div id="dj-dots" class="dj-dots" aria-label="Donjons"></div>
       </div>
       <aside id="dj-side" class="panel dj-side"></aside>
     </section>

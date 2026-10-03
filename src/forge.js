@@ -2,32 +2,36 @@
 
 // ---------- La Forge ----------
 // Recycler un objet donne des éclats de jade, selon sa rareté et son rang (et une part de ce qu'on a mis dans sa forge) ;
-// renforcer un exemplaire (+1 à +FORGE_MAX, voir items.js) coûte des éclats, de plus en plus, et un peu de lucioles.
-// L'unité : un objet Commun du rang t vaut eclatUnit(t) éclats ; passer de +k à +k+1 en coûte (k + 1) unités.
-// De +0 à +10 : 55 unités, une cinquantaine de Communs ou une dizaine d'Épiques du même rang.
+// renforcer un exemplaire (+1 à +FORGE_MAX, voir items.js) coûte des éclats, de plus en plus, et des lucioles, et ça
+// peut rater à partir de +4 (FORGE_CHANCE : les éclats et les lucioles sont perdus, l'objet garde son niveau).
+// L'unité : un objet Commun du rang t vaut eclatUnit(t) éclats ; passer de +k à +k+1 en coûte 1,5 × (k + 1)^1,6 unités.
+// De +0 à +10 : environ 250 unités (sans compter les ratés), une quarantaine d'Épiques du même rang.
+var FORGE_CHANCE = [1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]; // la chance de réussir le passage de +k à +k+1
 var SALVAGE_RAR = { commun: 1, rare: 2.5, epique: 6, unique: 15, legendaire: 15 };
 function eclatUnit(tier) { return 1 + 0.5 * Math.max(1, tier); }
 function forgeOf(id) { var it = ITEMS[id]; return (it && it.forge) || 0; }
 function forgeable(id) { return String(id).indexOf('#') > 0 && !!ITEMS[id] && !!ITEMS[id].raw; } // un exemplaire trouvé (pas un trésor fixe)
 function forgeCost(id) {
   var k = forgeOf(id), u = eclatUnit(tierOf(id));
-  return { eclats: Math.round(u * (k + 1)), gold: Math.round((20 + 6 * tierOf(id) * tierOf(id)) * RARITIES[rarityOf(id)].price * 0.15 * (k + 1)) };
+  return { eclats: Math.round(u * 1.5 * Math.pow(k + 1, 1.6)), gold: Math.round((20 + 6 * tierOf(id) * tierOf(id)) * RARITIES[rarityOf(id)].price * 0.3 * (k + 1)), chance: FORGE_CHANCE[k] || 0.3 };
 }
 function salvageValue(id) {
   var it = ITEMS[id];
   if (!it) return 0;
-  var u = eclatUnit(tierOf(id)), k = forgeOf(id), r = it.reward ? 4 : (SALVAGE_RAR[rarityOf(id)] || 1);
-  return Math.max(1, Math.round(u * r + u * k * (k + 1) / 4)); // (la moitié des éclats mis dans sa forge reviennent)
+  var u = eclatUnit(tierOf(id)), k = forgeOf(id), r = it.reward ? 4 : (SALVAGE_RAR[rarityOf(id)] || 1), put = 0;
+  for (var i = 0; i < k; i++) put += 1.5 * Math.pow(i + 1, 1.6);
+  return Math.max(1, Math.round(u * r + u * put / 2)); // (la moitié des éclats mis dans sa forge reviennent)
 }
-// Renforce un exemplaire d'un niveau ; renvoie vrai si c'est fait
+// Tente de renforcer un exemplaire d'un niveau ; renvoie null (impossible), ou { ok: réussi ou raté, level }
 function forgeItem(save, id) {
-  if (!forgeable(id) || forgeOf(id) >= FORGE_MAX || !save.items[id]) return false;
+  if (!forgeable(id) || forgeOf(id) >= FORGE_MAX || !save.items[id]) return null;
   var c = forgeCost(id);
-  if ((save.eclats || 0) < c.eclats || save.gold < c.gold) return false;
+  if ((save.eclats || 0) < c.eclats || save.gold < c.gold) return null;
   save.eclats -= c.eclats; save.gold -= c.gold;
+  if (Math.random() >= c.chance) return { ok: false, level: forgeOf(id) };
   save.items[id].forge = forgeOf(id) + 1;
   registerItem(id, save.items[id]);
-  return true;
+  return { ok: true, level: forgeOf(id) };
 }
 // Recycle des objets (jamais ceux qu'on porte) ; renvoie les éclats gagnés et combien d'objets
 function salvageItems(save, ids) {
@@ -79,15 +83,12 @@ function bonusText(b) { return Object.keys(b).filter(function (k) { return b[k];
 // tours de la grenouille. Le retrouver une nouvelle fois le fait grandir d'un niveau, jusqu'à PET_MAX_LEVEL.
 var PET_EVERY = 2;
 var PET_CHANCE = { first: 0.5, daily: 0.2 };
-var PET_NAMES = ['Glouton', 'Spore', 'Écho', 'Gloubi', 'Farine', 'Boulon', 'Brindille', 'Dardinet', 'Frimas', 'Braisillon',
-  'Osselet', 'Paillette', 'Plumeau', 'Bobine', 'Cadenas', 'Pupille', 'Zigzag', 'Bourgeon', 'Monocle', 'Ventouse',
-  'Flammèche', 'Pénombre', 'Tison', 'Nuage', 'Glaçon', 'Caillou', 'Pince', 'Enclume', 'Tourbillon', 'Miette'];
 var PET_KINDS = [
   { id: 'vie', key: 'hp', base: 0.04 }, { id: 'force', key: 'dmg', base: 0.04 }, { id: 'flair', key: 'loot', base: 0.08 },
   { id: 'savoir', key: 'xp', base: 0.06 }, { id: 'bourse', key: 'gold', base: 0.08 }
 ];
 var PETS = DUNGEONS.map(function (d, i) {
-  return { id: d.id, d: d, name: PET_NAMES[i] || d.boss.name, species: d.boss.species, pal: d.boss.pal, kind: PET_KINDS[i % PET_KINDS.length],
+  return { id: d.id, d: d, name: d.petName || d.boss.name, species: d.boss.species, pal: d.boss.pal, kind: PET_KINDS[i % PET_KINDS.length],
     desc: 'Le petit de ' + d.boss.name + ' : il a quitté ' + d.name.charAt(0).toLowerCase() + d.name.slice(1) + ' pour te suivre.' };
 });
 function petById(id) { return PETS.filter(function (p) { return p.id === id; })[0] || null; }
