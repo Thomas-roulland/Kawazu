@@ -156,12 +156,15 @@ function checkSave(prev, next, ctx) {
     }
     // ce qui monte trop vite (signalé, pas corrigé : un oubli de l'arbitre ne doit pas coûter sa partie à personne)
     // (une grenouille toute neuve part d'une partie neuve, dt depuis sa création : envoyer d'emblée une partie avancée,
-    // c'est la triche la plus simple ; chaque signal pèse 1, ou 3 quand il dépasse dix fois ce que le jeu permet)
+    // c'est la triche la plus simple ; chaque signal pèse 1, ou 3 quand il dépasse cinq fois ce que le jeu permet)
+    // Les vitesses permises sont celles d'une partie très rapide : à 10 mutations (+100 % d'XP) contre des monstres de
+    // son niveau, un niveau toutes les quelques secondes ; un étage de tour à la seconde en montée auto (×4) ;
+    // une étape par seconde ; et les gros cadeaux d'un coup (saison, Titan : un ou deux niveaux, des milliers de lucioles).
     const after = G.parseSave(copy(raw)), conq = (s) => s.progress.reduce((a, p) => a + p, 0), secs = Math.round(dt) + ' s';
-    const rate = (label, delta, allowed) => { if (delta > allowed) flags.push({ r: label + ' +' + delta + ' en ' + secs, p: delta > allowed * 10 ? 3 : 1 }); };
-    if (after.mutation.n === nPrev && after.cycle === cPrev) rate('niveau', after.level - before.level, 5 + dt / 15);
-    if (after.cycle === cPrev) rate('étapes', conq(after) - conq(before), 5 + dt / 2);
-    rate('tour', after.tower - before.tower, 5 + dt / 2);
+    const rate = (label, delta, allowed) => { if (delta > allowed) flags.push({ r: label + ' +' + delta + ' en ' + secs, p: delta > allowed * 5 ? 3 : 1 }); };
+    if (after.mutation.n === nPrev && after.cycle === cPrev) rate('niveau', after.level - before.level, 10 + dt / 3);
+    if (after.cycle === cPrev) rate('étapes', conq(after) - conq(before), 10 + dt);
+    rate('tour', after.tower - before.tower, 10 + dt * 1.5);
     if (after.season && after.season.id === ((before.season && before.season.id) || after.season.id)) rate('saison', after.season.pts - ((before.season && before.season.id === after.season.id && before.season.pts) || 0), 500 + dt * 5);
     rate('lucioles', after.gold - before.gold, 1e7 + dt * 1e4);
     rate('éclats', after.eclats - before.eclats, 1e5 + dt * 100);

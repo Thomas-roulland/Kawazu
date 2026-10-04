@@ -329,6 +329,8 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
 - **Farm** : dans une terre terminée, le bouton **Farm** du combat enchaîne les étapes tout seul (en auto), avec un
   bilan (victoires, XP, lucioles, objets) ; une défaite ou « Arrêter » le coupe. Il continue même quand l’onglet
   n’est plus au premier plan (un petit worker bat la mesure à la place des animations, que le navigateur endort).
+- **Montée auto** (Tour des Sages) : le même bouton, dans un combat de la tour, enchaîne les étages tout seul (en auto) ;
+  la première défaite l’arrête (« Montée arrêtée par la défaite · N étages gravis »), comme « Arrêter la montée ».
 - **160 objets du Continent**, dix par terre (les six armes, écharpe, ceinture, anneau, kasa ou heaume à cornes), avec
   **leurs propres formes** (trident, morgenstern, lame courbe, kriss, étoile en X, écharpe à franges, ceinture à gemme,
   anneau serti…). Leur force part de celle des meilleurs objets de l’île (une arme à ~13 à la Plaine des Vents) et
@@ -484,7 +486,7 @@ commence plus souvent, pas toujours).
   coup de boule, langue fouet…
 - Les ennemis ont leurs tactiques : charges préparées, vol de vie, englue (les sorts en relance prennent un tour de plus),
   rage des boss sous la moitié de leur vie. Les grenouilles adverses (duels, tour) jouent leurs sorts avec les mêmes règles.
-- **Auto** ; vitesse **×1 / ×2 / ×4** ; **Farm** dans une terre terminée. **Touches du clavier** réglables (bouton
+- **Auto** ; vitesse **×1 / ×2 / ×4** ; **Farm** dans une terre terminée, **Montée auto** dans la tour. **Touches du clavier** réglables (bouton
   clavier, en bas du menu ou en combat) : disposition **QWERTY** (Q W E R T, A pour l’auto) ou **AZERTY** (A Z E R T,
   Q pour l’auto), devinée d’après le clavier, et chaque touche se change à la main ; les chiffres 1 à 5 marchent aussi,
   sur tous les claviers. Sur écran tactile, ni lettres ni bouton clavier.

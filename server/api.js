@@ -348,14 +348,17 @@ async function journalSnapshot(id, before, after) {
 async function addGift(frogId, gift) { await editGifts(frogId, (list) => list.filter((g) => g.id !== gift.id).concat([gift])); }
 // ---------- La triche (voir l'en-tête) ----------
 const TRICHE = 'tricheurs', TRICHE_SEUIL = 6, TRICHE_JOURS = 14;
-// des points de triche pour une grenouille (la même raison ne compte qu'une fois par heure) ; renvoie vrai si elle est
-// mise de côté
-async function strike(frogId, pts, raison) {
+// des points de triche pour une grenouille ; une même sorte de triche (kind : la sauvegarde corrigée, trop rapide, un
+// duel…) ne compte qu'une fois par heure, pour qu'une partie qui enchaîne vite ne s'accumule pas des points à chaque
+// sauvegarde ; renvoie vrai si elle est mise de côté
+async function strike(frogId, pts, raison, kind) {
+  kind = kind || String(raison).split(' ')[0];
   return withLock('verrou-triche:' + frogId, async () => {
     const now = Date.now(), t = (await store.get('triche:' + frogId)) || { journal: [] };
     t.journal = (t.journal || []).filter((e) => e.t > now - TRICHE_JOURS * 86400e3);
-    const last = t.journal[0];
-    if (!(last && last.r === raison && last.t > now - 3600e3)) t.journal.unshift({ t: now, p: pts, r: String(raison).slice(0, 300) });
+    const recent = t.journal.filter((e) => (e.k || e.r) === kind && e.t > now - 3600e3)[0];
+    if (recent) { if (pts > recent.p) { recent.p = pts; recent.r = String(raison).slice(0, 300); } } // (la plus grave de l'heure)
+    else t.journal.unshift({ t: now, p: pts, k: kind, r: String(raison).slice(0, 300) });
     t.journal = t.journal.slice(0, 50);
     t.pts = t.journal.reduce((a, e) => a + e.p, 0);
     if (t.pts >= TRICHE_SEUIL && !t.suspect) { t.suspect = now; await Promise.all([store.hset(TRICHE, frogId, now), store.hdel(RANK, frogId)]); }
@@ -508,7 +511,7 @@ async function raidDamage(id, frog, claimed, kind, args, turns) {
   const lvl = num((frog && frog.save && frog.save.level) || 1, 999), asked = clamp(Math.round(+claimed || 0), 0, 1e9); // (sans arbitre, la vieille borne)
   const cap = frog && frog.save && arbitre.ready() ? arbitre.raidCap(frog.save, kind, args, turns) : null;
   const max = cap != null ? cap : turns * (60 + 30 * lvl) * 3;
-  if (cap != null && asked > cap) await strike(id, asked > 2 * cap ? 3 : 1, (kind === 'titan' ? 'Titan' : 'Alpha') + ' : ' + asked + ' dégâts annoncés, ' + cap + ' au plus');
+  if (cap != null && asked > cap) await strike(id, asked > 2 * cap ? 3 : 1, (kind === 'titan' ? 'Titan' : 'Alpha') + ' : ' + asked + ' dégâts annoncés, ' + cap + ' au plus', kind);
   return Math.min(asked, max);
 }
 // Une victoire annoncée (duel, guerre) : l'arbitre rejoue le combat ; renvoie vrai si on peut la croire
@@ -516,7 +519,7 @@ async function plausibleWin(id, myFrog, oppFrog, oppEntry, label) {
   if (!myFrog || !myFrog.save || !oppFrog || !arbitre.ready()) return true;
   const odds = arbitre.duelOdds(myFrog.save, combatCard(oppFrog, oppEntry, 0));
   if (odds == null || odds >= 0.03) return true;
-  await strike(id, 2, label + ' : victoire annoncée contre ' + cleanText(oppFrog.nom, 16) + ', ' + Math.round(odds * 100) + ' % de chances');
+  await strike(id, 2, label + ' : victoire annoncée contre ' + cleanText(oppFrog.nom, 16) + ', ' + Math.round(odds * 100) + ' % de chances', label);
   return false;
 }
 async function dojoRecord(id) { // les duels du jour repartent à zéro chaque jour
@@ -1103,8 +1106,8 @@ async function route(req, res, p) {
       if (b.save.items && typeof b.save.items === 'object') Object.keys(b.save.items).forEach((k) => { const it = b.save.items[k]; if (it && typeof it.name === 'string') it.name = cleanText(it.name, 48); });
       // (une grenouille sans partie : depuis sa création)
       const verdict = arbitre.ready() ? arbitre.checkSave(frog.save, b.save, { dt: Date.now() - ((frog.save ? frog.modifie : frog.cree) || 0), clanBonus: clanBonusOf(await clanOf(id)) }) : { save: b.save, fixes: [], flags: [] };
-      if (verdict.fixes.length) await strike(id, 3, 'sauvegarde corrigée : ' + verdict.fixes.join(', '));
-      if (verdict.flags.length) await strike(id, Math.min(TRICHE_SEUIL, verdict.flags.reduce((n, f) => n + f.p, 0)), 'trop rapide : ' + verdict.flags.map((f) => f.r).join(', '));
+      if (verdict.fixes.length) await strike(id, 3, 'sauvegarde corrigée : ' + verdict.fixes.join(', '), 'corrigée');
+      if (verdict.flags.length) await strike(id, Math.min(TRICHE_SEUIL, verdict.flags.reduce((n, f) => n + f.p, 0)), 'trop rapide : ' + verdict.flags.map((f) => f.r).join(', '), 'rapide');
       frog.save = verdict.save;
       frog.modifie = Date.now();
       if (frog.save.hero && typeof frog.save.hero.name === 'string') frog.nom = frog.save.hero.name.slice(0, 16);
