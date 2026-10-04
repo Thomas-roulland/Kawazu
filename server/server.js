@@ -11,6 +11,9 @@ const { handle, store } = require('./api');
 
 const ROOT = path.resolve(__dirname, '..');
 const DATA = path.join(__dirname, 'data');
+const PRIVATE = [__dirname, path.join(ROOT, 'outils'), path.join(ROOT, 'docs'), path.join(ROOT, 'api')];
+// les mêmes en-têtes de sécurité qu'en ligne (vercel.json)
+const SECURITY = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')).headers[0].headers.reduce((o, h) => { o[h.key] = h.value; return o; }, {});
 const PORT = +process.env.PORT || 8765;
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -43,11 +46,11 @@ function serveStatic(req, res, url) {
   if (rel === '/jeu') rel = '/jeu.html';
   if (rel === '/patch') rel = '/patch.html'; // les notes de mise à jour
   const file = path.join(ROOT, rel);
-  // jamais en dehors du dossier du jeu, jamais les données du serveur
-  if (!file.startsWith(ROOT + path.sep) || file.startsWith(DATA + path.sep)) { res.writeHead(403); return res.end(); }
+  // jamais en dehors du dossier du jeu, jamais le code du serveur ni ses données, ni les outils (comme en ligne, vercel.json)
+  if (!file.startsWith(ROOT + path.sep) || PRIVATE.some((d) => file.startsWith(d + path.sep)) || path.basename(file).startsWith('.')) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Introuvable'); }
-    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, Object.assign({ 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }, SECURITY));
     res.end(data);
   });
 }

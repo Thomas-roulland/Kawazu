@@ -46,6 +46,46 @@ caractères), puis :
 Le rapport donne, par grenouille : le rythme des niveaux, l’XP par source, les combats (gagnés en un tour, écart de
 niveau, plus gros coup comparé aux PV de l’ennemi) terre par terre, la forge, l’équipement porté, et les signaux.
 
+### Sécurité et anti-triche
+
+Tout le jeu tourne dans le navigateur : n’importe qui peut y changer sa partie (la console, le `localStorage`, un fichier
+exporté) ou envoyer un faux résultat. Le serveur ne le croit donc plus sur parole : **l’arbitre** (`server/arbitre.js`)
+charge les vraies règles du jeu (`src/*.js`, dans un bac à sable) et vérifie :
+
+- **chaque sauvegarde** : ce qui est impossible est remis d’aplomb (un objet plus fort que son modèle, sa rareté et son
+  « + » ne le permettent, une forge au-delà de +10, plus de 3 points de caractéristique ou d’1 point de voie par niveau,
+  plus de 10 mutations ou une mutation sautée, un cycle sauté, une terre conquise sans la précédente, un bonus de clan
+  qu’on n’a pas, un niveau au-delà de 300), et ce qui monte bien plus vite que le jeu ne le permet est signalé (niveau,
+  étapes, tour, points de saison, lucioles, éclats ; une grenouille toute neuve part d’une partie neuve). Le jeu reprend
+  alors la partie corrigée du serveur. Réglé pour ne jamais gêner une partie honnête : 27 600 objets tirés par le vrai
+  jeu, à tous les rangs, toutes raretés, cycles 1 à 6, et aucun jugé trop fort ;
+- **chaque victoire en duel ou à la guerre** : il rejoue le combat (les deux grenouilles jouées par l’ordinateur, 60 fois) ;
+  une victoire qu’il n’obtient pas 3 fois sur 100 ne compte pas ;
+- **les dégâts sur le Titan et l’Alpha** : au plus 1,3 fois le meilleur de 30 assauts rejoués.
+
+Chaque triche vaut des points (`triche:<grenouille>`, sur 14 jours) ; à 6 points, la grenouille est **mise de côté** :
+plus dans le classement, plus de duels, de guerre, de Titan ni d’Alpha, plus de cadeaux, jusqu’à ce que l’admin efface
+son signalement (une partie importée d’un fichier, par exemple) :
+
+    KAWAZU_ADMIN=le-secret node outils/triche.js https://kawazu-psi.vercel.app
+    KAWAZU_ADMIN=le-secret node outils/triche.js https://kawazu-psi.vercel.app effacer <id>
+
+`GET /api/sante` dit si l’arbitre tourne ; `KAWAZU_ARBITRE=0` le coupe (pour les tests de concurrence, qui envoient des
+chiffres inventés, ou en cas de souci en ligne). Le reste :
+
+- **pas de base SQL**, donc pas d’injection SQL : Upstash reçoit ses commandes en tableau JSON (jamais une chaîne
+  assemblée), et chaque clé part d’un préfixe fixe et d’un identifiant vérifié (UUID, pseudo `[A-Za-z0-9_-]`) ;
+- les noms libres (grenouille, clan, objets) perdent leurs balises et guillemets côté serveur, et le jeu échappe tout ce
+  qu’il affiche : un nom ne peut pas devenir du code dans la page d’un autre joueur ;
+- mots de passe en scrypt salé, comparés sans fuite de temps ; session dans un cookie `HttpOnly`, `SameSite=Lax`,
+  `Secure` en ligne ; 10 essais de connexion par adresse et par 10 minutes, et 20 mauvais mots de passe ferment un
+  compte une heure, d’où qu’ils viennent ; 240 écritures par minute et par compte au plus ; 300 000 lucioles de dons
+  au clan par jour et par grenouille ;
+- en-têtes de sécurité sur toutes les pages (`vercel.json`, et les mêmes en local) : une politique de contenu stricte
+  (CSP : aucun script venu d’ailleurs, ni dans la page), pas d’affichage dans un cadre d’un autre site, pas de devinette
+  de type ; `server/`, `outils/` et `docs/` ne sont pas servis ;
+- la console du navigateur prévient : n’y colle aucun code qu’un inconnu te donne.
+
 ### Mettre le jeu en ligne (gratuit : Vercel + Upstash)
 
 Vercel sert les pages et fait tourner l’API en fonctions (`api/index.js`, qui appelle `server/api.js`) ;
@@ -467,7 +507,7 @@ puissance des voies.
 
 - `index.html`, `src/accueil.js`, `src/accueil.css` : la page d’accueil (cinématique, compte, grenouilles)
 - `jeu.html`, `src/style.css` : le jeu, ses pages et son style (bois, dorures, parchemin)
-- `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle ; `src/journal.js` et `outils/journal-analyse.js` : le journal des grenouilles et son analyse
+- `server/api.js` : l’API des comptes et des sauvegardes (fichiers en local, Upstash Redis en ligne) ; `server/arbitre.js` : l’anti-triche (les règles du jeu, rejouées côté serveur) ; `outils/triche.js` : les grenouilles mises de côté ; `server/server.js` : le serveur local ; `api/index.js` et `vercel.json` : la même API sur Vercel ; `src/cloud.js` : la liaison du jeu avec elle ; `src/journal.js` et `outils/journal-analyse.js` : le journal des grenouilles et son analyse
 - `docs/codex-kawazu.html` : l’état des lieux de l’univers, pour le lore
 - `src/donjons.js` : les Donjons (leurs salles, leurs boss, les objets Uniques, les portes en pixel art)
 - `src/forge.js` : la forge (éclats, recyclage, renforcement), les panoplies d’Uniques et les compagnons ;

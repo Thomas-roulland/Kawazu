@@ -1,7 +1,28 @@
 {
   "regions": ["lhr1"],
+  "functions": {
+    "api/index.js": { "includeFiles": "src/**" }
+  },
+  "redirects": [
+    { "source": "/server/:path*", "destination": "/", "permanent": false },
+    { "source": "/outils/:path*", "destination": "/", "permanent": false },
+    { "source": "/docs/:path*", "destination": "/", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api?route=:path*" },
     { "source": "/patch", "destination": "/patch.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src blob:; media-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    }
   ]
 }

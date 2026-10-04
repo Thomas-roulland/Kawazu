@@ -36,6 +36,16 @@
 //   GET  /api/titan/:id                                 le Titan de la semaine (PV partagés par toutes les grenouilles),
 //                                                       ses attaques du jour, le classement des dégâts, ses cadeaux
 //   POST /api/titan/:id/attaque { degats }              une attaque contre le Titan
+//   GET  /api/sante                                     l'état du serveur (la base, l'arbitre)
+//   GET  /api/admin/triche                              les grenouilles signalées par l'arbitre (en-tête x-kawazu-admin)
+//   POST /api/admin/triche { id }                       efface le signalement d'une grenouille (idem)
+//
+// La triche : tout le jeu tourne dans le navigateur, donc le serveur ne le croit pas sur parole (server/arbitre.js, qui
+// charge les vraies règles du jeu) : chaque sauvegarde est remise d'aplomb si elle est impossible, chaque victoire en
+// duel ou à la guerre est rejouée, les dégâts sur le Titan et l'Alpha sont bornés. Chaque triche vaut des points
+// (triche:<grenouille>, sur TRICHE_JOURS jours) ; au-delà de TRICHE_SEUIL, la grenouille est mise de côté (tricheurs) :
+// plus dans le classement, plus de duels, de guerre, de Titan ni d'Alpha, plus de cadeaux, jusqu'à ce que l'admin
+// efface son signalement.
 //
 // Les données passent par un petit magasin clé -> valeur :
 //   - en ligne : Upstash Redis, par son API REST (variables KV_REST_API_URL et KV_REST_API_TOKEN, posées par
@@ -51,6 +61,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const arbitre = require('./arbitre');
 
 const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
@@ -161,11 +172,20 @@ async function tooManyAttempts(req) {
   return (await store.incr('essais:' + (ip || 'inconnue'), 600)) > 10;
 }
 const saveAccount = (account) => store.set('compte:' + account.id, account);
+const ECRITURES_MINUTE = 240; // (le jeu sauvegarde au plus toutes les 1,5 s : une quarantaine par minute)
 
 // ---------- Outils HTTP ----------
 function send(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
   res.end(JSON.stringify(body));
+}
+// Un nom libre (grenouille, clan, objet) : sans balises ni caractères de contrôle, pour qu'aucun nom ne puisse devenir du
+// code dans la page d'un autre joueur (le jeu échappe déjà ce qu'il affiche : c'est une seconde barrière)
+const cleanText = (v, max) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f<>&"`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+// l'en-tête secret de l'admin (KAWAZU_ADMIN, 16 caractères au moins), comparé sans fuite de temps
+function isAdmin(req) {
+  const secret = Buffer.from(process.env.KAWAZU_ADMIN || ''), given = Buffer.from(String(req.headers['x-kawazu-admin'] || ''));
+  return secret.length >= 16 && given.length === secret.length && crypto.timingSafeEqual(given, secret);
 }
 function readBody(req, limit) {
   // sur Vercel, le corps arrive déjà lu (req.body) ; en local, on lit le flux
@@ -225,6 +245,7 @@ function rankEntry(frog, pseudo) {
 }
 // Met la fiche à jour si elle a changé (compare à l'ancienne version de la grenouille, déjà lue)
 async function publish(frog, pseudo, before) {
+  if (await isSuspect(frog.id)) { await store.hdel(RANK, frog.id); return; } // (mise de côté pour triche)
   const entry = rankEntry(frog, pseudo);
   if (before && JSON.stringify(rankEntry(before, pseudo)) === JSON.stringify(entry)) return;
   await store.hset(RANK, frog.id, entry);
@@ -260,7 +281,7 @@ async function weeklyGifts() {
   const week = mondayOf(parisDay(new Date())), last = await store.get('dojo-semaine');
   if (last === week) return;
   if (last && await store.setNew('dojo-distribue:' + last, 1)) {
-    const top = Object.entries(await store.hgetall(REP)).filter((e) => +e[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, CADEAUX.length);
+    const out = await suspectsOf(), top = Object.entries(await store.hgetall(REP)).filter((e) => +e[1] > 0 && !out[e[0]]).sort((a, b) => b[1] - a[1]).slice(0, CADEAUX.length);
     for (let i = 0; i < top.length; i++) {
       await addGift(top[i][0], Object.assign({ id: last + '-' + (i + 1), semaine: last, rang: i + 1 }, CADEAUX[i]));
     }
@@ -325,6 +346,27 @@ async function journalSnapshot(id, before, after) {
 }
 
 async function addGift(frogId, gift) { await editGifts(frogId, (list) => list.filter((g) => g.id !== gift.id).concat([gift])); }
+// ---------- La triche (voir l'en-tête) ----------
+const TRICHE = 'tricheurs', TRICHE_SEUIL = 6, TRICHE_JOURS = 14;
+// des points de triche pour une grenouille (la même raison ne compte qu'une fois par heure) ; renvoie vrai si elle est
+// mise de côté
+async function strike(frogId, pts, raison) {
+  return withLock('verrou-triche:' + frogId, async () => {
+    const now = Date.now(), t = (await store.get('triche:' + frogId)) || { journal: [] };
+    t.journal = (t.journal || []).filter((e) => e.t > now - TRICHE_JOURS * 86400e3);
+    const last = t.journal[0];
+    if (!(last && last.r === raison && last.t > now - 3600e3)) t.journal.unshift({ t: now, p: pts, r: String(raison).slice(0, 300) });
+    t.journal = t.journal.slice(0, 50);
+    t.pts = t.journal.reduce((a, e) => a + e.p, 0);
+    if (t.pts >= TRICHE_SEUIL && !t.suspect) { t.suspect = now; await Promise.all([store.hset(TRICHE, frogId, now), store.hdel(RANK, frogId)]); }
+    await store.set('triche:' + frogId, t);
+    await journalPush(frogId, [{ t: now, k: 'triche', serveur: true, points: pts, raison: String(raison).slice(0, 300), total: t.pts }]);
+    return !!t.suspect;
+  });
+}
+const isSuspect = async (frogId) => !!(await store.get('triche:' + frogId) || {}).suspect;
+const suspectsOf = async () => store.hgetall(TRICHE);
+const SUSPECT = { erreur: 'Ta grenouille est mise de côté : le serveur a relevé des tricheries. Écris à l’auteur du jeu si c’est une erreur.' };
 // ---------- Les saisons de classement : un mois (heure de Paris) ----------
 // Les points de saison sont gagnés dans le jeu (quêtes, boss, donjons, Titan…) et publiés avec la fiche. Le premier du
 // mois, les dix premières de la saison passée reçoivent un cadeau ; les trois premières, une peau qu'on ne trouve pas
@@ -398,7 +440,7 @@ async function titanState() {
     const vaincus = t.v2 ? (await titanLive(t)).vaincus : t.vaincus;
     base = Math.max(TITAN_PV_MIN, Math.round(t.base * (vaincus > 0 ? 1.35 : 0.85)));
     if (await store.setNew('titan-distribue:' + t.semaine, 1)) {
-      const deg = await store.hgetall('titan-degats:' + t.semaine), ranked = Object.keys(deg).filter((k) => +deg[k] > 0).sort((a, b) => deg[b] - deg[a]);
+      const out = await suspectsOf(), deg = await store.hgetall('titan-degats:' + t.semaine), ranked = Object.keys(deg).filter((k) => +deg[k] > 0 && !out[k]).sort((a, b) => deg[b] - deg[a]);
       for (let i = 0; i < ranked.length; i++) {
         await addGift(ranked[i], Object.assign({ id: 'titan-' + t.semaine + '-' + ranked[i].slice(0, 8), source: 'titan-semaine', semaine: t.semaine, rang: i < TITAN_CADEAUX.length ? i + 1 : 0, degats: +deg[ranked[i]] }, i < TITAN_CADEAUX.length ? TITAN_CADEAUX[i] : TITAN_PART));
       }
@@ -432,10 +474,11 @@ async function titanRoute(req, res, account, id, action, method) {
   }
   if (action === 'attaque' && method === 'POST') {
     const b = await readBody(req, 4096), old = await store.get('titan-jour:' + id);
+    if (await isSuspect(id)) return send(res, 403, SUSPECT);
     const n = (await store.incr(titanDayKey(id), 2 * 86400)) + (old && old.jour === parisDay(new Date()) ? old.n : 0);
     if (n > TITAN_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre le Titan aujourd’hui : reviens demain !' });
-    const frog = await store.get('grenouille:' + id), lvl = num((frog && frog.save && frog.save.level) || 1, 999);
-    const deg = clamp(Math.round(+b.degats || 0), 0, TITAN_TOURS * (60 + 30 * lvl) * 3); // au-delà, ce n'est pas un vrai combat
+    const frog = await store.get('grenouille:' + id);
+    const deg = await raidDamage(id, frog, +b.degats, 'titan', [t.idx, (await titanLive(t)).rang], TITAN_TOURS);
     const total = await store.hincr('titan-degats:' + t.semaine, id, deg);
     // le coup frappe le Titan debout ; s'il vient de tomber sous les coups d'une autre, il frappe le suivant
     let rang = (await titanLive(t)).rang, vaincu = null;
@@ -459,6 +502,23 @@ async function titanRoute(req, res, account, id, action, method) {
   return send(res, 404, { erreur: 'Route inconnue.' });
 }
 
+// Les dégâts annoncés d'un assaut (Titan ou Alpha), bornés : au plus ce que l'arbitre obtient en rejouant l'assaut
+// (et, s'il ne peut pas juger, la vieille borne grossière) ; au-delà, des points de triche
+async function raidDamage(id, frog, claimed, kind, args, turns) {
+  const lvl = num((frog && frog.save && frog.save.level) || 1, 999), asked = clamp(Math.round(+claimed || 0), 0, 1e9); // (sans arbitre, la vieille borne)
+  const cap = frog && frog.save && arbitre.ready() ? arbitre.raidCap(frog.save, kind, args, turns) : null;
+  const max = cap != null ? cap : turns * (60 + 30 * lvl) * 3;
+  if (cap != null && asked > cap) await strike(id, asked > 2 * cap ? 3 : 1, (kind === 'titan' ? 'Titan' : 'Alpha') + ' : ' + asked + ' dégâts annoncés, ' + cap + ' au plus');
+  return Math.min(asked, max);
+}
+// Une victoire annoncée (duel, guerre) : l'arbitre rejoue le combat ; renvoie vrai si on peut la croire
+async function plausibleWin(id, myFrog, oppFrog, oppEntry, label) {
+  if (!myFrog || !myFrog.save || !oppFrog || !arbitre.ready()) return true;
+  const odds = arbitre.duelOdds(myFrog.save, combatCard(oppFrog, oppEntry, 0));
+  if (odds == null || odds >= 0.03) return true;
+  await strike(id, 2, label + ' : victoire annoncée contre ' + cleanText(oppFrog.nom, 16) + ', ' + Math.round(odds * 100) + ' % de chances');
+  return false;
+}
 async function dojoRecord(id) { // les duels du jour repartent à zéro chaque jour
   const r = (await store.get('dojo:' + id)) || { v: 0, d: 0, jour: '', n: 0, offerts: [], journal: [] };
   const today = parisDay(new Date());
@@ -477,7 +537,7 @@ function equippedItems(s, equip) {
     out[id] = { base: it.base.slice(0, 32), rar: ['commun', 'rare', 'epique', 'unique', 'legendaire'].indexOf(it.rar) >= 0 ? it.rar : 'commun', stats: stats };
     if (it.forge) out[id].forge = num(it.forge, 10);
     if (typeof it.from === 'string') out[id].from = it.from.slice(0, 8);
-    if (typeof it.name === 'string') out[id].name = it.name.slice(0, 48);
+    if (typeof it.name === 'string') out[id].name = cleanText(it.name, 48);
   });
   return out;
 }
@@ -502,7 +562,17 @@ async function dojoDuel(res, account, id, b) {
     if (rec.soeurs[opp.id] === rec.jour) return send(res, 400, { erreur: 'Tu as déjà affronté cette grenouille aujourd’hui.' });
     rec.soeurs[opp.id] = rec.jour;
   }
-  const reps = await store.hgetall(REP), mine = +reps[id] || 0, theirs = +reps[opp.id] || 0, diff = theirs - mine, win = !!b.victoire;
+  if (await isSuspect(id)) return send(res, 403, SUSPECT);
+  let win = !!b.victoire;
+  if (win) { // une victoire : l'arbitre rejoue le duel (une victoire impossible ne compte pas, et le duel est perdu)
+    const [myFrog, oppFrog, fiches] = await Promise.all([store.get('grenouille:' + id), store.get('grenouille:' + opp.id), store.hgetall(RANK)]);
+    if (oppFrog && fiches[opp.id] && !(await plausibleWin(id, myFrog, oppFrog, fiches[opp.id], 'duel'))) {
+      rec.n++; rec.offerts = rec.offerts.filter((o) => o.id !== opp.id);
+      await store.set('dojo:' + id, rec);
+      return send(res, 409, { erreur: 'Ce résultat ne correspond pas à vos deux grenouilles : le duel ne compte pas.', refuse: true, restants: DUELS_PAR_JOUR - rec.n });
+    }
+  }
+  const reps = await store.hgetall(REP), mine = +reps[id] || 0, theirs = +reps[opp.id] || 0, diff = theirs - mine;
   const myDelta = win ? clamp(Math.round(12 + diff / 8), 4, 30) : -clamp(Math.round(8 - diff / 10), 2, 15);
   const oppDelta = win ? -Math.ceil(myDelta / 2) : Math.ceil(-myDelta / 2);
   const apply = async (fid, delta) => { const n = await store.hincr(REP, fid, delta); if (n < 0) { await store.hset(REP, fid, 0); return 0; } return n; };
@@ -581,7 +651,7 @@ async function dojoRoute(req, res, account, id, action, method) {
 const CLANS = 'clans';
 const CLAN_MAX = 10, RAIDS_PAR_JOUR = 2, RAID_TOURS = 10, EXCLU_JOURS = 3;
 const BLASON = { icone: 5, fond: 8, motif: 6 }; // le nombre d'icônes, de fonds et de couleurs de motif (voir le jeu)
-const BONUS_MAX = 10, BONUS_PAS = 0.02, DON_MAX = 100000;
+const BONUS_MAX = 10, BONUS_PAS = 0.02, DON_MAX = 100000, DON_JOUR = 300000;
 const bonusCost = (n) => 1000 * (n + 1) * (n + 2); // 2 000, 6 000, 12 000… 110 000 pour le dixième niveau
 // Les bonus avancés, ouverts une fois l'XP et les lucioles au plus haut : le butin (chance d'objet), la force (dégâts)
 // et la carapace (PV) de tout le clan ; un peu plus chers
@@ -608,6 +678,14 @@ async function loadClan(id) {
   return m;
 }
 async function clanOf(frogId) { return loadClan(await store.get('clan-de:' + frogId)); }
+// le bonus de clan qu'une grenouille a vraiment (rien sans clan) : ce que sa sauvegarde a le droit de porter
+function clanBonusOf(m) {
+  const out = { xp: 0, lucioles: 0, butin: 0, force: 0, vie: 0 };
+  if (!m) return out;
+  out.xp = bonusLvl(m, 'xp') * BONUS_PAS; out.lucioles = bonusLvl(m, 'lucioles') * BONUS_PAS;
+  Object.keys(BONUS_AVANCES).forEach((k) => { out[k] = bonusLvl(m, k) * BONUS_AVANCES[k]; });
+  return out;
+}
 async function clanDay(frogId) { // les attaques contre l'Alpha repartent à zéro chaque jour
   const r = (await store.get('clan-jour:' + frogId)) || { jour: '', raids: 0 }, today = parisDay(new Date());
   if (r.jour !== today) { r.jour = today; r.raids = 0; }
@@ -706,7 +784,7 @@ async function clanRoute(req, res, account, id, action, method) {
     return send(res, 200, out);
   }
   if (action === 'fonder' && method === 'POST') {
-    const b = await readBody(req, 4096), nom = String(b.nom || '').trim().replace(/\s+/g, ' ').slice(0, 24);
+    const b = await readBody(req, 4096), nom = cleanText(b.nom, 24);
     if (nom.length < 3) return send(res, 400, { erreur: 'Le nom du clan doit faire au moins 3 caractères.' });
     if (await store.get('clan-de:' + id)) return send(res, 400, { erreur: 'Ta grenouille est déjà dans un clan.' });
     const all = await store.hgetall(CLANS);
@@ -797,6 +875,9 @@ async function clanRoute(req, res, account, id, action, method) {
     const b = await readBody(req, 4096), montant = Math.floor(+b.montant || 0), frog = await store.get('grenouille:' + id);
     if (!(montant >= 1 && montant <= DON_MAX)) return send(res, 400, { erreur: 'Un don va de 1 à ' + DON_MAX.toLocaleString('fr-FR') + ' lucioles.' });
     if (!frog || !frog.save || (frog.save.gold || 0) < montant) return send(res, 400, { erreur: 'Ta grenouille n’a pas assez de lucioles.' });
+    const donKey = 'don-jour:' + id + ':' + parisDay(new Date()), deja = +(await store.get(donKey)) || 0; // (au plus DON_JOUR par jour)
+    if (deja + montant > DON_JOUR) return send(res, 400, { erreur: 'Au plus ' + DON_JOUR.toLocaleString('fr-FR') + ' lucioles de dons par jour (encore ' + Math.max(0, DON_JOUR - deja).toLocaleString('fr-FR') + ' aujourd’hui).' });
+    await store.set(donKey, deja + montant, 2 * 86400);
     frog.save.gold -= montant; frog.modifie = Date.now();
     m.tresor += montant; m.dons[id] = (m.dons[id] || 0) + montant;
     if (montant >= 1000) clanLog(m, { type: 'don', nom: me.nom, montant: montant });
@@ -819,10 +900,10 @@ async function clanRoute(req, res, account, id, action, method) {
   }
   if (action === 'raid' && method === 'POST') {
     const b = await readBody(req, 4096), day = await clanDay(id);
+    if (await isSuspect(id)) return send(res, 403, SUSPECT);
     if (day.raids >= RAIDS_PAR_JOUR) return send(res, 429, { erreur: 'Plus d’attaque contre l’Alpha aujourd’hui : reviens demain !' });
-    const frog = await store.get('grenouille:' + id), lvl = num((frog && frog.save && frog.save.level) || 1, 999);
-    const deg = clamp(Math.round(+b.degats || 0), 0, RAID_TOURS * (60 + 30 * lvl) * 3); // au-delà, ce n'est pas un vrai combat
-    const r = m.raid;
+    const frog = await store.get('grenouille:' + id), r = m.raid;
+    const deg = await raidDamage(id, frog, +b.degats, 'alpha', [r.rang], RAID_TOURS);
     day.raids++;
     r.pv -= deg;
     r.parts[id] = (r.parts[id] || 0) + deg;
@@ -879,9 +960,12 @@ async function clanRoute(req, res, account, id, action, method) {
       return send(res, 200, { adversaire: Object.assign(combatCard(frog, fiches[target], 0), { clan: w[them].nom, blason: w[them].blason }) });
     }
     if (w.offres[id] !== target) return send(res, 400, { erreur: 'Ce combat n’est plus proposé.' });
+    if (await isSuspect(id)) return send(res, 403, SUSPECT);
     delete w.offres[id];
     w.attaques[id] = (w.attaques[id] || 0) + 1;
-    const win = !!b.victoire, first = !w.battus[target];
+    let win = !!b.victoire;
+    if (win && !(await plausibleWin(id, await store.get('grenouille:' + id), await store.get('grenouille:' + target), fiches[target], 'guerre'))) win = false; // (une victoire impossible compte comme une défaite)
+    const first = !w.battus[target];
     // une première victoire sur une grenouille vaut 3 points si elle est au moins de ton niveau, 2 sinon ; les suivantes, 1
     const pts = !win ? 0 : (!first ? 1 : ((fiches[target].niveau || 1) >= (me.niveau || 1) ? 3 : 2));
     if (win) { w.battus[target] = (w.battus[target] || 0) + 1; w.scores[m.id] = (w.scores[m.id] || 0) + pts; }
@@ -911,10 +995,12 @@ async function route(req, res, p) {
   }
   if (p === '/api/connexion' && method === 'POST') {
     if (await tooManyAttempts(req)) return send(res, 429, { erreur: 'Trop d’essais. Réessaie dans quelques minutes.' });
-    const b = await readBody(req, 4096);
-    const id = await store.get('pseudo:' + String(b.pseudo || '').trim().toLowerCase());
+    const b = await readBody(req, 4096), low = String(b.pseudo || '').trim().toLowerCase().slice(0, 40);
+    // (et par compte : 20 mauvais mots de passe en une heure ferment le compte une heure, d'où qu'ils viennent)
+    if ((+(await store.get('essais-compte:' + low)) || 0) >= 20) return send(res, 429, { erreur: 'Trop d’essais sur ce compte. Réessaie dans une heure.' });
+    const id = await store.get('pseudo:' + low);
     const account = id && await store.get('compte:' + id);
-    if (!account || !checkPassword(account, String(b.motdepasse || ''))) return send(res, 401, { erreur: 'Pseudo ou mot de passe incorrect.' });
+    if (!account || !checkPassword(account, String(b.motdepasse || ''))) { await store.incr('essais-compte:' + low, 3600); return send(res, 401, { erreur: 'Pseudo ou mot de passe incorrect.' }); }
     await openSession(res, account.id);
     return send(res, 200, { pseudo: account.pseudo, grenouilles: await summaries(account) });
   }
@@ -933,26 +1019,42 @@ async function route(req, res, p) {
     return send(res, 200, { grenouilles: all, clans: clanList, joueurs: new Set(all.map((e) => e.pseudo)).size, duels: { prochain: nextMonday(new Date()), recompenses: CADEAUX }, saison: { id: seasonOf(new Date()), fin: nextSeason(new Date()), recompenses: SAISON_CADEAUX } });
   }
 
+  if (p === '/api/sante' && method === 'GET') return send(res, 200, { ok: true, arbitre: arbitre.ready() });
   // tout le reste demande d'être connecté
+  if (p === '/api/admin/triche') {
+    if (!isAdmin(req)) return send(res, 404, { erreur: 'Route inconnue.' });
+    if (method === 'GET') {
+      const [list, fiches] = await Promise.all([suspectsOf(), store.hgetall(RANK)]), out = [];
+      for (const k of Object.keys(list)) { const t = await store.get('triche:' + k), f = await store.get('grenouille:' + k); out.push({ id: k, nom: f ? f.nom : '?', depuis: list[k], points: t ? t.pts : 0, journal: t ? t.journal : [] }); }
+      return send(res, 200, { mises: out, seuil: TRICHE_SEUIL, jours: TRICHE_JOURS, publiees: Object.keys(fiches).length });
+    }
+    if (method === 'POST') { // efface le signalement : la grenouille revient
+      const b = await readBody(req, 4096), id = String(b.id || '');
+      if (!/^[0-9a-f-]{36}$/.test(id)) return send(res, 400, { erreur: 'Grenouille inconnue.' });
+      await Promise.all([store.del('triche:' + id), store.hdel(TRICHE, id)]);
+      const f = await store.get('grenouille:' + id), acc = f && await store.get('compte:' + f.compte);
+      if (f && acc) await publish(f, acc.pseudo);
+      return send(res, 200, { ok: true });
+    }
+  }
   if (p === '/api/admin/journaux' && method === 'GET') {
-    const secret = process.env.KAWAZU_ADMIN || '', given = String(req.headers['x-kawazu-admin'] || '');
-    const ok = secret.length >= 16 && given.length === secret.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(secret));
-    if (!ok) return send(res, 404, { erreur: 'Route inconnue.' });
+    if (!isAdmin(req)) return send(res, 404, { erreur: 'Route inconnue.' });
     const q = new URL(req.url, 'http://x').searchParams, n = num(+q.get('n') || 500, JOURNAL_MAX), only = q.get('id');
-    const fiches = await store.hgetall(RANK), ids = Object.keys(fiches).filter((k) => !only || k === only);
-    const out = [];
-    for (const k of ids) out.push({ id: k, nom: fiches[k].nom, pseudo: fiches[k].pseudo, niveau: fiches[k].niveau, evenements: await journalRead(k, n) });
+    const [fiches, mises] = await Promise.all([store.hgetall(RANK), suspectsOf()]); // (et les grenouilles mises de côté, hors du classement)
+    const ids = Array.from(new Set(Object.keys(fiches).concat(Object.keys(mises)))).filter((k) => !only || k === only), out = [];
+    for (const k of ids) { const f = fiches[k] || (await summary(k)) || {}; out.push({ id: k, nom: f.nom, pseudo: f.pseudo, niveau: f.niveau, misDeCote: !!mises[k], evenements: await journalRead(k, n) }); }
     return send(res, 200, { genere: Date.now(), grenouilles: out });
   }
   if (!me) return send(res, 401, { erreur: 'Connecte-toi d’abord.' });
   const account = me.compte;
+  if (method !== 'GET' && (await store.incr('debit:' + account.id + ':' + Math.floor(Date.now() / 60000), 120)) > ECRITURES_MINUTE) return send(res, 429, { erreur: 'Trop de demandes d’un coup : attends une minute.' });
   if (p === '/api/moi' && method === 'GET') {
     return send(res, 200, { pseudo: account.pseudo, grenouilles: await summaries(account), max: MAX_FROGS });
   }
   if (p === '/api/grenouilles' && method === 'POST') {
     if (account.grenouilles.length >= MAX_FROGS) return send(res, 400, { erreur: 'Tu as déjà ' + MAX_FROGS + ' grenouilles : supprimes-en une pour en créer une autre.' });
     const b = await readBody(req, 4096);
-    const nom = String(b.nom || '').trim().slice(0, 16) || 'Kawazu', peau = SKINS.indexOf(b.peau) >= 0 ? b.peau : 'marais';
+    const nom = cleanText(b.nom, 16) || 'Kawazu', peau = SKINS.indexOf(b.peau) >= 0 ? b.peau : 'marais';
     const id = crypto.randomUUID();
     const frog = { id: id, compte: account.id, nom: nom, peau: peau, cree: Date.now(), modifie: Date.now(), save: null };
     await store.set('grenouille:' + id, frog);
@@ -995,20 +1097,28 @@ async function route(req, res, p) {
       const b = await readBody(req, 256 * 1024);
       if (!b || typeof b.save !== 'object' || !b.save || Array.isArray(b.save)) return send(res, 400, { erreur: 'Sauvegarde invalide.' });
       const before = JSON.parse(JSON.stringify(frog));
-      frog.save = b.save;
+      // les noms libres d'abord (le nom de la grenouille, ceux de ses objets), puis l'arbitre : ce qui est impossible est
+      // corrigé (et compte comme de la triche), ce qui va trop vite est signalé
+      if (b.save.hero && typeof b.save.hero === 'object') b.save.hero.name = cleanText(b.save.hero.name, 16) || frog.nom;
+      if (b.save.items && typeof b.save.items === 'object') Object.keys(b.save.items).forEach((k) => { const it = b.save.items[k]; if (it && typeof it.name === 'string') it.name = cleanText(it.name, 48); });
+      // (une grenouille sans partie : depuis sa création)
+      const verdict = arbitre.ready() ? arbitre.checkSave(frog.save, b.save, { dt: Date.now() - ((frog.save ? frog.modifie : frog.cree) || 0), clanBonus: clanBonusOf(await clanOf(id)) }) : { save: b.save, fixes: [], flags: [] };
+      if (verdict.fixes.length) await strike(id, 3, 'sauvegarde corrigée : ' + verdict.fixes.join(', '));
+      if (verdict.flags.length) await strike(id, Math.min(TRICHE_SEUIL, verdict.flags.reduce((n, f) => n + f.p, 0)), 'trop rapide : ' + verdict.flags.map((f) => f.r).join(', '));
+      frog.save = verdict.save;
       frog.modifie = Date.now();
-      if (b.save.hero && typeof b.save.hero.name === 'string') frog.nom = b.save.hero.name.slice(0, 16);
+      if (frog.save.hero && typeof frog.save.hero.name === 'string') frog.nom = frog.save.hero.name.slice(0, 16);
       await store.set('grenouille:' + id, frog);
       await publish(frog, account.pseudo, before);
       try { await journalSnapshot(id, before.save, frog.save); } catch (e) { console.error('journal :', e.message); } // (le journal ne bloque jamais une sauvegarde)
-      return send(res, 200, { ok: true, modifie: frog.modifie });
+      return send(res, 200, Object.assign({ ok: true, modifie: frog.modifie }, verdict.fixes.length ? { corrige: verdict.fixes } : {}));
     }
     if (method === 'DELETE' && !m[2]) {
       account.grenouilles = account.grenouilles.filter((g) => g !== id);
       await saveAccount(account);
       await store.del('grenouille:' + id);
       await withLock(CLAN_LOCK, () => leaveClan(id)); // elle quitte son clan
-      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id), store.del(titanDayKey(id)), store.del('journal:' + id)]);
+      await Promise.all([store.hdel(RANK, id), store.hdel(REP, id), store.del('dojo:' + id), store.del('cadeaux:' + id), store.del('clan-jour:' + id), store.del('clan-exclu:' + id), store.del('titan-jour:' + id), store.del(titanDayKey(id)), store.del('journal:' + id), store.del('triche:' + id), store.hdel(TRICHE, id)]);
       return send(res, 200, { ok: true });
     }
   }

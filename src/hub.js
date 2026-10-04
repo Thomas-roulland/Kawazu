@@ -2149,9 +2149,9 @@
   var DOJO_TURNS = 10;
   var TREE_IMG = stringsToCanvas(SPECIES.arbre.frames[0], SPECIES.arbre.pal).toDataURL();
   var dojoApi = function (method, path, body) {
-    return fetch('/api/dojo/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+    return (method === 'POST' ? Cloud.flush() : Promise.resolve()).then(function () { return fetch('/api/dojo/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
-  };
+  }; // (un POST : la sauvegarde part d'abord, le serveur juge la grenouille telle qu'elle est)
   function cleanEquip(e) {
     var equip = Object.assign({}, DEFAULT_EQUIP);
     Object.keys(e || {}).forEach(function (slot) { var id = ITEMS[e[slot]] ? e[slot] : baseOf(e[slot]), it = ITEMS[id]; if (it && it.slot === slot) equip[slot] = id; });
@@ -2407,9 +2407,9 @@
   var nth = function (n) { return n === 1 ? '1er' : n + 'e'; };
   var fmtLeft = function (ms) { var min = Math.max(0, Math.ceil(ms / 60000)); return Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0'); };
   var clanApi = function (method, path, body) {
-    return fetch('/api/clans/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+    return (method === 'POST' ? Cloud.flush() : Promise.resolve()).then(function () { return fetch('/api/clans/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
-  };
+  }; // (un POST : la sauvegarde part d'abord, le serveur juge la grenouille telle qu'elle est)
   // Le blason : un écu à la couleur du fond, son icône dans la couleur du motif
   var blasonCache = {};
   function blasonOf(m) { return m && m.blason ? m.blason : { icone: 0, fond: (m && m.embleme) || 0, motif: 0 }; }
@@ -2741,9 +2741,9 @@
   // tempête ; à droite, ses PV, tes attaques du jour, et les plus grands coups de la semaine (leurs cadeaux du lundi).
   var titan = { data: null, loading: false, error: '', bg: -1 };
   var titanApi = function (method, path, body) {
-    return fetch('/api/titan/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+    return (method === 'POST' ? Cloud.flush() : Promise.resolve()).then(function () { return fetch('/api/titan/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
-  };
+  }; // (un POST : la sauvegarde part d'abord, le serveur juge la grenouille telle qu'elle est)
   function openTitan() { renderTitan(); drawTitan(performance.now()); if (Cloud.id) loadTitan(); }
   function loadTitan() {
     if (!Cloud.id) return;

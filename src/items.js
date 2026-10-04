@@ -1076,7 +1076,7 @@ function registerItem(id, inst) {
     if (BASE_STATS[key] !== undefined && typeof inst.stats[k] === 'number') stats[key] = (stats[key] || 0) + Math.round(inst.stats[k]);
   });
   var plus = Math.max(0, Math.min(99, Math.floor(+inst.plus || 0))); // le « + » des objets trouvés dans les cycles suivants
-  var nm = typeof inst.name === 'string' && inst.name ? inst.name.slice(0, 48) : b.name; // (un Unique a le nom de son donjon)
+  var nm = typeof inst.name === 'string' && inst.name ? inst.name.replace(/[<>&"`]/g, '').slice(0, 48) || b.name : b.name; // (un Unique a le nom de son donjon ; jamais de balise dans un nom)
   // la forge : chaque niveau ajoute FORGE_STEP des stats positives (les stats tirées restent dans raw)
   var forge = Math.max(0, Math.min(FORGE_MAX, Math.floor(+inst.forge || 0))), forged = {};
   Object.keys(stats).forEach(function (k) { forged[k] = stats[k] > 0 ? Math.round(stats[k] * (1 + FORGE_STEP * forge)) : stats[k]; });
