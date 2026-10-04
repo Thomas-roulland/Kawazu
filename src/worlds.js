@@ -38,19 +38,21 @@ var ISLAND_POWER = [
 var CONTINENT_RAMP = 0.8;
 // dans un cycle (NG+), toutes les terres ont la force de la toute dernière à niveau égal : on y revient avec l'équipement
 // de la fin du monde, et les monstres doivent tenir tête dès la première terre (réglé au simulateur)
-var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS;
+var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS, CYCLE_GEAR = 0.25;
 // L'Archipel et le Royaume : leur force suit la pente du Continent, mais l'équipement grandit bien plus vite ; sans ce
 // renfort, leurs boss tombaient presque à coup sûr (77 à 97 %, contre 37 à 80 % ailleurs) ; avec, 25 à 60 % (les Armes et le Lancer
 // ayant en fin de jeu plus de PV contre les monstres, pveHp). Réglé au
 // simulateur (terres.js) ; pas dans les cycles, réglés à part.
-var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 } };
+var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 } }, CYCLE_LATE = { hp: 1.45, dmg: 1.22 };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {
   var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1, st = level - stageLevel(w, 0);
   // dans un cycle (NG+), les monstres se mettent à la hauteur de la grenouille (étape 1 : 6 niveaux de moins, boss : 3 de
   // plus), sans descendre sous le niveau de leur étape (une grenouille qui vient de muter refait son chemin)
-  if (cyc) level = Math.min(MAX_LEVEL + 20, Math.max(level, playerLevel - 7 + st));
+  // (et sur son équipement : une grenouille qui porte des objets d'un rang bien plus haut que son niveau, après une
+  // mutation par exemple, voit les monstres monter d'une part CYCLE_GEAR de l'écart, sinon elle tuait tout d'un coup)
+  if (cyc) { var eff = playerLevel + CYCLE_GEAR * Math.max(0, playerGearLevel - playerLevel); level = Math.min(MAX_LEVEL + 20, Math.max(level, Math.round(eff) - 7 + st)); }
   // la force des terres : k = 0 à la Plaine des Vents, 15 au Trône de l'Orage (l'île en dessous) ; dans un cycle, toutes
   // les terres ont la force de la dernière (CYCLE_FLOOR : on y revient avec l'équipement de la fin),
   // et chaque cycle multiplie en plus PV et dégâts par CYCLE.power
@@ -62,7 +64,7 @@ function makeEnemy(w, level, variant, rank, title) {
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1, gk = cyc ? 0.5 : 1; hpX *= Math.pow(GP.hp * bb, gk); dmgX *= Math.pow(GP.dmg * Math.sqrt(bb), gk); } // (dans un cycle, déjà au plus fort : le surplus des géants est adouci)
-  var lp = cyc ? null : LATE_POWER[isleOf(w).id]; // (dans un cycle, la force des terres est déjà réglée à part : CYCLE_FLOOR, CYCLE.power)
+  var lp = cyc ? CYCLE_LATE : LATE_POWER[isleOf(w).id]; // (dans un cycle, sa part à lui : CYCLE_LATE)
   if (lp) { var lk = (rank || 'normal') === 'normal' ? 0.5 : 1; hpX *= Math.pow(lp.hp, lk); dmgX *= Math.pow(lp.dmg, lk); } // (les ordinaires, le gibier du farm, la moitié du renfort)
   if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
@@ -178,7 +180,7 @@ function stageFight(save, w, st) {
     kind: 'stage', biomeIndex: w, stage: st, enemy: enemy, weather: s.weather, luck: s.rank === 'normal' ? R.luck : 1,
     albumId: monsterAlbumId(w, st, s.rank, rar),
     rewards: {
-      xp: Math.round(xpForLevel(lvl) * STAGE_XP * mult * s.weather.xp * R.reward),
+      xp: Math.round(xpForLevel(playerCycle > 1 ? Math.min(lvl, playerLevel + XP_GAP) : lvl) * STAGE_XP * mult * s.weather.xp * R.reward),
       gold: Math.round((6 + 3 * lvl) * mult * R.reward),
       itemChance: Math.min(1, (s.rank === 'boss' ? 1 : (s.rank === 'gardien' ? 0.5 : 0.15)) + R.item)
     }

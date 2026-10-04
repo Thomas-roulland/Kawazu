@@ -44,7 +44,13 @@ function clanGold(n) { return Math.round(n * (1 + clanBonus.lucioles + playerMut
 // sont multipliés par CYCLE.power par cycle, et le butin est du plus haut rang, « +c-1 » : ses stats × (1 + CYCLE.loot
 // par +). Sans fin (réglé au simulateur).
 var CYCLE = { power: 1.25, loot: 0.2 };
-var playerCycle = 1;
+var playerCycle = 1, playerGearLevel = 1;
+// le niveau de son équipement : celui des monstres de la terre du rang le plus haut qu'elle porte (rang t : la terre t)
+function gearLevelOf(equip) {
+  var t = 0;
+  Object.keys(equip || {}).forEach(function (sl) { var id = equip[sl]; if (id && ITEMS[id] && !ITEMS[id].reward) t = Math.max(t, tierOf(id)); });
+  return t ? 8 * (Math.min(t, BIOMES.length) - 1) + 5 : 1;
+}
 function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']; return n <= 10 ? r[n] : String(n); }
 
 // ---------- La mutation : à partir du niveau MUTATION_LEVEL, la grenouille peut muter ----------
@@ -103,6 +109,7 @@ function setPlayer(save) {
   playerMutation = save.mutation || { n: 0, traits: {} }; playerMutBonus = mutationBonus(playerMutation);
   playerHermit = chosenVoie(save) === 'ermite'; // la voie de l'Ermite met la grenouille en mode Ermite
   playerLevel = save.level;
+  playerGearLevel = gearLevelOf(save.equip);
   var gb = typeof gearBonus === 'function' ? gearBonus(save) : {};
   playerGearBonus = { xp: gb.xp || 0, gold: gb.gold || 0, loot: gb.loot || 0 };
 }
