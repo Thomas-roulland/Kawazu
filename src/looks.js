@@ -106,40 +106,101 @@ var HATS = {
   }
 };
 
-// L'aura de mutation, façon Dofus (purement décorative ; on peut la masquer) : au sol, un cercle de lumière qui tourne
-// et des étincelles qui montent ; dès 2 mutations une colonne de lumière, à 3 des éclats en orbite, à 4 une couronne
-// au-dessus de la tête, à 5 et plus des couleurs mêlées. part : 'back' (derrière la grenouille) ou 'front' (devant) ;
-// cx, foot : son centre et le sol sous ses pieds ; u : la taille d'un pixel de son image ; t : le temps, en secondes.
+// L'aura de mutation, façon Dofus (purement décorative ; réglée dans la page Skins) : au sol, un cercle de lumière qui
+// tourne et des étincelles qui montent ; puis un trait de plus à chaque palier : 2 une colonne de lumière, 3 des éclats
+// en orbite, 4 une couronne au-dessus de la tête, 5 un second cercle qui tourne à l'envers, 6 des runes qui flottent,
+// 7 des ailes de lumière, 8 des étoiles filantes, 9 des éclairs, 10 des rayons qui tournent et une onde au sol.
+// part : 'back' (derrière la grenouille) ou 'front' (devant) ; cx, foot : son centre et le sol sous ses pieds ;
+// u : la taille d'un pixel de son image ; aura : { n: le palier, c: l'indice de la couleur (AURA_COLORS) } ; t : le temps (s).
 function auraRgba(hex, a) { var v = parseInt(hex.slice(1), 16); return 'rgba(' + (v >> 16 & 255) + ',' + (v >> 8 & 255) + ',' + (v & 255) + ',' + a + ')'; }
-function drawAura(ctx, part, cx, foot, u, n, t) {
-  if (!n) return;
-  var back = part === 'back', col = MUTATION_GLOW[Math.min(MUTATION_GLOW.length, n) - 1], keep = ctx.globalAlpha, N = Math.min(n, 5);
-  var colAt = function (i) { return n >= 5 ? MUTATION_GLOW[(i + Math.floor(t * 0.7)) % (MUTATION_GLOW.length - 1)] : col; };
+var AURA_RUNES = [ // de petits glyphes de 3 × 4 pixels
+  [[1, 0], [0, 1], [2, 1], [1, 2], [1, 3]], [[0, 0], [2, 0], [1, 1], [1, 2], [0, 3], [2, 3]], [[0, 0], [1, 0], [2, 0], [1, 1], [1, 2], [1, 3]],
+  [[0, 0], [0, 1], [1, 1], [2, 2], [2, 3]], [[1, 0], [0, 1], [1, 1], [2, 1], [1, 3]], [[0, 0], [2, 0], [0, 1], [2, 1], [1, 2], [1, 3]]
+];
+function drawAura(ctx, part, cx, foot, u, aura, t) {
+  if (!aura || !aura.n) return;
+  var n = Math.min(MUTATION_MAX, aura.n), pal = AURA_COLORS[aura.c] || AURA_COLORS[Math.min(AURA_COLORS.length, n) - 1];
+  var back = part === 'back', col = pal.hex, keep = ctx.globalAlpha, N = Math.min(n, 5);
+  var colAt = function (i) { return pal.prism ? AURA_COLORS[(i + Math.floor(t * 0.7)) % (AURA_COLORS.length - 1)].hex : col; };
+  var rnd = function (k) { var x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
   var dot = function (x, y, s, c, a) { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = c; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), Math.max(1, Math.round(s)), Math.max(1, Math.round(s))); };
   var mid = foot - 14 * u, rx = (17 + N) * u, ry = 4 * u, pulse = 0.6 + 0.3 * Math.sin(t * 2.4);
   if (back) {
+    if (n >= 10) for (var ra = 0; ra < 14; ra++) { // des rayons qui tournent lentement derrière elle (pas vers le sol)
+      var rang = ra / 14 * Math.PI * 2 + t * 0.25, rl = (46 + 8 * Math.sin(t * 1.5 + ra * 1.7)) * u;
+      if (Math.sin(rang) > 0.25) continue;
+      for (var rs = 0.3; rs < 1; rs += 0.035) dot(cx + Math.cos(rang) * rs * rl, mid - 4 * u + Math.sin(rang) * rs * rl * 0.9, rs < 0.65 ? 2 * u : u, colAt(ra), (1 - rs) * 0.75);
+    }
     // un halo derrière elle, qui respire
-    var r = (18 + 3 * N) * u, g = ctx.createRadialGradient(cx, mid, 2 * u, cx, mid, r);
+    var r = (18 + 3 * N + Math.max(0, n - 5)) * u, g = ctx.createRadialGradient(cx, mid, 2 * u, cx, mid, r);
     g.addColorStop(0, auraRgba(col, 0.22 + 0.05 * N + 0.06 * Math.sin(t * 1.8))); g.addColorStop(1, auraRgba(col, 0));
     ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(Math.round(cx - r), Math.round(mid - r), Math.round(2 * r), Math.round(2 * r));
+    if (n >= 7) for (var wg = -1; wg <= 1; wg += 2) { // des ailes de lumière, en éventail depuis le dos, qui battent doucement
+      var flap = Math.sin(t * 1.7) * 0.12, WING = [17, 23, 27, 25, 20, 14];
+      for (var fe = 0; fe < WING.length; fe++) { // six plumes, de l'horizontale vers le haut
+        var fa = 0.02 + fe * 0.24 + flap * (1 + fe * 0.25), fl = WING[fe] * u;
+        for (var fs = 0; fs <= 14; fs++) {
+          var k = fs / 14, wx = cx + wg * (8 * u + Math.cos(fa) * fl * k), wy = mid - 5 * u - Math.sin(fa) * fl * k + k * k * 3 * u;
+          dot(wx, wy, k < 0.75 ? 2 * u : u, k > 0.92 ? '#ffffff' : colAt(fe + fs), (0.9 - k * 0.4) * (0.85 + 0.15 * Math.sin(t * 3 + fe)));
+        }
+      }
+    }
     if (n >= 2) { // la colonne de lumière
       var h = (34 + 6 * N) * u, cg = ctx.createLinearGradient(0, foot - h, 0, foot);
       cg.addColorStop(0, auraRgba(col, 0)); cg.addColorStop(1, auraRgba(col, 0.3 + 0.08 * Math.sin(t * 2.2)));
       ctx.fillStyle = cg; ctx.fillRect(Math.round(cx - 11 * u), Math.round(foot - h), Math.round(22 * u), Math.round(h));
     }
     // les étincelles qui montent du cercle, derrière elle (on les voit sur les côtés et au-dessus)
-    var motes = Math.min(30, 6 + 6 * n);
+    var motes = Math.min(36, 6 + 6 * n);
     for (var m = 0; m < motes; m++) {
       var life = (t * (0.3 + (m % 5) * 0.06) + m * 0.137) % 1, side = m % 2 ? 1 : -1, dx = (9 + (m * 7) % 9) * u * side;
       dot(cx + dx * (1 + life * 0.3) + Math.sin(t * 2 + m) * u, foot - life * (30 + 5 * N) * u, m % 3 ? u : 2 * u, colAt(m), Math.sin(life * Math.PI) * 0.95);
     }
+    if (n >= 9) { // des éclairs, sur ses flancs : ils jaillissent du sol, vacillent et s'éteignent
+      var beat = Math.floor(t * 1.6), ph = t * 1.6 - beat;
+      if (ph < 0.5) for (var bo = 0; bo < 2; bo++) {
+        if (bo && beat % 2) continue; // un coup sur deux, deux éclairs à la fois
+        var bs = beat * 7 + bo * 3, sd = (rnd(bs) < 0.5 ? -1 : 1) * (bo ? -1 : 1), bx = cx + sd * (16 + rnd(bs + 1) * 8) * u, by = foot, bh = (26 + rnd(bs + 2) * 16) * u;
+        var flick = (ph < 0.1 || (ph > 0.2 && ph < 0.3) ? 1 : 0.5) * (1 - ph * 1.4);
+        dot(bx, foot, 3 * u, '#ffffff', flick);
+        for (var st = 1; st <= 8; st++) {
+          var nx = cx + sd * (15 + rnd(bs + st * 13) * 10) * u, ny = foot - bh * st / 8;
+          for (var sg = 0; sg < 4; sg++) dot(bx + (nx - bx) * sg / 4, by + (ny - by) * sg / 4, sg % 2 ? u : 2 * u, st % 3 ? '#ffffff' : colAt(st), flick);
+          bx = nx; by = ny;
+        }
+      }
+    }
   }
   // le cercle au sol, qui tourne (sa moitié du fond derrière elle, l'autre devant)
   for (var i = 0; i < 40; i++) { var a = i / 40 * Math.PI * 2 + t * 0.9, s = Math.sin(a); if ((s < 0) !== back) continue; dot(cx + Math.cos(a) * rx, foot + s * ry, n >= 3 ? 2 * u : u, colAt(i), pulse * (i % 2 ? 1 : 0.6)); }
+  if (n >= 5) for (var j = 0; j < 28; j++) { // un second cercle, plus grand, qui tourne à l'envers, en pointillés
+    var b2 = j / 28 * Math.PI * 2 - t * 0.6, s2 = Math.sin(b2);
+    if ((s2 < 0) !== back || j % 4 === 3) continue;
+    dot(cx + Math.cos(b2) * (rx + 7 * u), foot + s2 * (ry + 2 * u), u, colAt(j + 5), 0.7 * (0.6 + 0.4 * Math.sin(t * 3 + j)));
+  }
+  if (n >= 10) { // une onde qui part du sol, à intervalles
+    var wv = (t * 0.6) % 1, wr = rx * (0.6 + wv * 1.2);
+    for (var q = 0; q < 36; q++) { var qa = q / 36 * Math.PI * 2, qs = Math.sin(qa); if ((qs < 0) !== back) continue; dot(cx + Math.cos(qa) * wr, foot + qs * ry * (0.6 + wv * 1.2), u, colAt(q), (1 - wv) * 0.8); }
+  }
   if (n >= 3) for (var o = 0; o < 3; o++) { // des éclats en orbite autour de la taille, avec leur traîne
     var oa = t * 1.6 + o * 2.094, os = Math.sin(oa);
     if ((os < 0) !== back) continue;
     for (var tr = 0; tr < 3; tr++) dot(cx + Math.cos(oa - tr * 0.18) * 19 * u, mid + Math.sin(oa - tr * 0.18) * 5 * u, (tr ? 1 : 2) * u, colAt(o + 3), 0.95 - tr * 0.3);
+  }
+  if (n >= 6) AURA_RUNES.forEach(function (rune, ri) { // des runes qui flottent autour d'elle, à hauteur des épaules
+    var ua = t * 0.5 + ri / AURA_RUNES.length * Math.PI * 2, us = Math.sin(ua);
+    if ((us < 0) !== back) return;
+    var ux = cx + Math.cos(ua) * 24 * u, uy = mid - 6 * u + us * 4 * u + Math.sin(t * 2 + ri) * 1.5 * u, ual = (us < 0 ? 0.45 : 0.9) * (0.7 + 0.3 * Math.sin(t * 2.5 + ri * 2));
+    if (!back) ual *= Math.max(0, Math.min(1, (Math.abs(ux - cx) / u - 13) / 5)); // devant elle, elles s'effacent sur son corps
+    rune.forEach(function (px) { dot(ux + (px[0] - 1) * u, uy + (px[1] - 1.5) * u, u, colAt(ri + 2), ual); });
+  });
+  if (n >= 8) for (var fz = 0; fz < 6; fz++) { // des étoiles filantes qui tombent autour d'elle, en biais (moitié derrière, moitié devant)
+    if ((fz % 2 === 0) !== back) continue;
+    var sp = 0.45 + fz * 0.07, run = t * sp + fz * 0.29, fl2 = run % 1, fsd = fz % 4 < 2 ? 1 : -1;
+    var fx0 = cx + fsd * (back ? 8 + rnd(fz * 31 + Math.floor(run)) * 22 : 20 + rnd(fz * 31 + Math.floor(run)) * 12) * u, fy0 = foot - 58 * u; // (devant, jamais sur elle)
+    var sx = fx0 - fsd * fl2 * 10 * u, sy = fy0 + fl2 * 52 * u, al = Math.sin(fl2 * Math.PI);
+    dot(sx, sy, 2 * u, '#ffffff', al);
+    for (var tl = 1; tl < 5; tl++) dot(sx + fsd * tl * 1.2 * u, sy - tl * 2 * u, u, colAt(fz + tl), al * (1 - tl / 5));
   }
   if (n >= 4 && !back) for (var c = 0; c < 12; c++) { var ca = c / 12 * Math.PI * 2 + t * 0.6, cs = Math.sin(ca); dot(cx + Math.cos(ca) * 8 * u, foot - 35 * u + cs * 1.8 * u, cs > 0 ? 2 * u : u, colAt(c), cs > 0 ? 0.95 : 0.5); } // une couronne de lumière
   ctx.globalAlpha = keep;

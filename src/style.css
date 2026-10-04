@@ -1233,6 +1233,27 @@ button.wm-stage:hover { transform: scale(1.2); }
 .sk-own.is-worn { border-color: #4e9a45; }
 .sk-own.is-selected { background: rgba(224, 180, 58, 0.4); border-color: #8a6f1f; box-shadow: 0 0 0 2px #e0b43a; }
 .sk-empty { margin: 0; font-size: 14px; color: #6b4a2a; }
+/* l'onglet « Aura & titre » de la garde-robe */
+.sk-tabs { display: flex; gap: 4px; }
+.sk-tabs .tab { flex: 1; padding: 5px 6px; font-size: 13px; color: #3a2718; background: rgba(90, 58, 20, 0.12); border-color: rgba(90, 58, 20, 0.35); }
+.sk-tabs .tab.is-active { color: #2a1d0c; background: var(--gold); border-color: #8a6f1f; }
+.sk-wardrobe h2 { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sk-aura-off { padding: 3px 8px; font-family: var(--body); font-size: 13px; color: #3a2718; background: rgba(90, 58, 20, 0.12); border: 2px solid rgba(90, 58, 20, 0.35); }
+.sk-aura-off:hover { background: rgba(90, 58, 20, 0.24); }
+.sk-tiers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.sk-tier { padding: 4px 0; font-family: var(--pixel); font-size: 8px; color: #3a2718; background: rgba(90, 58, 20, 0.12); border: 2px solid rgba(90, 58, 20, 0.35); }
+.sk-tier:hover:not(:disabled) { background: rgba(90, 58, 20, 0.24); }
+.sk-tier.is-active { color: #2a1d0c; background: var(--gold); border-color: #8a6f1f; }
+.sk-tier:disabled, .sk-color:disabled, .sk-title:disabled { opacity: 0.35; cursor: not-allowed; }
+.sk-colors { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.sk-color { height: 22px; background: var(--g); border: 2px solid #5a3a14; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.sk-color.is-prism { background: linear-gradient(90deg, #5afff0, #fff05a, #ff5ae0, #b8ff4a, #ff7a3a, #4a7dff, #b06aff); }
+.sk-color:disabled { background: repeating-linear-gradient(45deg, rgba(90, 58, 20, 0.25) 0 3px, rgba(90, 58, 20, 0.1) 3px 6px); }
+.sk-color.is-active { outline: 3px solid #e0b43a; outline-offset: 1px; }
+.sk-titles { display: flex; flex-wrap: wrap; gap: 4px; }
+.sk-title { padding: 2px 7px; font-size: 13px; color: #3a2718; background: rgba(90, 58, 20, 0.12); border: 2px solid rgba(90, 58, 20, 0.35); }
+.sk-title:hover:not(:disabled) { background: rgba(90, 58, 20, 0.24); }
+.sk-title.is-active { color: #2a1d0c; background: var(--gold); border-color: #8a6f1f; }
 .sk-card .views .tab { color: #3a2718; background: rgba(90, 58, 20, 0.12); border-color: rgba(90, 58, 20, 0.35); }
 .sk-card .views .tab.is-active { color: #2a1d0c; background: var(--gold); border-color: #8a6f1f; }
 .sk-kind { font-size: 14px; color: #6b4a2a; }
@@ -1993,6 +2014,9 @@ h1 { line-height: 1.3; }
 /* ---------- La mutation : l'aura (à masquer) et le titre au choix ---------- */
 .mu-look { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .mu-look .btn { padding: 6px 10px; font-size: 9px; }
+.mu-look span { font-size: 15px; color: var(--soft); }
+.mu-look b { color: var(--gold-2); }
+.mu-look .adv-link { padding: 2px 0; font-size: 14px; }
 .mu-titles { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .mu-titles small { color: var(--muted); font-size: 13px; }
 .mu-titles .tab { padding: 3px 8px; font-size: 13px; }

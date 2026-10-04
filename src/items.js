@@ -56,9 +56,11 @@ function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 
 // ---------- La mutation : à partir du niveau MUTATION_LEVEL, la grenouille peut muter ----------
 // Elle repart au niveau 1 (caractéristiques et dalles rendues à zéro ; elle garde sa voie, ses objets, ses lucioles
 // et sa progression), mais pour toujours : +MUTATION_BASE à chaque caractéristique, +10 % d'XP, et un trait choisi
-// parmi trois (ils se cumulent). Sa peau ne change pas : une aura l'entoure (drawAura, looks.js), plus présente à chaque
-// mutation, qu'on peut masquer (save.auraOff) ; et elle gagne des titres (MUTATION_TITLES), un au choix (save.titre).
-var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1;
+// parmi trois (ils se cumulent), jusqu'à MUTATION_MAX mutations. Sa peau ne change pas : une aura l'entoure (drawAura,
+// looks.js), un palier de plus à chaque mutation, et elle gagne un titre (MUTATION_TITLES) et une couleur d'aura
+// (AURA_COLORS) par mutation. Tout se règle dans la page Skins : l'aura montrée ou masquée (save.auraOff), son palier
+// (save.auraTier, jusqu'au nombre de mutations), sa couleur (save.auraColor) et le titre porté (save.titre).
+var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1, MUTATION_MAX = 10;
 var MUTATIONS = {
   ecorce: { name: 'Peau d’écorce', desc: '+8 % de PV', hp: 0.08 },
   crocs: { name: 'Crocs', desc: '+8 % de dégâts', dmg: 0.08 },
@@ -69,11 +71,33 @@ var MUTATIONS = {
   flair: { name: 'Flair', desc: '+15 % de lucioles', gold: 0.15 },
   trefle: { name: 'Trèfle de mare', desc: '+20 % de chances de trouver un objet', loot: 0.2 }
 };
-var MUTATION_GLOW = ['#5afff0', '#fff05a', '#ff5ae0', '#b8ff4a', '#ffffff']; // la couleur de l'aura, selon le nombre de mutations
-var MUTATION_TITLES = ['l’Éveillée', 'la Transfigurée', 'la Lumineuse', 'l’Ancestrale', 'l’Éternelle'];
+// les couleurs d'aura : la i-ième se gagne à la (i+1)-ième mutation ; la dernière, le Prisme, les mêle toutes
+var AURA_COLORS = [
+  { name: 'Lagon', hex: '#5afff0' }, { name: 'Soleil', hex: '#fff05a' }, { name: 'Orchidée', hex: '#ff5ae0' },
+  { name: 'Jeune pousse', hex: '#b8ff4a' }, { name: 'Lune', hex: '#ffffff' }, { name: 'Braise', hex: '#ff7a3a' },
+  { name: 'Abysse', hex: '#4a7dff' }, { name: 'Améthyste', hex: '#b06aff' }, { name: 'Sang royal', hex: '#ff3a5a' },
+  { name: 'Prisme', hex: '#ffd36a', prism: true }
+];
+var MUTATION_GLOW = AURA_COLORS.map(function (c) { return c.hex; }); // la couleur de chaque mutation (badges, classement)
+var MUTATION_TITLES = ['l’Éveillée', 'la Transfigurée', 'la Lumineuse', 'l’Ancestrale', 'l’Éternelle',
+  'la Dévoreuse d’Orages', 'la Gardienne des Brumes', 'la Mangeuse d’Étoiles', 'la Reine de la Mare', 'la Légende du Marais'];
 function mutationTitle(n) { return n ? MUTATION_TITLES[Math.min(MUTATION_TITLES.length, n) - 1] : ''; }
 // le titre choisi (save.titre : son rang, -1 pour aucun ; par défaut le plus haut gagné)
 function chosenTitle(save) { var n = (save.mutation && save.mutation.n) || 0, i = typeof save.titre === 'number' ? save.titre : n - 1; return i >= 0 && i < Math.min(n, MUTATION_TITLES.length) ? MUTATION_TITLES[i] : ''; }
+// l'aura portée : { n: son palier, c: l'indice de sa couleur }, ou null (pas de mutation, ou masquée)
+// (par défaut le palier le plus haut et la couleur de la dernière mutation)
+function auraOf(save) {
+  var n = Math.min(MUTATION_MAX, (save.mutation && save.mutation.n) || 0);
+  if (!n || save.auraOff) return null;
+  return { n: typeof save.auraTier === 'number' && save.auraTier >= 1 && save.auraTier <= n ? save.auraTier : n, c: auraColorOf(save) };
+}
+// l'indice de la couleur choisie (même aura masquée : elle teinte aussi le badge et la ligne du classement)
+function auraColorOf(save) {
+  var n = Math.min(MUTATION_MAX, (save.mutation && save.mutation.n) || 0);
+  return typeof save.auraColor === 'number' && save.auraColor >= 0 && save.auraColor < n ? save.auraColor : Math.max(0, n - 1);
+}
+// la couleur d'une grenouille du classement (e.aura, envoyé par le serveur ; sinon celle de sa dernière mutation)
+function auraHex(e) { var c = typeof e.aura === 'number' && AURA_COLORS[e.aura] ? e.aura : Math.min(AURA_COLORS.length, e.mutations || 1) - 1; return AURA_COLORS[c].hex; }
 var playerMutation = { n: 0, traits: {} }, playerMutBonus = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
 function mutationBonus(m) {
   var b = { hp: 0, dmg: 0, crit: 0, dodge: 0, spell: 0, xp: 0, gold: 0, loot: 0, base: 0 };
@@ -87,7 +111,7 @@ function mutationChoices(save) {
   var n = (save.mutation && save.mutation.n) || 0;
   return Object.keys(MUTATIONS).map(function (id, i) { return { id: id, r: hash(n, i, 77) }; }).sort(function (a, b) { return a.r - b.r; }).slice(0, 3).map(function (o) { return o.id; });
 }
-function canMutate(save) { return save.level >= MUTATION_LEVEL; }
+function canMutate(save) { return save.level >= MUTATION_LEVEL && ((save.mutation && save.mutation.n) || 0) < MUTATION_MAX; }
 function mutate(save, trait) {
   if (!canMutate(save) || mutationChoices(save).indexOf(trait) < 0) return false;
   save.mutation.n++;
@@ -609,7 +633,7 @@ function paletteFor(basePal, equip) {
   if (belt) { pal.b = belt.belt[0]; pal.y = belt.belt[1]; pal.Y = belt.charm || belt.belt[1]; }
   var ring = ITEMS[equip.anneau];
   if (ring) pal.N = ring.colors[1];
-  if (playerMutation.n) pal.M = MUTATION_GLOW[Math.min(MUTATION_GLOW.length, playerMutation.n) - 1];
+  if (playerMutation.n) pal.M = MUTATION_GLOW[Math.min(MUTATION_GLOW.length, playerMutation.n) - 1]; // (inutilisé : l'aura est dessinée à part)
   return pal;
 }
 
@@ -1230,6 +1254,8 @@ function parseSave(data) {
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.auraOff) save.auraOff = true; // l'aura de mutation masquée
   if (typeof data.titre === 'number' && data.titre >= -1 && data.titre < MUTATION_TITLES.length) save.titre = Math.floor(data.titre);
+  if (typeof data.auraTier === 'number' && data.auraTier >= 1 && data.auraTier <= MUTATION_MAX) save.auraTier = Math.floor(data.auraTier); // le palier d'aura montré
+  if (typeof data.auraColor === 'number' && data.auraColor >= 0 && data.auraColor < AURA_COLORS.length) save.auraColor = Math.floor(data.auraColor); // sa couleur
   if (data.expedition && data.expedition.endsAt) save.expedition = data.expedition;
   if (Array.isArray(data.progress)) data.progress.forEach(function (n, i) { if (i < save.progress.length) save.progress[i] = Math.min(10, int(n, 0) || 0); });
   if (data.battle) save.battle = { auto: !!data.battle.auto, speed: [1, 2, 4].indexOf(data.battle.speed) >= 0 ? data.battle.speed : 1 };

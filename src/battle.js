@@ -1427,7 +1427,7 @@ var BattleScene = (function () {
     } else ctx.drawImage(img, R(cx - s / 2), R(top), s, s);
   }
   function drawFrog(f, now) {
-    var s = fsz(f), cx = midX(f), mutN = f === P && !save.auraOff && save.mutation ? save.mutation.n : 0;
+    var s = fsz(f), cx = midX(f), mutN = f === P ? auraOf(save) : null;
     if (mutN) drawAura(ctx, 'back', cx, GROUND + f.y, s / 32, mutN, now / 1000); // l'aura de mutation, derrière elle puis devant
     ctx.globalAlpha = f.alpha == null ? 1 : f.alpha;
     drawSprite(f, attImg(f), cx);

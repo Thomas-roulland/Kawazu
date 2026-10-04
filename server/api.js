@@ -201,6 +201,7 @@ const summaries = async (account) => (await Promise.all(account.grenouilles.map(
 // vu : l'heure (arrondie) de la dernière partie, pour ne pas réécrire la fiche à chaque sauvegarde.
 const RANK = 'classement';
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v) || 0));
+const MUTATION_MAX = 10; // (comme src/items.js) : dix mutations, donc dix titres et dix couleurs d'aura
 const TERRES = 37; // les terres du monde (l'île, le Continent, les Colosses, l'Archipel, le Royaume) ; à suivre quand une île s'ajoute
 function rankEntry(frog, pseudo) {
   const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, TERRES).map((p) => num(p, 10)) : [];
@@ -213,7 +214,8 @@ function rankEntry(frog, pseudo) {
     id: frog.id, nom: frog.nom, peau: skinOfFrog(frog), pseudo: pseudo,
     niveau: num(s.level || 1, 999), xp: num(s.xp, 1e9), voie: typeof s.voie === 'string' ? s.voie.slice(0, 12) : null,
     // l'aventure : les étapes conquises, et chaque cycle (NG+) terminé compte pour tout le monde (TERRES × 10 étapes)
-    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations, titre: mutations ? (typeof s.titre === 'number' && s.titre >= -1 && s.titre < Math.min(mutations, 5) ? Math.floor(s.titre) : Math.min(mutations, 5) - 1) : -1,
+    progres: progress, monde: monde, etape: progress[monde] || 0, conquis: progress.reduce((a, p) => a + p, 0) + (cycle - 1) * TERRES * 10, cycle: cycle, mutations: mutations, titre: mutations ? (typeof s.titre === 'number' && s.titre >= -1 && s.titre < Math.min(mutations, MUTATION_MAX) ? Math.floor(s.titre) : Math.min(mutations, MUTATION_MAX) - 1) : -1,
+    aura: mutations ? (typeof s.auraColor === 'number' && s.auraColor >= 0 && s.auraColor < Math.min(mutations, MUTATION_MAX) ? Math.floor(s.auraColor) : Math.min(mutations, MUTATION_MAX) - 1) : -1, // la couleur d'aura choisie
     succes: Array.isArray(s.ach) ? s.ach.length : 0, equip: equip, vu: Math.floor((frog.modifie || Date.now()) / 3600e3),
     sorts: Array.isArray(s.deck) ? s.deck.filter((d) => typeof d === 'string').slice(0, 4).map((d) => d.slice(0, 24)) : [],
     dalles: Array.isArray(s.tree) ? Math.min(s.tree.length, 999) : 0, tour: num(s.tower, 600),

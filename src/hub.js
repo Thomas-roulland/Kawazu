@@ -216,7 +216,7 @@
       ['donjon', 'donjons', 'Les donjons', 'Plus durs et mieux payés. Un monstre vaincu ne revient pas ; battu, tu le retentes une heure plus tard. Le compagnon te suit à coup sûr et grandit avec des éclats.'],
       ['donjons', 'map', 'Archipel et Royaume', 'Leurs gardiens et leurs boss sont bien plus coriaces. Dans les cycles, toutes les terres ont la force de la dernière.'],
       ['tour', 'tower', 'Tour et méditation', 'Quand tu dépasses de loin le sage ou ta terre, l’XP fond, comme sur la carte. Le week-end donne XP ×1,5.'],
-      ['rank', 'perso', 'Aura et titres', 'Chaque mutation fait grandir une aura autour de ta grenouille (masquable) et t’apporte un titre à choisir ; au classement, les mutations passent d’abord.']
+      ['rank', 'skins', 'Aura et titres', 'Jusqu’à dix mutations : chacune ajoute un palier à l’aura (ailes, runes, éclairs…), une couleur et un titre, à régler dans la page Skins. Au classement, les mutations passent d’abord.']
     ]
   };
   function showNews() {
@@ -312,7 +312,7 @@
     var t = now / 1000, set = HERO_IMG.face;
     var heroFrame = set[Math.floor(now / (1000 / set.length)) % set.length];
     CampScene.draw(layers, sceneStatic, t, heroFrame, null, save.meditation ? HERO_IMG.zen : null);
-    var mutN = !save.auraOff && save.mutation ? save.mutation.n : 0;
+    var mutN = auraOf(save);
     if (mutN) { // l'aura : derrière elle (on la redessine par-dessus), puis devant
       var ax = save.meditation ? CampScene.PAD.x : CampScene.HERO.x + 16, af = save.meditation ? CampScene.PAD.y : CampScene.HERO.y + 31;
       drawAura(layers.mid, 'back', ax, af, 1, mutN, t);
@@ -339,7 +339,7 @@
   function drawPreview(now) {
     pctx.imageSmoothingEnabled = false;
     pctx.clearRect(0, 0, PV_W, PV_H);
-    var attacking = state.view === 'attaque', heroX = attacking ? 0 : 12, top = FEET - 31, mutN = !save.auraOff && save.mutation ? save.mutation.n : 0;
+    var attacking = state.view === 'attaque', heroX = attacking ? 0 : 12, top = FEET - 31, mutN = auraOf(save);
     pctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     pctx.beginPath(); pctx.ellipse(heroX + 16, FEET, 12, 2, 0, 0, Math.PI * 2); pctx.fill();
     if (mutN) drawAura(pctx, 'back', heroX + 16, FEET, 1, mutN, now / 1000);
@@ -468,7 +468,7 @@
     $('sb-name').textContent = heroName();
     $('sb-name').title = chosenTitle(save) ? heroName() + ', ' + chosenTitle(save) : '';
     $('sb-level').textContent = save.level;
-    var badges = ((save.cycle || 1) > 1 ? '<i class="sb-cyc" title="Cycle du monde">C' + romanCycle(save.cycle) + '</i>' : '') + (save.mutation && save.mutation.n ? '<i class="sb-mut" title="Mutations" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, save.mutation.n) - 1] + '">✦' + save.mutation.n + '</i>' : '');
+    var badges = ((save.cycle || 1) > 1 ? '<i class="sb-cyc" title="Cycle du monde">C' + romanCycle(save.cycle) + '</i>' : '') + (save.mutation && save.mutation.n ? '<i class="sb-mut" title="Mutations" style="--g:' + AURA_COLORS[auraColorOf(save)].hex + '">✦' + save.mutation.n + '</i>' : '');
     $('sb-badges').innerHTML = badges;
     $('sb-xp').style.width = Math.min(100, save.xp / need * 100) + '%';
     $('sb-gold').textContent = save.gold.toLocaleString('fr-FR');
@@ -752,17 +752,18 @@
   function renderMutation() {
     var m = save.mutation || { n: 0, traits: {} }, box = $('mutation'), ready = canMutate(save), n = m.n;
     var traits = Object.keys(m.traits).filter(function (id) { return m.traits[id] > 0; });
-    var html = '<h2>MUTATION' + (n ? ' · ' + n : '') + '</h2>';
+    var html = '<h2>MUTATION' + (n ? ' · ' + n + ' / ' + MUTATION_MAX : '') + '</h2>';
     if (n) {
       var tit = chosenTitle(save);
-      html += '<div class="mu-look"><button class="btn btn-ghost" data-aura-toggle>' + (save.auraOff ? 'Montrer mon aura' : 'Masquer mon aura') + '</button>' +
-        '<span class="mu-titles"><small>Titre :</small>' + MUTATION_TITLES.slice(0, Math.min(n, MUTATION_TITLES.length)).map(function (tt, i) { return '<button class="tab' + (tit === tt ? ' is-active' : '') + '" data-titre="' + i + '">' + tt + '</button>'; }).join('') +
-        '<button class="tab' + (tit ? '' : ' is-active') + '" data-titre="-1">aucun</button></span></div>';
-      html += '<p class="mu-sum"><span class="mu-glow" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, n) - 1] + '"></span>+' + (MUTATION_BASE * n) + ' à chaque caractéristique · +' + Math.round(MUTATION_XP * n * 100) + ' % d’XP</p>' +
+      html += '<div class="mu-look"><span>' + (tit ? 'Titre : <b>' + tit + '</b>' : 'Aucun titre porté') + (save.auraOff ? ' · aura masquée' : '') + '</span>' +
+        '<button class="adv-link" data-page="skins" data-skin-tab="aura">Aura, couleur et titre : page Skins ▶</button></div>';
+      html += '<p class="mu-sum"><span class="mu-glow" style="--g:' + AURA_COLORS[auraColorOf(save)].hex + '"></span>+' + (MUTATION_BASE * n) + ' à chaque caractéristique · +' + Math.round(MUTATION_XP * n * 100) + ' % d’XP</p>' +
         '<ul class="mu-traits">' + traits.map(function (id) { return '<li><b>' + MUTATIONS[id].name + (m.traits[id] > 1 ? ' ×' + m.traits[id] : '') + '</b><small>' + MUTATIONS[id].desc + (m.traits[id] > 1 ? ' (×' + m.traits[id] + ')' : '') + '</small></li>'; }).join('') + '</ul>';
     }
-    if (!ready) {
-      html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix. Et des une aura l’entoure, plus présente à chaque mutation (tu peux la masquer), et elle gagne des titres (« l’Éveillée », « la Transfigurée »…), à choisir.</p>' +
+    if (n >= MUTATION_MAX) {
+      html += '<p class="mu-help"><b>Mutation maximale.</b> Ta grenouille a muté ' + MUTATION_MAX + ' fois : tous les paliers d’aura, toutes les couleurs et tous les titres sont à elle (page Skins).</p>';
+    } else if (!ready) {
+      html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix (' + MUTATION_MAX + ' mutations au plus). Une aura l’entoure, un palier de plus à chaque mutation, et chaque mutation donne une couleur d’aura et un titre (« l’Éveillée », « la Transfigurée »… jusqu’à « la Légende du Marais ») : tout se règle dans la page Skins.</p>' +
         '<span class="xp-track mu-track"><span style="width:' + Math.min(100, save.level / MUTATION_LEVEL * 100) + '%"></span></span><small class="mu-lvl">Niveau ' + save.level + ' / ' + MUTATION_LEVEL + '</small>';
     } else {
       var choices = mutationChoices(save);
@@ -1909,7 +1910,10 @@
       ctx.drawImage(skinsBg, 0, 0);
       var frames = tryOnFrames(state.tryOn)[state.skinView], f = frames[Math.floor(now / (1040 / frames.length)) % frames.length], S = 2;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(160 - 22, SK_FLOOR + 4, 44, 4); // l'ombre sur le tapis
+      var au = auraOf(save);
+      if (au) drawAura(ctx, 'back', 160, SK_FLOOR + 4, S, au, now / 1000); // l'aura de mutation, derrière elle puis devant
       ctx.drawImage(f, 160 - 16 * S, SK_FLOOR + 6 - 32 * S, 32 * S, 32 * S);
+      if (au) drawAura(ctx, 'front', 160, SK_FLOOR + 4, S, au, now / 1000);
       for (var i = 0; i < 12; i++) { // la poussière dans la lumière
         var t = now / 1000 + i * 7.3, mx = (40 + i * 23 + Math.sin(t * 0.4) * 10) % SK_W, my = (20 + ((t * 4 + i * 13) % 100));
         ctx.fillStyle = 'rgba(255, 230, 170, ' + (0.15 + 0.15 * Math.sin(t)) + ')'; ctx.fillRect(Math.round(mx), Math.round(my), 1, 1);
@@ -1940,12 +1944,38 @@
       : '<p class="sk-state">Pas en vente aujourd’hui.</p>';
     $('skins-ui').innerHTML =
       '<header class="sk-head"><h1>SKINS</h1><p>Trois skins par jour · les suivants dans <b>' + untilMidnight() + '</b></p></header>' +
-      '<aside class="sk-wardrobe"><h2>TA GARDE-ROBE</h2>' + (owned.length ? '<div class="sk-owns">' + owned.map(tile).join('') + '</div>' : '<p class="sk-empty">Tes skins achetés viendront ici.</p>') +
-      '<h3>COULEURS DE DÉPART</h3><div class="sk-owns">' + Object.keys(SKINS).map(tile).join('') + '</div></aside>' +
+      '<aside class="sk-wardrobe"><div class="views sk-tabs">' + [['robe', 'Garde-robe'], ['aura', 'Aura & titre']].map(function (v) { return '<button class="tab' + ((state.skinTab || 'robe') === v[0] ? ' is-active' : '') + '" data-skin-tab="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>' +
+      (state.skinTab === 'aura' ? auraPanel() :
+      '<h2>TA GARDE-ROBE</h2>' + (owned.length ? '<div class="sk-owns">' + owned.map(tile).join('') + '</div>' : '<p class="sk-empty">Tes skins achetés viendront ici.</p>') +
+      '<h3>COULEURS DE DÉPART</h3><div class="sk-owns">' + Object.keys(SKINS).map(tile).join('') + '</div>') + '</aside>' +
       '<aside class="sk-card"><div class="views">' + [['face', 'Face'], ['profil', 'Profil'], ['dos', 'Dos']].map(function (v) { return '<button class="tab' + (state.skinView === v[0] ? ' is-active' : '') + '" data-skin-view="' + v[0] + '">' + v[1] + '</button>'; }).join('') + '</div>' +
       '<h2>' + sk.name + '</h2><span class="sk-kind">' + (PREMIUM_SKINS[id] ? (today ? 'Skin du jour' : 'Skin') : 'Couleur de départ · gratuite') + '</span>' +
       '<p>' + (sk.desc || 'Une des couleurs du marais, offerte à toutes les grenouilles.') + '</p>' + action + '</aside>' +
       '<div class="sk-days"><h2>LES SKINS DU JOUR</h2><div class="sk-row">' + day.map(card).join('') + '</div></div>';
+  }
+
+  // un réglage d'aura ou de titre a changé : on garde, et on redessine ce qui le montre
+  function auraChanged() { persist(); Sfx.play('click'); if (state.page === 'skins') renderSkins(); renderMutation(); renderSidebar(); }
+  // L'onglet « Aura & titre » de la garde-robe : l'aura de mutation montrée ou non, son palier, sa couleur, et le titre
+  // porté (chaque mutation en débloque un de chaque ; ceux qui restent à gagner sont grisés)
+  var AURA_TIERS = ['Halo et cercle', 'Colonne de lumière', 'Éclats en orbite', 'Couronne', 'Second cercle', 'Runes', 'Ailes de lumière', 'Étoiles filantes', 'Éclairs', 'Rayons et onde'];
+  function auraPanel() {
+    var n = Math.min(MUTATION_MAX, (save.mutation && save.mutation.n) || 0);
+    var lock = function (i) { return 'à la ' + (i + 1) + (i ? 'e' : 're') + ' mutation'; };
+    if (!n) return '<h2>AURA & TITRE</h2><p class="sk-empty">L’aura et les titres viennent avec la mutation (niveau ' + MUTATION_LEVEL + ', page Personnage) : à chaque mutation, un palier d’aura, une couleur et un titre de plus, jusqu’à ' + MUTATION_MAX + '.</p>' +
+      '<div class="sk-tiers">' + AURA_TIERS.map(function (nm, i) { return '<button class="sk-tier" disabled title="' + nm + ' — ' + lock(i) + '">' + (i + 1) + '</button>'; }).join('') + '</div>';
+    var au = auraOf(save) || { n: typeof save.auraTier === 'number' && save.auraTier <= n ? save.auraTier : n, c: auraColorOf(save) }, tit = chosenTitle(save);
+    return '<h2>TON AURA <button class="sk-aura-off" data-aura-toggle>' + (save.auraOff ? 'Montrer' : 'Masquer') + '</button></h2>' +
+      '<h3>PALIER ' + au.n + ' / ' + n + ' · ' + AURA_TIERS[au.n - 1] + '</h3><div class="sk-tiers">' + AURA_TIERS.map(function (nm, i) {
+        return '<button class="sk-tier' + (au.n === i + 1 ? ' is-active' : '') + '" data-aura-tier="' + (i + 1) + '"' + (i < n ? ' title="' + nm + '"' : ' disabled title="' + nm + ' — ' + lock(i) + '"') + '>' + (i + 1) + '</button>';
+      }).join('') + '</div>' +
+      '<h3>COULEUR · ' + AURA_COLORS[au.c].name + '</h3><div class="sk-colors">' + AURA_COLORS.map(function (c, i) {
+        return '<button class="sk-color' + (c.prism ? ' is-prism' : '') + (au.c === i ? ' is-active' : '') + '" style="--g:' + c.hex + '" data-aura-color="' + i + '"' + (i < n ? ' title="' + c.name + '"' : ' disabled title="' + c.name + ' — ' + lock(i) + '"') + '></button>';
+      }).join('') + '</div>' +
+      '<h3>TITRE</h3><div class="sk-titles">' + MUTATION_TITLES.map(function (tt, i) {
+        return '<button class="sk-title' + (tit === tt ? ' is-active' : '') + '" data-titre="' + i + '"' + (i < n ? '' : ' disabled title="' + lock(i) + '"') + '>' + (i < n ? tt : '· · ·') + '</button>';
+      }).join('') + '<button class="sk-title' + (tit ? '' : ' is-active') + '" data-titre="-1">aucun</button></div>' +
+      (save.auraOff ? '<p class="sk-miss">Ton aura est masquée : personne ne la voit, ni au camp ni en combat.</p>' : '');
   }
 
   // La fiche de l'objet choisi : ce qu'il donne, comparé à ce que la grenouille porte, et le bouton d'achat
@@ -2103,7 +2133,7 @@
       return '<li class="rk-row' + (i < 3 ? ' top' + (i + 1) : '') + (e.moi ? ' is-me' : '') + (e.id === Cloud.id ? ' is-current' : '') + (rank.sel === e.id ? ' is-open' : '') + '">' +
         '<button class="rk-line" data-rank-frog="' + e.id + '" aria-expanded="' + (rank.sel === e.id) + '">' +
         '<span class="rk-pos">' + (i + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt="">' +
-        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.mutations ? ' <i class="rk-mut" style="--g:' + MUTATION_GLOW[Math.min(MUTATION_GLOW.length, e.mutations) - 1] + '" title="' + e.mutations + ' mutation' + (e.mutations > 1 ? 's' : '') + '">✦' + e.mutations + (e.titre >= 0 && MUTATION_TITLES[e.titre] ? ' ' + MUTATION_TITLES[e.titre] : '') + '</i>' : '') + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
+        '<span class="rk-name"><b>' + escapeHtml(e.nom) + (e.mutations ? ' <i class="rk-mut" style="--g:' + auraHex(e) + '" title="' + e.mutations + ' mutation' + (e.mutations > 1 ? 's' : '') + '">✦' + e.mutations + (e.titre >= 0 && MUTATION_TITLES[e.titre] ? ' ' + MUTATION_TITLES[e.titre] : '') + '</i>' : '') + (e.id === Cloud.id ? ' <i>TOI</i>' : '') + '</b><small>' + escapeHtml(e.pseudo) + ' · niv. ' + e.niveau + '</small></span>' +
         voieChip(e) + '<span class="rk-metric">' + S.metric(e) + '</span>' + (gifts ? '<span class="rk-gift">' + (gift ? giftText(gift) : '') + '</span>' : '') + '</button>' +
         (rank.sel === e.id ? rankDetail(e) : '') + '</li>';
     }).join('') || '<li class="rk-msg"><span>' + (season ? 'Personne n’a encore de points cette saison : chaque quête, boss, salle de donjon ou attaque du Titan en rapporte.' : 'Aucune grenouille ici pour l’instant.') + '</span></li>';
@@ -3431,7 +3461,7 @@
     if (t.dataset.pickVoie) { if (!diving && state.pick !== t.dataset.pickVoie) { state.pick = t.dataset.pickVoie; Sfx.play('drip'); renderTree(); } return; }
     if (t.dataset.chooseVoie) { if (!diving) diveInto(t.dataset.chooseVoie); return; }
     Sfx.play(t.id === 'equip-btn' ? 'equip' : 'click');
-    if (t.dataset.page) { showPage(t.dataset.page); return; }
+    if (t.dataset.page) { if (t.dataset.skinTab) state.skinTab = t.dataset.skinTab; showPage(t.dataset.page); return; }
     if (t.id === 'tree-reset') {
       if (!resetArmed) { resetArmed = setTimeout(function () { resetArmed = 0; renderVoie(); }, 4000); renderVoie(); return; }
       clearTimeout(resetArmed); resetArmed = 0;
@@ -3577,8 +3607,10 @@
       return;
     }
     if (t.dataset.mutPick) { mutPick = t.dataset.mutPick; Sfx.play('click'); renderMutation(); return; }
-    if (t.hasAttribute('data-aura-toggle')) { save.auraOff = !save.auraOff; if (!save.auraOff) delete save.auraOff; persist(); Sfx.play('click'); renderMutation(); return; }
-    if (t.dataset.titre != null && t.closest('.mu-titles')) { save.titre = +t.dataset.titre; persist(); Sfx.play('click'); renderMutation(); renderSidebar(); return; }
+    if (t.hasAttribute('data-aura-toggle')) { save.auraOff = !save.auraOff; if (!save.auraOff) delete save.auraOff; return auraChanged(); }
+    if (t.dataset.titre != null && t.closest('.sk-titles')) { save.titre = +t.dataset.titre; return auraChanged(); }
+    if (t.dataset.auraTier) { save.auraTier = +t.dataset.auraTier; if (save.auraTier >= Math.min(MUTATION_MAX, save.mutation.n)) delete save.auraTier; return auraChanged(); } // au plus haut, l'aura suit les prochaines mutations
+    if (t.dataset.auraColor) { save.auraColor = +t.dataset.auraColor; return auraChanged(); }
     if (t.hasAttribute('data-mutate')) {
       if (!mutPick || !mutate(save, mutPick)) return;
       var picked = MUTATIONS[mutPick].name;
@@ -3637,6 +3669,7 @@
     }
     if (t.dataset.skinTry) { state.tryOn = t.dataset.skinTry; Sfx.play('click'); renderSkins(); return; }
     if (t.dataset.skinView) { state.skinView = t.dataset.skinView; Sfx.play('click'); renderSkins(); return; }
+    if (t.dataset.skinTab) { state.skinTab = t.dataset.skinTab; Sfx.play('click'); renderSkins(); return; }
     if (t.dataset.skinWear) { if (ownsSkin(t.dataset.skinWear) && !playerHermit) { wearSkin(t.dataset.skinWear); Sfx.play('pickup'); renderSkins(); } return; }
     if (t.dataset.skinBuy) { // seulement un skin du jour
       var sid = t.dataset.skinBuy, sk = PREMIUM_SKINS[sid];

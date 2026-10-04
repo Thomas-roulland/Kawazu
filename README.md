@@ -246,7 +246,7 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   **carte à collectionner** au cadre de sa rareté ; une carte pas encore trouvée montre son dos et un indice.
 - **Classement** : une liste simple et sobre, aux couleurs du jeu : les **50 premières** grenouilles puis « Afficher la suite »
   (et « Aller à ma place »). Tri par Aventure, Niveau (**les mutations d’abord** : une grenouille mutée passe devant toutes les autres, quel que soit
-  son niveau ; chacune porte son aura et son titre, « ✦1 l’Éveillée »…), Succès, Tour, **Saison** ou Duels (avec les cadeaux du lundi), filtre par
+  son niveau ; chacune porte la couleur de son aura et son titre, « ✦1 l’Éveillée »…), Succès, Tour, **Saison** ou Duels (avec les cadeaux du lundi), filtre par
   voie ; un clic sur une ligne déplie sa fiche (voie, dalles, sorts, terres, équipement).
 
 ## Le Continent, l’Île des Colosses, les cycles et la mutation
@@ -337,11 +337,16 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
 - **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
-  nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent ; sa peau ne
-  change pas, mais une **aura** l’entoure, façon Dofus, de plus en plus présente : un cercle de lumière au sol et des
-  étincelles qui montent, puis une colonne de lumière (2 mutations), des éclats en orbite (3), une couronne (4), des
-  couleurs mêlées (5 et plus) ; au camp, sur la fiche et en combat, purement décorative, et **masquable**. Elle gagne aussi
-  des **titres** (l’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle), un au choix, affiché au classement. Ses donjons restent : ceux où
+  nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent, **dix au
+  plus** ; sa peau ne change pas, mais une **aura** l’entoure, façon Dofus, avec un palier de plus à chaque mutation : un
+  cercle de lumière au sol et des étincelles (1), une colonne de lumière (2), des éclats en orbite (3), une couronne (4),
+  un second cercle qui tourne à l’envers (5), des runes qui flottent (6), des ailes de lumière (7), des étoiles filantes
+  (8), des éclairs (9), des rayons et une onde au sol (10). Chaque mutation donne aussi une **couleur d’aura** (Lagon,
+  Soleil, Orchidée, Jeune pousse, Lune, Braise, Abysse, Améthyste, Sang royal, et le Prisme qui les mêle toutes) et un
+  **titre** (l’Éveillée, la Transfigurée, la Lumineuse, l’Ancestrale, l’Éternelle, la Dévoreuse d’Orages, la Gardienne
+  des Brumes, la Mangeuse d’Étoiles, la Reine de la Mare, la Légende du Marais). Tout se règle dans la page **Skins**,
+  onglet « Aura & titre » : l’aura montrée ou masquée, son palier, sa couleur et le titre porté (affichés au camp, en
+  combat et au classement ; purement décoratif). Ses donjons restent : ceux où
   elle est entrée ou qu’elle a nettoyés restent ouverts, même au niveau 1.
 - Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
   Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.

@@ -16,6 +16,7 @@ var FEATS = [
   { id: 'niv100', name: 'Centenaire', desc: 'Atteindre le niveau 100.', cat: 'niveau', tier: 2, test: function (s) { return s.level >= 100; } },
   { id: 'mutant', name: 'Mutant', desc: 'Muter une première fois.', cat: 'niveau', tier: 1, test: function (s) { return s.mutation && s.mutation.n >= 1; } },
   { id: 'mutant5', name: 'D’un autre monde', desc: 'Muter cinq fois.', cat: 'niveau', tier: 2, test: function (s) { return s.mutation && s.mutation.n >= 5; } },
+  { id: 'mutant10', name: 'La Légende du Marais', desc: 'Muter dix fois : la dernière mutation.', cat: 'niveau', tier: 2, test: function (s) { return s.mutation && s.mutation.n >= 10; } },
   { id: 'colosses', name: 'Parmi les géants', desc: 'Poser le pied sur l’Île des Colosses.', cat: 'boss', tier: 2, test: function (s) { return isleOpen(s, isleById('colosses')); } },
   { id: 'leviathan', name: 'Tueuse de Léviathan', desc: 'Vaincre le Léviathan Ancestral, au fond de l’Abîme.', cat: 'boss', tier: 2, test: function (s) { return s.progress[isleById('colosses').to - 1] >= STAGES; } },
   { id: 'maitrise', name: 'Maître de sa voie', desc: 'Prendre un premier rang de Maîtrise.', cat: 'arbre', tier: 2, test: function (s) { return masteryRanks(s) >= 1; } },
