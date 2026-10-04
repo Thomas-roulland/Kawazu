@@ -113,7 +113,7 @@ function questsClaimable(save) {
 // ---------- La saison de classement : un mois ----------
 // Chaque exploit rapporte des points de saison (SEASON_PTS, et les quêtes) ; le classement « Saison » les compare, et
 // au premier du mois suivant, les dix premières reçoivent un cadeau (le serveur), les trois premières une peau.
-var SEASON_PTS = { stage: 1, boss: 3, rareFoe: 1, room: 3, tower: 3, mission: 1, duel: 3, titan: 10, raid: 5 };
+var SEASON_PTS = { stage: 1, boss: 3, rareFoe: 1, room: 3, tower: 3, mission: 1, duel: 3, titan: 10, raid: 5, gouffre: 4 };
 function seasonId(t) { var d = new Date(t || Date.now()); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); }
 function seasonPts(save) { return save.season && save.season.id === seasonId() ? save.season.pts : 0; }
 function seasonAdd(save, n) {

@@ -392,6 +392,18 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   simulateur : avec les Rares de la terre, ses boss se gagnent à 23-37 % et le Lord à 11 % (le Royaume : 37-62 %) ; à
   moitié Épique ou forgée, 71-88 % et 42 % pour le Lord. Sa force vaut aussi dans les cycles. Hauts faits « Sous le
   soleil noir » et « Régicide ».
+- **Le Gouffre** (menu « Le Gouffre ») : une fois Lord Bufo vaincu, une fissure s’ouvre sous la Citadelle et descend
+  **sans fin**. On y descend **profondeur après profondeur**, chacune plus dure (PV +4 %, dégâts +2,5 % par profondeur,
+  à partir de 65 % et 80 % de la force de la Grève aux Ossements, niveau 300 + la profondeur, cuirasse comprise) : un
+  gardien toutes les 5, un des boss du monde toutes les 10, et des créatures venues de **toutes les terres**, tirées par
+  la semaine (les mêmes pour toutes les grenouilles). **Chaque semaine** (lundi, heure de Paris) le Gouffre se referme
+  et tout repart de la surface, sous un nouveau ciel (pleine lune, brume, averse, nuit sans lune ou canicule : une
+  météo pour toute la semaine). Chaque nouvelle profondeur de la semaine rapporte lucioles et XP, et des éclats aux
+  gardiens et aux boss ; **Descente auto** les enchaîne jusqu’à la première défaite. Avec un compte, **le classement de la
+  semaine** : chaque profondeur est vérifiée par le serveur (une à la fois, et l’arbitre rejoue la créature) ; lundi,
+  les dix plus profondes reçoivent un cadeau, et les trois premières **une peau des Abysses** (Seigneur, Écho, Braise
+  des Abysses) qu’on ne trouve nulle part ailleurs. Réglé au simulateur (`gouffre-sim.js`) : une grenouille qui vient de
+  vaincre le Lord descend vers 15 à 20, une à 10 mutations en Épiques vers 30 à 39 ; plus bas, il faut forger.
 - **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui Lord Bufo, en haut de la Citadelle de
   l’Île de l’Éclipse), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** et **ne tombent jamais en un coup** : leurs PV et leurs

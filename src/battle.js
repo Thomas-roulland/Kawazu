@@ -200,8 +200,8 @@ var BattleScene = (function () {
     $('bt-auto').classList.toggle('is-on', save.battle.auto);
     $('bt-auto-key').textContent = Keys.label('auto');
     $('bt-farm').hidden = !farmable();
-    $('bt-farm').textContent = fight.kind === 'tour' ? 'Montée auto' : 'Farm';
-    $('bt-farm').title = fight.kind === 'tour' ? 'Montée auto : les étages s’enchaînent tout seuls, jusqu’à la première défaite' : 'Farm : les combats s’enchaînent tout seuls, étape après étape (dans une terre déjà terminée)';
+    $('bt-farm').textContent = fight.kind === 'tour' ? 'Montée auto' : (fight.kind === 'gouffre' ? 'Descente auto' : 'Farm');
+    $('bt-farm').title = fight.kind === 'tour' ? 'Montée auto : les étages s’enchaînent tout seuls, jusqu’à la première défaite' : (fight.kind === 'gouffre' ? 'Descente auto : les profondeurs s’enchaînent toutes seules, jusqu’à la première défaite' : 'Farm : les combats s’enchaînent tout seuls, étape après étape (dans une terre déjà terminée)');
     $('bt-farm').classList.toggle('is-on', !!farm);
     $('bt-farm').setAttribute('aria-pressed', farm ? 'true' : 'false');
     $('bt-auto').setAttribute('aria-pressed', save.battle.auto ? 'true' : 'false');
@@ -210,11 +210,12 @@ var BattleScene = (function () {
     });
   }
 
-  // Le farm : sur les étapes d'une terre déjà terminée, ou la montée de la tour (étage après étage, jusqu'à la première
-  // défaite). farm = { n, xp, gold, loot } pendant qu'il tourne.
+  // Le farm : sur les étapes d'une terre déjà terminée, ou la montée de la tour et la descente du Gouffre (un étage, une
+  // profondeur après l'autre, jusqu'à la première défaite). farm = { n, xp, gold, loot } pendant qu'il tourne.
   var farm = null, towerEnd = null; // (towerEnd : le dernier écran de fin d'un étage, pour y revenir quand on arrête)
-  function farmable() { return fight && ((fight.kind === 'stage' && save.progress[fight.biomeIndex] >= STAGES) || (fight.kind === 'tour' && !!fight.next)); }
-  function farmNext() { start(save, fight.kind === 'tour' ? fight.next() : stageFight(save, fight.biomeIndex, fight.stage < STAGES ? fight.stage + 1 : 1), onEnd); }
+  function climbing() { return fight && (fight.kind === 'tour' || fight.kind === 'gouffre'); }
+  function farmable() { return fight && ((fight.kind === 'stage' && save.progress[fight.biomeIndex] >= STAGES) || (climbing() && !!fight.next)); }
+  function farmNext() { start(save, climbing() ? fight.next() : stageFight(save, fight.biomeIndex, fight.stage < STAGES ? fight.stage + 1 : 1), onEnd); }
 
   function ready(f, s) { return !(f.cds[s.id] > 0); }
   function renderSkills() {
@@ -1294,17 +1295,19 @@ var BattleScene = (function () {
     var html;
     try { html = await fight.settle(win); } catch (e) { html = '<p>Le résultat n’a pas pu être enregistré : ' + (e.message || 'réessaie plus tard') + '.</p>'; }
     var title = capped() ? (E.hp <= 0 ? (fight.kind === 'titan' ? 'Le Titan est tombé !' : 'L’Alpha est tombé !') : (P.hp <= 0 ? 'Tu es à terre…' : 'Fin de l’assaut')) : null;
-    var climb = fight.kind === 'tour' || fight.kind === 'donjon', nextL = fight.kind === 'tour' ? 'Étage suivant ▶' : 'Salle suivante ▶', backL = fight.kind === 'tour' ? 'Retour à la tour' : 'Retour au donjon';
-    if (fight.kind === 'tour' && farm) { // la montée auto : l'étage suivant tout seul, ou l'arrêt à la défaite
+    var climb = fight.kind === 'tour' || fight.kind === 'donjon' || fight.kind === 'gouffre';
+    var nextL = { tour: 'Étage suivant ▶', gouffre: 'Plus profond ▶' }[fight.kind] || 'Salle suivante ▶', backL = { tour: 'Retour à la tour', gouffre: 'Retour au Gouffre' }[fight.kind] || 'Retour au donjon';
+    if (climbing() && farm) { // la montée auto (ou la descente) : la suivante toute seule, ou l'arrêt à la défaite
       if (win) farm.n++;
       towerEnd = { html: html, next: !!fight.next };
       if (win && fight.next) {
-        showEnd(true, html + '<p class="bt-farm-sum">Montée auto · ' + farmSum() + '</p><p class="bt-farm-next">Étage suivant…</p>', null, [['farm-stop', 'Arrêter la montée'], ['back', backL]]);
+        var down = fight.kind === 'gouffre';
+        showEnd(true, html + '<p class="bt-farm-sum">' + (down ? 'Descente auto · ' : 'Montée auto · ') + farmSum() + '</p><p class="bt-farm-next">' + (down ? 'Plus profond…' : 'Étage suivant…') + '</p>', null, [['farm-stop', down ? 'Arrêter la descente' : 'Arrêter la montée'], ['back', backL]]);
         var t = token;
         later(function () { if (t === token && farm && !$('battle').hidden) farmNext(); }, 1600 / speed());
         return;
       }
-      html += '<p class="bt-farm-sum">' + (win ? 'Montée terminée : plus d’étage au-dessus' : 'Montée arrêtée par la défaite') + ' · ' + farmSum() + '</p>';
+      html += '<p class="bt-farm-sum">' + (win ? 'Montée terminée : plus d’étage au-dessus' : (fight.kind === 'gouffre' ? 'Descente arrêtée par la défaite' : 'Montée arrêtée par la défaite')) + ' · ' + farmSum() + '</p>';
       farm = null; renderHud();
     }
     showEnd(win, html, title, climb
@@ -1419,6 +1422,7 @@ var BattleScene = (function () {
   var lastResult = null;
   function farmSum() {
     if (fight.kind === 'tour') return farm.n + ' étage' + (farm.n > 1 ? 's' : '') + ' gravi' + (farm.n > 1 ? 's' : '');
+    if (fight.kind === 'gouffre') return farm.n + ' profondeur' + (farm.n > 1 ? 's' : '') + ' de plus';
     return farm.n + ' victoire' + (farm.n > 1 ? 's' : '') + ' · +' + farm.xp + ' XP · +' + farm.gold + ' lucioles' + (farm.loot ? ' · ' + farm.loot + ' objet' + (farm.loot > 1 ? 's' : '') : '');
   }
 
@@ -1676,8 +1680,8 @@ var BattleScene = (function () {
       if (!farmable()) return;
       farm = { n: 0, xp: 0, gold: 0, loot: 0 };
       save.battle.auto = true; writeSave(save); renderHud(); // le farm se bat tout seul
-      if (over && fight.kind === 'tour' && fight.settled && $('bt-result').dataset.win === '1') farmNext(); // depuis l'écran de victoire d'un étage
-      else if (over && fight.kind !== 'tour' && lastResult && lastResult.win) farmNext(); // lancé depuis l'écran de victoire : on repart
+      if (over && climbing() && fight.settled && $('bt-result').dataset.win === '1') farmNext(); // depuis l'écran de victoire d'un étage
+      else if (over && !climbing() && lastResult && lastResult.win) farmNext(); // lancé depuis l'écran de victoire : on repart
       else if (!busy && !over) act(aiPick(P, E));
       return;
     }
@@ -1688,7 +1692,7 @@ var BattleScene = (function () {
       if (t.dataset.result === 'again') { start(save, fight.again(), onEnd); return; }
       if (t.dataset.result === 'farm-stop') {
         farm = null; token++; renderHud();
-        if (fight.kind === 'tour' && towerEnd) showEnd(true, towerEnd.html, null, towerEnd.next ? [['next', 'Étage suivant ▶'], ['back', 'Retour à la tour']] : [['back', 'Retour à la tour']]);
+        if (climbing() && towerEnd) { var dn = fight.kind === 'gouffre'; showEnd(true, towerEnd.html, null, towerEnd.next ? [['next', dn ? 'Plus profond ▶' : 'Étage suivant ▶'], ['back', dn ? 'Retour au Gouffre' : 'Retour à la tour']] : [['back', dn ? 'Retour au Gouffre' : 'Retour à la tour']]); }
         else showResult(true, lastResult.info);
         return;
       }

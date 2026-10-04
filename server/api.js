@@ -36,6 +36,8 @@
 //   GET  /api/titan/:id                                 le Titan de la semaine (PV partagés par toutes les grenouilles),
 //                                                       ses attaques du jour, le classement des dégâts, ses cadeaux
 //   POST /api/titan/:id/attaque { degats }              une attaque contre le Titan
+//   GET  /api/gouffre/:id                               le Gouffre de la semaine : sa profondeur, le classement, ses cadeaux
+//   POST /api/gouffre/:id/etage { etage }               une profondeur de plus (une à la fois, rejouée par l'arbitre)
 //   GET  /api/sante                                     l'état du serveur (la base, l'arbitre)
 //   GET  /api/admin/triche                              les grenouilles signalées par l'arbitre (en-tête x-kawazu-admin)
 //   POST /api/admin/triche { id }                       efface le signalement d'une grenouille (idem)
@@ -67,7 +69,7 @@ const MAX_FROGS = 5;
 const SESSION_DAYS = 30;
 const SKINS = ['marais', 'lagune', 'venin', 'soleil', 'orchidee', 'cendre'];
 // avec les peaux de la garde-robe (achetées dans le jeu)
-const ALL_SKINS = SKINS.concat(['saison_or', 'saison_argent', 'saison_bronze', 'braise', 'givrette', 'nenuphette', 'tourbe', 'orchidee2', 'cuivre', 'nuitetoilee', 'citronnelle', 'corsaire', 'ronin', 'lavande', 'cendrillard', 'arlequin', 'dune', 'moussaillon', 'ecorce2', 'perle', 'dardnoir', 'feufollet', 'tonnerre', 'ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
+const ALL_SKINS = SKINS.concat(['abysse_or', 'abysse_argent', 'abysse_bronze', 'saison_or', 'saison_argent', 'saison_bronze', 'braise', 'givrette', 'nenuphette', 'tourbe', 'orchidee2', 'cuivre', 'nuitetoilee', 'citronnelle', 'corsaire', 'ronin', 'lavande', 'cendrillard', 'arlequin', 'dune', 'moussaillon', 'ecorce2', 'perle', 'dardnoir', 'feufollet', 'tonnerre', 'ancetre', 'gloupoison', 'ecumette', 'poussemare', 'cogneur', 'ombrelame', 'grignote', 'rouquin', 'rempart', 'maitremousse', 'parrain']);
 // les skins renommés : une sauvegarde pas encore relue par le jeu les porte encore sous leur ancien nom
 const RENAMED_SKINS = { cradopaud: 'gloupoison', grenousse: 'ecumette', tarpaud: 'poussemare', tartard: 'cogneur', amphinobi: 'ombrelame',
   gamatatsu: 'grignote', gamakichi: 'rouquin', gamaken: 'rempart', fukasaku: 'maitremousse', gamabunta: 'parrain' };
@@ -521,6 +523,57 @@ async function plausibleWin(id, myFrog, oppFrog, oppEntry, label) {
   if (odds == null || odds >= 0.03) return true;
   await strike(id, 2, label + ' : victoire annoncée contre ' + cleanText(oppFrog.nom, 16) + ', ' + Math.round(odds * 100) + ' % de chances', label);
   return false;
+}
+// ---------- Le Gouffre (src/worlds.js) : des profondeurs sans fin, un classement par semaine ----------
+// gouffre:<semaine> (grenouille -> sa profondeur) ; chaque profondeur se gagne une à la fois, et l'arbitre rejoue la
+// créature (gouffreOdds) : une victoire impossible ne compte pas. Lundi, les dix plus profondes reçoivent un cadeau.
+const GOUFFRE_CADEAUX = [
+  { lucioles: 30000, eclats: 600, xpNiveau: 1, peau: 'abysse_or' }, { lucioles: 22000, eclats: 450, xpNiveau: 0.8, peau: 'abysse_argent' },
+  { lucioles: 16000, eclats: 350, xpNiveau: 0.6, peau: 'abysse_bronze' }
+].concat(Array.from({ length: 7 }, () => ({ lucioles: 8000, eclats: 150, xpNiveau: 0.3 })));
+async function gouffreGifts() {
+  const week = mondayOf(parisDay(new Date())), last = await store.get('gouffre-semaine');
+  if (last === week) return;
+  if (last && await store.setNew('gouffre-distribue:' + last, 1)) {
+    const out = await suspectsOf(), deep = await store.hgetall('gouffre:' + last);
+    const top = Object.keys(deep).filter((k) => +deep[k] > 0 && !out[k]).sort((a, b) => deep[b] - deep[a]).slice(0, GOUFFRE_CADEAUX.length);
+    for (let i = 0; i < top.length; i++) await addGift(top[i], Object.assign({ id: 'gouffre-' + last + '-' + (i + 1), source: 'gouffre', semaine: last, rang: i + 1, prof: +deep[top[i]] }, GOUFFRE_CADEAUX[i]));
+  }
+  await store.set('gouffre-semaine', week);
+}
+async function gouffreRoute(req, res, account, id, action, method) {
+  await gouffreGifts();
+  const week = mondayOf(parisDay(new Date())), key = 'gouffre:' + week;
+  const ranking = async () => {
+    const [deep, fiches] = await Promise.all([store.hgetall(key), store.hgetall(RANK)]);
+    const ranked = Object.keys(deep).filter((k) => +deep[k] > 0 && fiches[k]).sort((a, b) => deep[b] - deep[a]);
+    return { deep: deep, fiches: fiches, ranked: ranked, rang: ranked.indexOf(id) + 1 };
+  };
+  if (!action && method === 'GET') {
+    const [r, gifts] = await Promise.all([ranking(), store.get('cadeaux:' + id)]);
+    return send(res, 200, { semaine: week, fin: nextMonday(new Date()), prof: +r.deep[id] || 0, rang: r.rang, classes: r.ranked.length,
+      top: r.ranked.slice(0, 10).map((k) => Object.assign({}, r.fiches[k], { prof: +r.deep[k] })), recompenses: GOUFFRE_CADEAUX, cadeaux: gifts || [] });
+  }
+  if (action === 'etage' && method === 'POST') {
+    const b = await readBody(req, 4096), f = Math.floor(+b.etage || 0);
+    if (await isSuspect(id)) return send(res, 403, SUSPECT);
+    return withLock('verrou-gouffre:' + id, async () => {
+      const mine = +((await store.hgetall(key))[id]) || 0;
+      if (f <= mine) return send(res, 200, { prof: mine, deja: true });
+      if (f !== mine + 1) return send(res, 400, { erreur: 'Une profondeur à la fois : la tienne est ' + mine + ' cette semaine.' });
+      const frog = await store.get('grenouille:' + id);
+      if (!frog || !frog.save) return send(res, 400, { erreur: 'Ta grenouille n’a pas encore de partie.' });
+      const odds = arbitre.ready() ? arbitre.gouffreOdds(frog.save, f, week) : null;
+      if (odds != null && odds < 0.02) {
+        await strike(id, 2, 'Gouffre : profondeur ' + f + ' annoncée, ' + Math.round(odds * 100) + ' % de chances', 'gouffre');
+        return send(res, 409, { erreur: 'Cette victoire ne correspond pas à ta grenouille : la profondeur ne compte pas.', refuse: true });
+      }
+      await store.hset(key, id, f);
+      const r = await ranking();
+      return send(res, 200, { prof: f, rang: r.rang, classes: r.ranked.length });
+    });
+  }
+  return send(res, 404, { erreur: 'Route inconnue.' });
 }
 async function dojoRecord(id) { // les duels du jour repartent à zéro chaque jour
   const r = (await store.get('dojo:' + id)) || { v: 0, d: 0, jour: '', n: 0, offerts: [], journal: [] };
@@ -1075,6 +1128,11 @@ async function route(req, res, p) {
   if (cl) {
     if (account.grenouilles.indexOf(cl[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
     return method === 'GET' ? clanRoute(req, res, account, cl[1], cl[2], method) : withLock(CLAN_LOCK, () => clanRoute(req, res, account, cl[1], cl[2], method));
+  }
+  const gf = /^\/api\/gouffre\/([0-9a-f-]{36})(?:\/(etage))?$/.exec(p);
+  if (gf) {
+    if (account.grenouilles.indexOf(gf[1]) < 0) return send(res, 404, { erreur: 'Grenouille introuvable.' });
+    return gouffreRoute(req, res, account, gf[1], gf[2], method);
   }
   const ti = /^\/api\/titan\/([0-9a-f-]{36})(?:\/(attaque))?$/.exec(p);
   if (ti) {

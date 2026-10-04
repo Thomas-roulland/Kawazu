@@ -209,12 +209,12 @@
 
   // ---------- Les nouveautés : une fenêtre, une fois par mise à jour (NEWS.id), pour celles qui ont déjà joué ----------
   var NEWS = {
-    id: '2026-10-4',
+    id: '2026-10-4b',
     list: [
-      ['donjons', 'map', 'L’Île de l’Éclipse', 'Après le Ver du Cœur du Monde : six terres sous un soleil noir, la plus dure du jeu, au-delà du niveau 300. Ses monstres portent une cuirasse ; son butin est le plus fort du monde.'],
-      ['titan', 'map', 'Lord Bufo', 'Le Seigneur de l’Éclipse se bat en trois temps : le duel, le bouclier d’ombre, puis l’éclipse totale. La première fois qu’il tombe, il laisse un Légendaire de l’Éclipse.'],
-      ['skins', 'skins', 'Dix mutations, dix auras', 'Chaque mutation ajoute un palier à l’aura (runes, ailes, éclairs…), une couleur et un titre. Tout se règle dans la page Skins, onglet « Aura & titre ».'],
-      ['rank', 'rank', 'Au classement', 'Ta couleur d’aura et ton titre s’affichent à côté de tes mutations.']
+      ['donjon', 'gouffre', 'Le Gouffre', 'Lord Bufo vaincu, une fissure descend sans fin sous sa Citadelle. Chaque semaine, un nouveau ciel et un classement : les trois plus profondes gagnent une peau des Abysses.'],
+      ['donjons', 'map', 'L’Île de l’Éclipse', 'Six terres sous un soleil noir, au-delà du niveau 300, et Lord Bufo en trois temps. Ses monstres portent une cuirasse ; son butin est le plus fort du monde.'],
+      ['perso', 'perso', 'Mutations et cycles', 'Une mutation par jour au plus, et dans un cycle plus aucun monstre ne tombe en un coup : la mue redevient une conquête.'],
+      ['skins', 'skins', 'Dix auras, ⇄ tes grenouilles', 'Dix paliers d’aura, une couleur et un titre par mutation (page Skins). Et le bouton ⇄ à côté de ton nom passe d’une grenouille à l’autre.']
     ]
   };
   function showNews() {
@@ -491,6 +491,7 @@
     else if (state.page === 'tower') TowerPage.animate(now);
     else if (state.page === 'forge') drawForge(now);
     else if (state.page === 'titan') drawTitan(now);
+    else if (state.page === 'gouffre') drawGouffre(now);
     else if (state.page === 'donjons') drawDjArts(now);
     if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); if (state.page === 'camp' && save.meditation) renderMeditation(); }
     raf = requestAnimationFrame(tick);
@@ -2258,6 +2259,7 @@
       if (g.source === 'guerre') notice('Guerre contre « ' + g.contre + ' » : ' + (g.resultat === 'victoire' ? 'victoire !' : (g.resultat === 'nulle' ? 'égalité.' : 'défaite…')) + ' Ta part de combattant : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else if (g.source === 'titan') notice('Le ' + (g.titan || 'Titan') + ' est tombé sous les coups de toutes les grenouilles ! Ta part : ' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else if (g.source === 'titan-semaine') notice('Le Titan de la semaine passée : ' + (g.rang ? 'tu finis ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' en dégâts' : 'merci d’avoir combattu') + ' ! +' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ', ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
+      else if (g.source === 'gouffre') notice('Le Gouffre de la semaine passée : tu finis ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' (profondeur ' + g.prof + ') ! ' + giftText(g) + '.', true);
       else if (g.source === 'saison') notice(seasonName(g.saison) + ' : tu finis ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' ! +' + g.lucioles + ' lucioles' + (g.eclats ? ', ' + g.eclats + ' éclats' : '') + (xp ? ', ' + xp + ' XP' : '') + (g.peau && PREMIUM_SKINS[g.peau] ? ', et la peau « ' + PREMIUM_SKINS[g.peau].name + ' » (page Skins)' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else if (g.source === 'clan') notice('L’Alpha n° ' + (g.rang + 1) + ' de ton clan « ' + g.clan + ' » est tombé ! Ta part : ' + g.lucioles + ' lucioles' + (xp ? ' et ' + xp + ' XP' : '') + (lv ? '. Niveau ' + save.level + ' !' : '.'), true);
       else notice('Cadeau des duels pour ta ' + (g.rang === 1 ? '1re' : g.rang + 'e') + ' place de la semaine : ' + giftText(g) + ' !', true);
@@ -2796,6 +2798,124 @@
       if (state.page === 'titan') renderTitan();
     }, function (e) { titan.loading = false; titan.error = e.message; if (state.page === 'titan') renderTitan(); });
   }
+  // ---------- Le Gouffre : des profondeurs sans fin (worlds.js), et le classement de la semaine (server/api.js) ----------
+  var gouffre = { data: null, loading: false, error: '', walls: null };
+  var gouffreApi = function (method, path, body) {
+    return (method === 'POST' ? Cloud.flush() : Promise.resolve()).then(function () { return fetch('/api/gouffre/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
+  };
+  function gouffreWeek() { return (gouffre.data && gouffre.data.semaine) || gouffreWeekLocal(); }
+  // la descente de la semaine (save.gouffre : sa semaine, sa profondeur, et le record de toujours) ; lundi, tout repart
+  function gouffreState() {
+    var w = gouffreWeek(), g = save.gouffre;
+    if (!g || g.semaine !== w) g = save.gouffre = { semaine: w, prof: 0, record: (g && g.record) || 0 };
+    return g;
+  }
+  function openGouffre() { renderGouffre(); if (Cloud.id && gouffreOpen(save)) loadGouffre(); }
+  function loadGouffre() {
+    gouffre.loading = true;
+    Cloud.flush().then(function () { return gouffreApi('GET', ''); }).then(function (d) {
+      gouffre.data = d; gouffre.loading = false; gouffre.error = '';
+      applyGifts(d.cadeaux);
+      var g = gouffreState();
+      if (d.prof > g.prof) { g.prof = d.prof; g.record = Math.max(g.record || 0, d.prof); persist(); } // (descendue ailleurs, sur un autre appareil)
+      if (state.page === 'gouffre') renderGouffre();
+    }, function (e) { gouffre.loading = false; gouffre.error = e.message; if (state.page === 'gouffre') renderGouffre(); });
+  }
+  function renderGouffre() {
+    var box = $('gouffre-body');
+    if (!gouffreOpen(save)) {
+      box.innerHTML = '<div class="panel gf-me"><span class="gf-kicker">LE GOUFFRE</span><h1>FERMÉ</h1><p>Tout en bas de la Citadelle, sous le trône de Lord Bufo, une fissure descend sans fin. Vaincs le Lord pour l’ouvrir.</p></div>';
+      return;
+    }
+    var g = gouffreState(), f = g.prof + 1, week = gouffreWeek(), foe = gouffreFoe(f, week), mod = gouffreMod(week), d = gouffre.data;
+    var rank = foe.rank === 'boss' ? 'Boss' : (foe.rank === 'gardien' ? 'Gardien' : 'Créature'), day = week.split('-');
+    var html = '<section class="panel gf-me"><span class="gf-kicker">LE GOUFFRE · SEMAINE DU ' + day[2] + '/' + day[1] + '</span><h1>PROFONDEUR ' + f + '</h1>' +
+      '<div class="gf-stats"><span><b>' + g.prof + '</b>cette semaine</span><span><b>' + (g.record || 0) + '</b>ton record</span>' +
+      (d ? '<span><b>' + (d.rang ? nth(d.rang) : '—') + '</b>' + (d.rang ? 'sur ' + d.classes : 'pas encore classée') + '</span>' : '') + '</div>' +
+      '<div class="gf-foe' + (foe.rank === 'boss' ? ' is-boss' : '') + '"><img class="px" src="' + monsterPortrait(foe) + '" alt=""><div><small class="gf-rank">' + rank + ' · niveau ' + foe.level + '</small><b>' + escapeHtml(foe.name) + '</b>' +
+      '<small>' + fmtN(foe.maxHp) + ' PV · ' + fmtN(foe.dmg) + ' dégâts' + (foe.dmgReduce ? ' · cuirasse −' + Math.round(foe.dmgReduce * 100) + ' %' : '') + '</small><small>Venu des terres : ' + escapeHtml(BIOMES[foe.land].name) + '</small></div></div>' +
+      (mod.id !== 'clair' ? '<p class="gf-mod"><b>' + mod.name + '</b> sur tout le Gouffre cette semaine : ' + mod.desc + '</p>' : '') +
+      '<button class="btn" data-gouffre-go="' + f + '">Descendre ▶</button>' +
+      '<p class="gf-help">Chaque profondeur se gagne une fois par semaine : lucioles et XP, et des éclats aux gardiens (toutes les 5) et aux boss (toutes les 10). Dans le combat, <b>Descente auto</b> enchaîne jusqu’à la première défaite. Lundi, le Gouffre se referme et tout repart de la surface.</p></section>';
+    html += '<section class="panel gf-top"><h2>LES PLUS PROFONDES DE LA SEMAINE</h2>';
+    if (!Cloud.id) html += '<p>Joue avec un compte pour te mesurer aux autres grenouilles : le classement de la semaine est sur le serveur.</p>';
+    else if (!d) html += '<p>' + (gouffre.error ? escapeHtml(gouffre.error) + ' <button class="btn btn-ghost" data-gouffre-reload>Réessayer</button>' : 'On mesure la profondeur…') + '</p>';
+    else html += (d.top.length ? '<ol class="tt-list">' + d.top.map(function (e, k) {
+      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="Lundi : ' + giftText(d.recompenses[k]) + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo || '') + '</small></span><span class="tt-dmg">' + e.prof + '<small>prof.</small></span></li>';
+    }).join('') + '</ol>' : '<p class="muted">Personne n’est encore descendu cette semaine : sois la première !</p>') +
+      '<p class="tt-note">Lundi (dans ' + untilMs(d.fin) + '), les dix plus profondes reçoivent un cadeau (survole une ligne) ; les trois premières, une peau des Abysses qu’on ne trouve nulle part ailleurs.</p>';
+    box.innerHTML = html + '</section>';
+  }
+  // un combat du Gouffre : la profondeur f de la semaine, sous le ciel de la semaine, dans le décor de sa créature
+  function gouffreFight(f) {
+    var week = gouffreWeek(), foe = gouffreFoe(f, week);
+    var fight = {
+      kind: 'gouffre', title: 'Le Gouffre · profondeur ' + f, enemy: foe, biomeIndex: foe.land, weather: gouffreMod(week), floor: f,
+      intro: 'Profondeur ' + f + ' : ' + foe.name + ' remonte des abysses !',
+      next: function () { return gouffreFight(f + 1); },
+      again: function () { return gouffreFight(f); }
+    };
+    fight.settle = function (win) { return settleGouffre(f, foe, win, fight); };
+    return fight;
+  }
+  // la victoire sur une profondeur : la première fois de la semaine, ses récompenses (et le serveur la vérifie, avec un compte)
+  function settleGouffre(f, foe, win, fight) {
+    if (!win) return Promise.resolve('<p>' + escapeHtml(foe.name) + ' te renvoie vers la surface. Profondeur ' + f + ' : retente quand tu veux.</p>');
+    var g = gouffreState();
+    if (f <= g.prof) return Promise.resolve('<p>Profondeur déjà atteinte cette semaine : pas de nouvelle récompense.</p>');
+    var apply = function (extra) {
+      var r = gouffreRewards(f), best = f > (g.record || 0), gold = clanGold(r.gold), xp = clanXp(r.xp * xpGapMult(save.level, foe.level)), levels = xp ? gainXp(save, xp, 'gouffre') : 0;
+      g.prof = f; g.record = Math.max(g.record || 0, f);
+      save.gold += gold; save.eclats = (save.eclats || 0) + r.eclats;
+      var qd = track(save, 'gouffre');
+      persist(); Sfx.play(levels ? 'levelup' : 'point');
+      return questLine(qd) + '<p>Profondeur <b>' + f + '</b> atteinte' + (best ? ' : <b>nouveau record !</b>' : '.') + '</p><p>+' + fmtN(gold) + ' lucioles' + (r.eclats ? ' · +' + r.eclats + ' éclats' : '') +
+        (xp ? ' · +' + fmtN(xp) + ' XP' + (levels ? ' · <b>Niveau ' + save.level + ' !</b>' : '') : '') + '</p>' + (extra || '');
+    };
+    if (!Cloud.id) return Promise.resolve(apply());
+    return gouffreApi('POST', '/etage', { etage: f }).then(function (res) {
+      if (gouffre.data) { gouffre.data.prof = res.prof; gouffre.data.rang = res.rang; gouffre.data.classes = res.classes; }
+      return apply(res.rang ? '<p class="muted">Classement de la semaine : ' + nth(res.rang) + ' sur ' + res.classes + '.</p>' : '');
+    }, function (e) { fight.next = null; return '<p>' + escapeHtml(e.message) + '</p>'; });
+  }
+  // le décor : un puits sans fond entre deux parois, la lueur rouge de la Citadelle tout en haut, des braises qui
+  // montent, et des yeux qui s'ouvrent dans le noir
+  function gouffreWalls() {
+    if (gouffre.walls) return gouffre.walls;
+    var c = document.createElement('canvas'); c.width = 320; c.height = 180;
+    var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
+    g.addColorStop(0, '#2a0a14'); g.addColorStop(0.25, '#120814'); g.addColorStop(1, '#030206');
+    x.fillStyle = g; x.fillRect(0, 0, 320, 180);
+    for (var y = 0; y < 180; y++) {
+      var l = 40 + Math.round(Math.sin(y / 9) * 6 + hash(y, 1, 77) * 5 + y * 0.12), r = 200 - Math.round(Math.sin(y / 11 + 1) * 6 + hash(y, 2, 77) * 5 + y * 0.12);
+      x.fillStyle = '#0c0a12'; x.fillRect(0, y, l, 1); x.fillRect(r, y, 320 - r, 1);
+      x.fillStyle = y < 40 ? '#4a1a24' : '#1e1a2a'; x.fillRect(l - 1, y, 1, 1); x.fillRect(r, y, 1, 1);
+      if (hash(y, 3, 77) < 0.08) { x.fillStyle = '#2a2436'; x.fillRect(l - 6 - Math.round(hash(y, 4, 77) * 10), y, 6, 1); }
+      if (hash(y, 5, 77) < 0.08) { x.fillStyle = '#2a2436'; x.fillRect(r + 2 + Math.round(hash(y, 6, 77) * 10), y, 6, 1); }
+    }
+    for (var d = 1; d <= 6; d++) { var yy = d * 28; x.fillStyle = 'rgba(200, 170, 255, 0.18)'; x.fillRect(46, yy, 4, 1); x.fillRect(46, yy, 1, 3); } // des repères de profondeur
+    return (gouffre.walls = c);
+  }
+  function drawGouffre(now) {
+    var cv = $('gouffre-bg');
+    if (cv.width !== 320) { cv.width = 320; cv.height = 180; }
+    var x = cv.getContext('2d'), t = now / 1000;
+    x.imageSmoothingEnabled = false;
+    x.drawImage(gouffreWalls(), 0, 0);
+    var glow = x.createRadialGradient(120, 0, 4, 120, 0, 70); glow.addColorStop(0, 'rgba(255, 60, 60, ' + (0.35 + 0.08 * Math.sin(t * 1.4)) + ')'); glow.addColorStop(1, 'rgba(255, 60, 60, 0)');
+    x.fillStyle = glow; x.fillRect(40, 0, 160, 70);
+    for (var i = 0; i < 26; i++) { // les braises qui montent du fond
+      var life = (t * (0.05 + (i % 5) * 0.012) + i * 0.137) % 1, ex = 60 + hash(i, 9, 3) * 120 + Math.sin(t + i) * 3, ey = 180 - life * 190;
+      x.fillStyle = i % 3 ? 'rgba(255, 120, 60, ' + (1 - life) + ')' : 'rgba(255, 210, 90, ' + (1 - life) + ')'; x.fillRect(Math.round(ex), Math.round(ey), 1, 1);
+    }
+    for (var k = 0; k < 7; k++) { // des yeux qui s'ouvrent dans le noir, de plus en plus bas
+      var phase = (t * 0.18 + k * 0.31) % 1, open = phase < 0.5 ? Math.sin(phase / 0.5 * Math.PI) : 0;
+      if (open <= 0.05) continue;
+      var bx = 70 + hash(k, 11, 3) * 100, by = 70 + hash(k, 12, 3) * 100, col = k % 2 ? '255, 60, 60' : '160, 110, 255';
+      x.fillStyle = 'rgba(' + col + ', ' + open + ')'; x.fillRect(Math.round(bx), Math.round(by), 2, Math.max(1, Math.round(2 * open))); x.fillRect(Math.round(bx) + 6, Math.round(by), 2, Math.max(1, Math.round(2 * open)));
+    }
+  }
   // le décor : la mer démontée sous l'orage (dessinée une fois), puis, à chaque image, le Titan qui respire en sortant
   // des flots, la pluie, les vagues devant lui, et un éclair de temps en temps
   function titanSky() {
@@ -3323,7 +3443,7 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'forge', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'forge', 'skills', 'map', 'shop', 'skins', 'tower', 'gouffre', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
@@ -3336,6 +3456,7 @@
     if (page === 'forge') openForge();
     if (page === 'skins') openSkins();
     if (page === 'tower') openTower();
+    if (page === 'gouffre') openGouffre();
     if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
     Sfx.ambient(page === 'camp' && visible);
@@ -3375,7 +3496,7 @@
     if (fight.kind === 'titan') loadTitan();
     if (fight.kind === 'guerre' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté le combat : il compte comme une défaite.'); loadClans(); }, function () {});
     var atClan = fight.kind === 'raid' || fight.kind === 'guerre';
-    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (fight.kind === 'titan' ? 'titan' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map')))));
+    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (fight.kind === 'titan' ? 'titan' : (fight.kind === 'gouffre' ? 'gouffre' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map'))))));
     startTick();
   }
 
@@ -3403,6 +3524,8 @@
     if (t.dataset.djStep) { djStep(+t.dataset.djStep); return; }
     if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1 && !dungeonRetryIn(save, djd)) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
     if (t.dataset.petFeed) { var fp = petById(t.dataset.petFeed), fpc = fp && petFeedCost(save, fp); if (fp && feedPet(save, fp)) { journal('compagnon', { id: fp.id, niveau: petLevel(save, fp.id), eclats: fpc }); persist(); Sfx.play('levelup'); notice(fp.name + ' grandit : niveau ' + petLevel(save, fp.id) + ' !'); setPlayer(save); renderAll(); } return; }
+    if (t.dataset.gouffreGo) { var gf = +t.dataset.gouffreGo; if (gouffreOpen(save) && gf === gouffreState().prof + 1) { Sfx.play('click'); startFight(gouffreFight(gf)); } return; }
+    if (t.hasAttribute('data-gouffre-reload')) { gouffre.error = ''; renderGouffre(); loadGouffre(); return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
     if (t.dataset.bookGo) { turnPage(+t.dataset.bookGo); return; }
     if (t.dataset.bookStep) { turnPage(Math.max(0, Math.min(ALBUM_CHAPTERS.length, album.spread + +t.dataset.bookStep))); return; }

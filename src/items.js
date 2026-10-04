@@ -523,6 +523,13 @@ var EXTRA_SKINS = {
 var PREMIUM_SKINS = {
   // la peau du sommet de la Tour des Ancêtres : jamais en boutique (reward), donnée au 600e étage
   // les peaux des saisons de classement (quetes.js, server/api.js) : les trois premières d'un mois les reçoivent
+  // les peaux du Gouffre (worlds.js, server/api.js) : les trois plus profondes d'une semaine les reçoivent
+  abysse_or: { name: 'Seigneur des Abysses', price: 0, reward: true, g: '#08081a', m: '#24245a', l: '#4a4aa0', c: '#b0b0ff', scarf: ['#ffd040', '#8a6a10'],
+    pal: { e: '#6af0ff' }, desc: 'Une peau couleur de nuit sans fond, les yeux allumés comme deux étoiles. Elle va à la grenouille descendue le plus profond dans le Gouffre en une semaine.' },
+  abysse_argent: { name: 'Écho des Abysses', price: 0, reward: true, g: '#061414', m: '#1a4444', l: '#3a8484', c: '#a0f0e0', scarf: ['#e0e8f0', '#8a9aa8'],
+    pal: { e: '#e0ffff' }, desc: 'Une peau d’eau froide qui luit faiblement, comme les profondeurs. Elle va à la deuxième plus profonde d’une semaine du Gouffre.' },
+  abysse_bronze: { name: 'Braise des Abysses', price: 0, reward: true, g: '#160606', m: '#4a1616', l: '#8a3a2a', c: '#f0a080', scarf: ['#e0803a', '#8a3a10'],
+    pal: { e: '#ffb040' }, desc: 'Une peau de roche qui couve encore, remontée du fond du Gouffre. Elle va à la troisième plus profonde d’une semaine.' },
   saison_or: { name: 'Champion d’or', price: 0, reward: true, g: '#6a4a0a', m: '#d8a42a', l: '#f8d870', c: '#fff6d0', scarf: ['#c9412f', '#7a1a1a'],
     pal: { e: '#fff6a0' }, desc: 'Une peau d’or massif, qui brille au soleil comme une médaille. Elle va à la grenouille arrivée première d’une saison de classement.' },
   saison_argent: { name: 'Champion d’argent', price: 0, reward: true, g: '#4a5260', m: '#a8b2c0', l: '#dce4ee', c: '#ffffff', scarf: ['#3a7fc9', '#1a3a6a'],
@@ -1279,6 +1286,7 @@ function parseSave(data) {
   });
   if (Array.isArray(data.shop)) save.shop = data.shop.filter(function (id) { return ITEMS[id] || id === TEA_ID; });
   if (data.auraOff) save.auraOff = true; // l'aura de mutation masquée
+  if (data.gouffre && typeof data.gouffre === 'object' && typeof data.gouffre.semaine === 'string') save.gouffre = { semaine: data.gouffre.semaine.slice(0, 10), prof: Math.min(1e5, int(data.gouffre.prof, 0) || 0), record: Math.min(1e5, int(data.gouffre.record, 0) || 0) }; // le Gouffre : la semaine, sa profondeur, le record
   if (typeof data.titre === 'number' && data.titre >= -1 && data.titre < MUTATION_TITLES.length) save.titre = Math.floor(data.titre);
   if (typeof data.auraTier === 'number' && data.auraTier >= 1 && data.auraTier <= MUTATION_MAX) save.auraTier = Math.floor(data.auraTier); // le palier d'aura montré
   if (typeof data.auraColor === 'number' && data.auraColor >= 0 && data.auraColor < AURA_COLORS.length) save.auraColor = Math.floor(data.auraColor); // sa couleur

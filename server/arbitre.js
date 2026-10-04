@@ -7,7 +7,8 @@
 //     bien plus vite que le jeu ne le permet (niveau, étapes, tour, points de saison, lucioles) est signalé ;
 //   - un duel ou un combat de guerre gagné (duelOdds) : il rejoue le combat (les deux grenouilles jouées par
 //     l'ordinateur, DUEL_SIMS fois) ; une victoire que l'ordinateur n'obtient presque jamais n'est pas crue ;
-//   - les dégâts sur le Titan ou l'Alpha (raidCap) : au plus ce que la grenouille peut faire en ses tours comptés.
+//   - les dégâts sur le Titan ou l'Alpha (raidCap) : au plus ce que la grenouille peut faire en ses tours comptés ;
+//   - chaque profondeur du Gouffre (gouffreOdds) : la créature rejouée contre la grenouille.
 // Les règles de combat ci-dessous sont celles de src/battle.js (la même copie que le simulateur d'équilibrage) : si
 // battle.js change, les reporter ici (les seuils sont larges, un petit écart ne gêne pas).
 'use strict';
@@ -93,6 +94,9 @@ function checkSave(prev, next, ctx) {
     const raw = copy(next), fixes = [], flags = [], dt = Math.max(0, num(ctx.dt)) / 1000;
     const before = prev && typeof prev === 'object' ? G.parseSave(copy(prev)) : G.newSave();
     const fresh = !prev || typeof prev !== 'object';
+    // les versions des objets : le jeu envoie toujours les siennes (parseSave part de newSave) ; une sauvegarde sans elles,
+    // ou avec d'anciennes, verrait ses objets « remis à la nouvelle courbe » au chargement, donc grossis après ce contrôle
+    if (raw.gear !== G.GEAR_VERSION || raw.uniq !== G.UNIQUE_VERSION) { if (!fresh || raw.gear != null) fixes.push('versions des objets'); raw.gear = G.GEAR_VERSION; raw.uniq = G.UNIQUE_VERSION; }
     // le niveau, les points
     const MAXL = G.MAX_LEVEL;
     if (!(num(raw.level) >= 1)) raw.level = 1;
@@ -358,4 +362,21 @@ function raidCap(mySave, kind, args, turns) {
   } catch (e) { console.error('arbitre (assaut) :', e.message); return null; }
 }
 
-module.exports = { ready: ready, loadError: () => loadError, checkSave: checkSave, duelOdds: duelOdds, raidCap: raidCap, itemCaps: (inst, cycle) => (G ? withItems(() => itemCaps(inst, cycle || 1)) : null) };
+// La part de victoires de la grenouille à la profondeur f du Gouffre (la semaine week), ou null. (Avec un peu de marge :
+// en vrai, son compagnon l'aide et elle choisit ses sorts ; la météo de la semaine n'est pas rejouée.)
+function gouffreOdds(mySave, f, week) {
+  if (!G) return null;
+  try {
+    return withItems(() => {
+      const me = G.parseSave(copy(mySave)), en = G.gouffreFoe(f, week);
+      let wins = 0;
+      for (let i = 0; i < DUEL_SIMS; i++) {
+        const P = frogFighter(me, false); P.dmg *= 1.2; P.maxHp = P.hp = Math.round(P.maxHp * 1.1);
+        if (fight(P, monster(en)).win) wins++;
+      }
+      return wins / DUEL_SIMS;
+    });
+  } catch (e) { console.error('arbitre (gouffre) :', e.message); return null; }
+}
+
+module.exports = { ready: ready, gouffreOdds: gouffreOdds, loadError: () => loadError, checkSave: checkSave, duelOdds: duelOdds, raidCap: raidCap, itemCaps: (inst, cycle) => (G ? withItems(() => itemCaps(inst, cycle || 1)) : null) };

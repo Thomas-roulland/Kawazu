@@ -57,8 +57,9 @@ var CYCLE_FLOOR_POWER = { normal: { hp: 2.2, dmg: 0.05 }, gardien: { hp: 3.4, dm
 var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 }, eclipse: { hp: 1.55, dmg: 1.28, always: true } }, CYCLE_LATE = { hp: 1.45, dmg: 1.22 };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
-function makeEnemy(w, level, variant, rank, title) {
-  var b = BIOMES[w], cyc = Math.max(1, playerCycle) - 1, st = level - stageLevel(w, 0);
+// (fixed : la même force pour toutes les grenouilles, sans le cycle ni le plancher de la grenouille : le Gouffre)
+function makeEnemy(w, level, variant, rank, title, fixed) {
+  var b = BIOMES[w], cyc = fixed ? 0 : Math.max(1, playerCycle) - 1, st = level - stageLevel(w, 0);
   // dans un cycle (NG+), les monstres se mettent à la hauteur de la grenouille (étape 1 : 6 niveaux de moins, boss : 3 de
   // plus), sans descendre sous le niveau de leur étape (une grenouille qui vient de muter refait son chemin)
   // (et sur son équipement : une grenouille qui porte des objets d'un rang bien plus haut que son niveau, après une
@@ -227,6 +228,47 @@ function alphaOf(rang, heroLevel) {
     level: lvl, rank: 'boss', behavior: SPECIES[a.species].behavior, maxHp: alphaHp(rang),
     dmg: Math.round((2 + 0.95 * lvl) * MONSTER_POWER.dmg * ALPHA_DMG * (1 + 0.06 * Math.min(10, rang))), agi: 6 + lvl * 0.6, dodge: 0.05
   };
+}
+
+// ---------- Le Gouffre : des profondeurs sans fin, une fois Lord Bufo vaincu ----------
+// Chaque semaine (du lundi, heure de Paris), le Gouffre se rouvre : on y descend profondeur après profondeur, chacune
+// plus dure que la précédente, sans fond. Ses créatures viennent de tout le monde, tirées par la semaine (les mêmes pour
+// toutes les grenouilles, et pour le serveur qui vérifie chaque descente) ; un gardien toutes les 5 profondeurs, un des
+// boss du monde toutes les 10. Leur force part de celle de la Grève aux Ossements, au niveau 300 + la profondeur (PV
+// × hp0, dégâts × dmg0), et grandit de GOUFFRE.hp et GOUFFRE.dmg à chaque profondeur. Réglé au simulateur
+// (gouffre-sim.js) : une grenouille qui vient de vaincre le Lord (Rares de la Citadelle) descend vers 10 à 15, une à
+// 10 mutations en Épiques vers 25 à 35 ; plus bas, il faut forger. Chaque semaine a son ciel (une météo, GOUFFRE_MODS). Le
+// classement de la semaine est sur le serveur ; lundi, les dix plus profondes reçoivent un cadeau (les trois premières,
+// une peau des Abysses).
+var GOUFFRE = { level: 300, hp0: 0.65, dmg0: 0.8, hp: 1.04, dmg: 1.025 };
+var GOUFFRE_MODS = ['lune', 'brume', 'averse', 'nuit', 'canicule'];
+function gouffreLand() { return typeof ECLIPSE_FROM !== 'undefined' ? ECLIPSE_FROM : BIOMES.length - 1; }
+function gouffreOpen(save) { return worldDone(save) || (save.cycle || 1) > 1; }
+// la semaine en cours (le lundi, 'AAAA-MM-JJ') : celle du serveur quand on l'a, sinon celle du navigateur
+function gouffreWeekLocal(now) {
+  var d = new Date(now || Date.now()); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function gouffreWeekNum(week) { return Math.floor(Date.parse(week + 'T00:00:00Z') / 86400e3) || 0; }
+function gouffreMod(week) { var id = GOUFFRE_MODS[Math.floor(gouffreWeekNum(week) / 7) % GOUFFRE_MODS.length]; return WEATHERS.filter(function (x) { return x.id === id; })[0] || WEATHERS[0]; }
+// la créature de la profondeur f, la semaine week
+function gouffreFoe(f, week) {
+  var wk = gouffreWeekNum(week), boss = f % 10 === 0, guard = !boss && f % 5 === 0, rank = boss ? 'boss' : (guard ? 'gardien' : 'normal');
+  var w0 = Math.floor(hash(wk, f, 61) * BIOMES.length), b = BIOMES[w0];
+  var v = boss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : b.monsters[Math.floor(hash(wk, f, 67) * b.monsters.length)];
+  var e = makeEnemy(gouffreLand(), GOUFFRE.level + f, v, rank, 'des abysses', true), s = SPECIES[v.species];
+  if (boss) { e.name = v.name; e.lord = !!b.boss.lord; } // (la force d'un boss de la Grève, sous les traits d'un boss du monde)
+  e.species = v.species; e.pal = v.pal; e.behavior = s.behavior; e.dodge = s.behavior === 'flyer' ? 0.18 : 0.05;
+  e.scale = b.giant ? (boss ? 140 : (guard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (boss ? (s.size === 32 ? (b.bossScale || 1) : 1.9) : (guard ? 1.45 : 1)) * (s.size === 32 && !boss && b.monsterScale ? b.monsterScale : 1);
+  e.maxHp = Math.round(e.maxHp * GOUFFRE.hp0 * Math.pow(GOUFFRE.hp, f - 1));
+  e.dmg = Math.round(e.dmg * GOUFFRE.dmg0 * Math.pow(GOUFFRE.dmg, f - 1));
+  e.gouffre = f; e.land = w0;
+  return e;
+}
+// ce que rapporte une nouvelle profondeur (une fois par semaine) : des lucioles, de l'XP, et des éclats aux gardiens et aux boss
+function gouffreRewards(f) {
+  var lvl = GOUFFRE.level + f, boss = f % 10 === 0, guard = !boss && f % 5 === 0, mult = boss ? 3 : (guard ? 1.8 : 1);
+  return { gold: Math.round((6 + 3 * lvl) * mult * 2), xp: Math.round(xpForLevel(Math.min(MAX_LEVEL, lvl)) * STAGE_XP * mult), eclats: boss ? Math.round(eclatUnit(BIOMES.length) * 3) : (guard ? Math.round(eclatUnit(BIOMES.length)) : 0) };
 }
 
 // ---------- Le Titan de la semaine : le boss mondial, le même pour toutes les grenouilles (server/api.js) ----------

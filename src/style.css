@@ -2036,3 +2036,26 @@ h1 { line-height: 1.3; }
 /* ---------- Les nouveautés : le lien vers les notes de mise à jour ---------- */
 .news-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .news-foot .btn-ghost { text-decoration: none; }
+
+/* ---------- Le Gouffre ---------- */
+#page-gouffre { background: #05040a; }
+#gouffre-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 50%; image-rendering: pixelated; }
+.gouffre-body { position: absolute; inset: 0; overflow-y: auto; padding: 18px 20px 28px 40%; display: flex; flex-direction: column; gap: 14px; }
+.gouffre-body .panel { gap: 10px; background: linear-gradient(rgba(16, 10, 28, 0.94), rgba(8, 6, 16, 0.94)); box-shadow: inset 0 0 0 2px rgba(160, 112, 240, 0.35), 0 10px 24px rgba(0, 0, 0, 0.5); }
+.gf-kicker { font-family: var(--pixel); font-size: 9px; letter-spacing: 1px; color: #c8b0ff; }
+.gf-me h1 { margin: 0; font-size: 22px; color: #f4ecff; text-shadow: 0 2px 0 #0b0814, 0 0 14px rgba(255, 70, 70, 0.5); }
+.gf-me p { margin: 0; font-size: 16px; line-height: 1.35; color: #d8d0ec; }
+.gf-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.gf-stats span { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; font-size: 14px; color: #c8bfe0; background: rgba(0, 0, 0, 0.3); box-shadow: inset 0 0 0 1px rgba(160, 112, 240, 0.3); }
+.gf-stats b { font-family: var(--pixel); font-weight: 400; font-size: 14px; color: #fff; }
+.gf-foe { display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px rgba(160, 112, 240, 0.3); }
+.gf-foe.is-boss { box-shadow: inset 0 0 0 2px #ff4a4a, 0 0 16px rgba(255, 74, 74, 0.25); }
+.gf-foe img { width: 72px; height: 72px; flex-shrink: 0; image-rendering: pixelated; }
+.gf-foe div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gf-foe b { font-size: 19px; color: var(--gold-2); }
+.gf-foe small { font-size: 14px; color: #c8bfe0; }
+.gf-foe .gf-rank { font-family: var(--pixel); font-size: 8px; color: #ff8a8a; }
+.gf-mod { padding: 8px 10px; font-size: 15px !important; color: #e0d0ff !important; background: rgba(120, 80, 220, 0.15); }
+.gf-help { font-size: 14px !important; color: #a89ac8 !important; }
+.gf-top h2 { margin: 0; }
+@media (max-width: 900px) { .gouffre-body { padding: 14px 14px 24px; } #gouffre-bg { opacity: 0.6; } }
