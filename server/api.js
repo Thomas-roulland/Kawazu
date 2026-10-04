@@ -524,9 +524,10 @@ async function plausibleWin(id, myFrog, oppFrog, oppEntry, label) {
   await strike(id, 2, label + ' : victoire annoncée contre ' + cleanText(oppFrog.nom, 16) + ', ' + Math.round(odds * 100) + ' % de chances', label);
   return false;
 }
-// ---------- Le Gouffre (src/worlds.js) : des profondeurs sans fin, un classement par semaine ----------
+// ---------- Le Gouffre (src/worlds.js) : la 31e porte des Donjons, des profondeurs sans fin, un classement par semaine ----------
 // gouffre:<semaine> (grenouille -> sa profondeur) ; chaque profondeur se gagne une à la fois, et l'arbitre rejoue la
 // créature (gouffreOdds) : une victoire impossible ne compte pas. Lundi, les dix plus profondes reçoivent un cadeau.
+const GOUFFRE_DONJONS = 30; // (comme src/donjons.js) : il s'ouvre quand les trente donjons sont vidés
 const GOUFFRE_CADEAUX = [
   { lucioles: 30000, eclats: 600, xpNiveau: 1, peau: 'abysse_or' }, { lucioles: 22000, eclats: 450, xpNiveau: 0.8, peau: 'abysse_argent' },
   { lucioles: 16000, eclats: 350, xpNiveau: 0.6, peau: 'abysse_bronze' }
@@ -563,6 +564,8 @@ async function gouffreRoute(req, res, account, id, action, method) {
       if (f !== mine + 1) return send(res, 400, { erreur: 'Une profondeur à la fois : la tienne est ' + mine + ' cette semaine.' });
       const frog = await store.get('grenouille:' + id);
       if (!frog || !frog.save) return send(res, 400, { erreur: 'Ta grenouille n’a pas encore de partie.' });
+      const dj = frog.save.dungeons && typeof frog.save.dungeons === 'object' ? frog.save.dungeons : {};
+      if (Object.keys(dj).filter((k) => /^d\d{1,2}$/.test(k) && num(dj[k] && dj[k].room, 99) >= 10).length < GOUFFRE_DONJONS) return send(res, 403, { erreur: 'Le Gouffre s’ouvre quand les ' + GOUFFRE_DONJONS + ' donjons sont vidés.' });
       const odds = arbitre.ready() ? arbitre.gouffreOdds(frog.save, f, week) : null;
       if (odds != null && odds < 0.02) {
         await strike(id, 2, 'Gouffre : profondeur ' + f + ' annoncée, ' + Math.round(odds * 100) + ' % de chances', 'gouffre');

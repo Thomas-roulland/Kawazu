@@ -170,6 +170,7 @@ var BattleScene = (function () {
     if (f.charging) s.push('Prépare une charge !');
     if (f.enraged) s.push(f.lord ? 'Éclipse totale' : 'Enragé');
     if (f !== P && !f.frog && f.dmgReduce > 0) s.push('Cuirasse −' + Math.round(f.dmgReduce * 100) + ' %'); // (les monstres de l'Éclipse)
+    if (f !== P && !f.frog && f.pas && f.pas.regenHp > 0) s.push('Se régénère +' + Math.round(f.pas.regenHp * 100) + ' %/tour'); // (les créatures du Gouffre)
     return s.join(' · ');
   }
 

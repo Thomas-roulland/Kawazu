@@ -230,20 +230,21 @@ function alphaOf(rang, heroLevel) {
   };
 }
 
-// ---------- Le Gouffre : des profondeurs sans fin, une fois Lord Bufo vaincu ----------
-// Chaque semaine (du lundi, heure de Paris), le Gouffre se rouvre : on y descend profondeur après profondeur, chacune
-// plus dure que la précédente, sans fond. Ses créatures viennent de tout le monde, tirées par la semaine (les mêmes pour
-// toutes les grenouilles, et pour le serveur qui vérifie chaque descente) ; un gardien toutes les 5 profondeurs, un des
-// boss du monde toutes les 10. Leur force part de celle de la Grève aux Ossements, au niveau 300 + la profondeur (PV
-// × hp0, dégâts × dmg0), et grandit de GOUFFRE.hp et GOUFFRE.dmg à chaque profondeur. Réglé au simulateur
-// (gouffre-sim.js) : une grenouille qui vient de vaincre le Lord (Rares de la Citadelle) descend vers 10 à 15, une à
-// 10 mutations en Épiques vers 25 à 35 ; plus bas, il faut forger. Chaque semaine a son ciel (une météo, GOUFFRE_MODS). Le
-// classement de la semaine est sur le serveur ; lundi, les dix plus profondes reçoivent un cadeau (les trois premières,
-// une peau des Abysses).
-var GOUFFRE = { level: 300, hp0: 0.65, dmg0: 0.8, hp: 1.04, dmg: 1.025 };
+// ---------- Le Gouffre : la 31e porte des Donjons, des profondeurs sans fin, archi dur ----------
+// Il s'ouvre quand les trente donjons sont vidés (sa carte est la dernière de la page des Donjons). Chaque semaine (du
+// lundi, heure de Paris), il se rouvre : on y descend profondeur après profondeur, sans fond. Ses créatures viennent de
+// tout le monde, tirées par la semaine (les mêmes pour toutes les grenouilles, et pour le serveur qui vérifie chaque
+// descente) ; un gardien toutes les 5 profondeurs, un des boss du monde toutes les 10. Les abysses les nourrissent :
+// elles regagnent GOUFFRE.regen de leurs PV à chaque tour. Leur force part de celle de la Grève aux Ossements au niveau
+// 300 + la profondeur (PV × hp0, dégâts × dmg0) et grandit de GOUFFRE.hp et GOUFFRE.dmg par profondeur. Chaque semaine a
+// son ciel (une météo, GOUFFRE_MODS). Le classement de la semaine est sur le serveur ; lundi, les dix plus profondes
+// reçoivent un cadeau (les trois premières, une peau des Abysses). Réglé au simulateur (gouffre-sim.js) pour être très
+// dur : une grenouille qui vient de vaincre le Lord (Rares de la Citadelle) bute sur le premier gardien (5) ; à 10
+// mutations en Épiques, vers 10 ; tout forgé à +10, vers 15 à 19.
+var GOUFFRE = { level: 300, hp0: 1.6, dmg0: 1.25, hp: 1.05, dmg: 1.03, regen: 0.03 };
 var GOUFFRE_MODS = ['lune', 'brume', 'averse', 'nuit', 'canicule'];
 function gouffreLand() { return typeof ECLIPSE_FROM !== 'undefined' ? ECLIPSE_FROM : BIOMES.length - 1; }
-function gouffreOpen(save) { return worldDone(save) || (save.cycle || 1) > 1; }
+function gouffreOpen(save) { return typeof DUNGEONS !== 'undefined' && DUNGEONS.every(function (d) { return dungeonCleared(save, d); }); }
 // la semaine en cours (le lundi, 'AAAA-MM-JJ') : celle du serveur quand on l'a, sinon celle du navigateur
 function gouffreWeekLocal(now) {
   var d = new Date(now || Date.now()); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7);
@@ -262,6 +263,7 @@ function gouffreFoe(f, week) {
   e.scale = b.giant ? (boss ? 140 : (guard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (boss ? (s.size === 32 ? (b.bossScale || 1) : 1.9) : (guard ? 1.45 : 1)) * (s.size === 32 && !boss && b.monsterScale ? b.monsterScale : 1);
   e.maxHp = Math.round(e.maxHp * GOUFFRE.hp0 * Math.pow(GOUFFRE.hp, f - 1));
   e.dmg = Math.round(e.dmg * GOUFFRE.dmg0 * Math.pow(GOUFFRE.dmg, f - 1));
+  e.pas = Object.assign(emptyPassives(), { regenHp: GOUFFRE.regen }); // (les abysses la nourrissent)
   e.gouffre = f; e.land = w0;
   return e;
 }

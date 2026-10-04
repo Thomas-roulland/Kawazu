@@ -202,7 +202,7 @@ function cardSave(card) {
   s.tree = (card.tree || []).filter((id) => { const nd = G.nodeById(id); return nd && nd.voie === card.voie; });
   return s;
 }
-function monster(en) { return Object.assign(fresh(), en, { hp: en.hp0 != null ? en.hp0 : en.maxHp, crit: 0.05, critMult: 1.5, spell: 1, cdr: 0, pas: G.emptyPassives(), dmgReduce: en.dmgReduce || 0, turn: 0, frog: false }); }
+function monster(en) { return Object.assign(fresh(), en, { hp: en.hp0 != null ? en.hp0 : en.maxHp, crit: 0.05, critMult: 1.5, spell: 1, cdr: 0, pas: Object.assign(G.emptyPassives(), en.pas || {}), dmgReduce: en.dmgReduce || 0, turn: 0, frog: false }); } // (en.pas : la régénération du Gouffre)
 function strike(att, def, mult, o) {
   o = o || {};
   let dodge = def.dodge;

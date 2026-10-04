@@ -209,9 +209,9 @@
 
   // ---------- Les nouveautés : une fenêtre, une fois par mise à jour (NEWS.id), pour celles qui ont déjà joué ----------
   var NEWS = {
-    id: '2026-10-4b',
+    id: '2026-10-4c',
     list: [
-      ['donjon', 'gouffre', 'Le Gouffre', 'Lord Bufo vaincu, une fissure descend sans fin sous sa Citadelle. Chaque semaine, un nouveau ciel et un classement : les trois plus profondes gagnent une peau des Abysses.'],
+      ['donjon', 'donjons', 'Le Gouffre', 'Les trente donjons vidés, une 31e porte s’ouvre : un gouffre sans fond, archi dur, dont les créatures se régénèrent. Chaque semaine, un classement : les trois plus profondes gagnent une peau des Abysses.'],
       ['donjons', 'map', 'L’Île de l’Éclipse', 'Six terres sous un soleil noir, au-delà du niveau 300, et Lord Bufo en trois temps. Ses monstres portent une cuirasse ; son butin est le plus fort du monde.'],
       ['perso', 'perso', 'Mutations et cycles', 'Une mutation par jour au plus, et dans un cycle plus aucun monstre ne tombe en un coup : la mue redevient une conquête.'],
       ['skins', 'skins', 'Dix auras, ⇄ tes grenouilles', 'Dix paliers d’aura, une couleur et un titre par mutation (page Skins). Et le bouton ⇄ à côté de ton nom passe d’une grenouille à l’autre.']
@@ -491,7 +491,6 @@
     else if (state.page === 'tower') TowerPage.animate(now);
     else if (state.page === 'forge') drawForge(now);
     else if (state.page === 'titan') drawTitan(now);
-    else if (state.page === 'gouffre') drawGouffre(now);
     else if (state.page === 'donjons') drawDjArts(now);
     if (now - lastSecond > 500) { lastSecond = now; renderExpedition(); if (state.page === 'camp' && save.meditation) renderMeditation(); }
     raf = requestAnimationFrame(tick);
@@ -2798,8 +2797,10 @@
       if (state.page === 'titan') renderTitan();
     }, function (e) { titan.loading = false; titan.error = e.message; if (state.page === 'titan') renderTitan(); });
   }
-  // ---------- Le Gouffre : des profondeurs sans fin (worlds.js), et le classement de la semaine (server/api.js) ----------
-  var gouffre = { data: null, loading: false, error: '', walls: null };
+  // ---------- Le Gouffre (worlds.js) : la 31e porte des Donjons, une fois les 30 vidés ; le classement de la semaine
+  // (server/api.js). Sa carte est la dernière du carrousel, son panneau celui d'un donjon (renderDjSide).
+  var gouffre = { data: null, loading: false, error: '', bg: null };
+  var GOUFFRE_DJ = { id: 'gouffre', n: DUNGEONS.length, gouffre: true, name: 'Le Gouffre' };
   var gouffreApi = function (method, path, body) {
     return (method === 'POST' ? Cloud.flush() : Promise.resolve()).then(function () { return fetch('/api/gouffre/' + Cloud.id + path, { method: method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); })
       .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.erreur || 'erreur du serveur'); return d; }); });
@@ -2811,48 +2812,63 @@
     if (!g || g.semaine !== w) g = save.gouffre = { semaine: w, prof: 0, record: (g && g.record) || 0 };
     return g;
   }
-  function openGouffre() { renderGouffre(); if (Cloud.id && gouffreOpen(save)) loadGouffre(); }
   function loadGouffre() {
+    if (!Cloud.id || gouffre.loading) return;
     gouffre.loading = true;
     Cloud.flush().then(function () { return gouffreApi('GET', ''); }).then(function (d) {
       gouffre.data = d; gouffre.loading = false; gouffre.error = '';
       applyGifts(d.cadeaux);
       var g = gouffreState();
       if (d.prof > g.prof) { g.prof = d.prof; g.record = Math.max(g.record || 0, d.prof); persist(); } // (descendue ailleurs, sur un autre appareil)
-      if (state.page === 'gouffre') renderGouffre();
-    }, function (e) { gouffre.loading = false; gouffre.error = e.message; if (state.page === 'gouffre') renderGouffre(); });
+      if (state.page === 'donjons' && dj.sel === 'gouffre') renderDjSide();
+    }, function (e) { gouffre.loading = false; gouffre.error = e.message; if (state.page === 'donjons' && dj.sel === 'gouffre') renderDjSide(); });
   }
-  function renderGouffre() {
-    var box = $('gouffre-body');
+  // sa carte dans le carrousel : l'abîme, et ce qu'il demande
+  function gouffreCard() {
+    var open = gouffreOpen(save), g = gouffreState(), cleared = DUNGEONS.filter(function (d) { return dungeonCleared(save, d); }).length;
+    return '<article class="dj-card2 gf-card' + (open ? '' : ' locked') + (dj.sel === 'gouffre' ? ' is-active' : '') + '" data-dj-card="gouffre">' +
+      '<div class="dj-c-art"><canvas class="dj-c-cv" width="' + DungeonArt.W + '" height="' + DungeonArt.H + '" data-dj-art="gouffre"' + (open ? ' data-lit="1"' : '') + '></canvas><div class="dj-c-top"><span>AU-DELÀ DES DONJONS</span><span>' + (open ? 'Sans fond' : '') + '</span></div></div>' +
+      '<div class="dj-c-body"><h2>' + (open ? 'Le Gouffre' : '???') + '</h2>' +
+      (open ? '<p>Sous les trente donjons, une fissure qui ne finit pas. Ce qui en remonte se nourrit des abysses : ses blessures se referment à chaque tour.</p>' +
+        '<div class="dj-c-meta"><span>Cette semaine : <b>profondeur ' + g.prof + '</b></span><span>Ton record : <b>' + (g.record || 0) + '</b></span><span>Se referme lundi : tout repart de la surface</span></div>'
+        : '<p class="dj-c-lock">🔒 Vide les ' + DUNGEONS.length + ' donjons pour l’ouvrir (' + cleared + ' / ' + DUNGEONS.length + ')</p>') + '</div></article>';
+  }
+  // son panneau : la créature de la prochaine profondeur, comparée à soi, ce qu'elle rapporte, et le classement
+  function renderGouffreSide(box) {
     if (!gouffreOpen(save)) {
-      box.innerHTML = '<div class="panel gf-me"><span class="gf-kicker">LE GOUFFRE</span><h1>FERMÉ</h1><p>Tout en bas de la Citadelle, sous le trône de Lord Bufo, une fissure descend sans fin. Vaincs le Lord pour l’ouvrir.</p></div>';
+      var cleared = DUNGEONS.filter(function (d) { return dungeonCleared(save, d); }).length;
+      box.innerHTML = '<div class="dj-s-locked"><canvas class="gf-s-art" width="' + DungeonArt.W + '" height="' + DungeonArt.H + '" data-dj-art="gouffre"></canvas><h2>LE GOUFFRE EST FERMÉ</h2><p>Il s’ouvre quand les ' + DUNGEONS.length + ' donjons sont vidés : <b>' + cleared + ' / ' + DUNGEONS.length + '</b>.</p>' +
+        '<p class="muted">On dit que rien n’en est jamais remonté, sinon des créatures qui ne saignent pas longtemps.</p></div>';
       return;
     }
-    var g = gouffreState(), f = g.prof + 1, week = gouffreWeek(), foe = gouffreFoe(f, week), mod = gouffreMod(week), d = gouffre.data;
-    var rank = foe.rank === 'boss' ? 'Boss' : (foe.rank === 'gardien' ? 'Gardien' : 'Créature'), day = week.split('-');
-    var html = '<section class="panel gf-me"><span class="gf-kicker">LE GOUFFRE · SEMAINE DU ' + day[2] + '/' + day[1] + '</span><h1>PROFONDEUR ' + f + '</h1>' +
-      '<div class="gf-stats"><span><b>' + g.prof + '</b>cette semaine</span><span><b>' + (g.record || 0) + '</b>ton record</span>' +
-      (d ? '<span><b>' + (d.rang ? nth(d.rang) : '—') + '</b>' + (d.rang ? 'sur ' + d.classes : 'pas encore classée') + '</span>' : '') + '</div>' +
-      '<div class="gf-foe' + (foe.rank === 'boss' ? ' is-boss' : '') + '"><img class="px" src="' + monsterPortrait(foe) + '" alt=""><div><small class="gf-rank">' + rank + ' · niveau ' + foe.level + '</small><b>' + escapeHtml(foe.name) + '</b>' +
-      '<small>' + fmtN(foe.maxHp) + ' PV · ' + fmtN(foe.dmg) + ' dégâts' + (foe.dmgReduce ? ' · cuirasse −' + Math.round(foe.dmgReduce * 100) + ' %' : '') + '</small><small>Venu des terres : ' + escapeHtml(BIOMES[foe.land].name) + '</small></div></div>' +
-      (mod.id !== 'clair' ? '<p class="gf-mod"><b>' + mod.name + '</b> sur tout le Gouffre cette semaine : ' + mod.desc + '</p>' : '') +
-      '<button class="btn" data-gouffre-go="' + f + '">Descendre ▶</button>' +
-      '<p class="gf-help">Chaque profondeur se gagne une fois par semaine : lucioles et XP, et des éclats aux gardiens (toutes les 5) et aux boss (toutes les 10). Dans le combat, <b>Descente auto</b> enchaîne jusqu’à la première défaite. Lundi, le Gouffre se referme et tout repart de la surface.</p></section>';
-    html += '<section class="panel gf-top"><h2>LES PLUS PROFONDES DE LA SEMAINE</h2>';
-    if (!Cloud.id) html += '<p>Joue avec un compte pour te mesurer aux autres grenouilles : le classement de la semaine est sur le serveur.</p>';
-    else if (!d) html += '<p>' + (gouffre.error ? escapeHtml(gouffre.error) + ' <button class="btn btn-ghost" data-gouffre-reload>Réessayer</button>' : 'On mesure la profondeur…') + '</p>';
-    else html += (d.top.length ? '<ol class="tt-list">' + d.top.map(function (e, k) {
-      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="Lundi : ' + giftText(d.recompenses[k]) + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><span class="cl-name"><b>' + escapeHtml(e.nom) + '</b><small>' + escapeHtml(e.pseudo || '') + '</small></span><span class="tt-dmg">' + e.prof + '<small>prof.</small></span></li>';
-    }).join('') + '</ol>' : '<p class="muted">Personne n’est encore descendu cette semaine : sois la première !</p>') +
-      '<p class="tt-note">Lundi (dans ' + untilMs(d.fin) + '), les dix plus profondes reçoivent un cadeau (survole une ligne) ; les trois premières, une peau des Abysses qu’on ne trouve nulle part ailleurs.</p>';
-    box.innerHTML = html + '</section>';
+    if (Cloud.id && !gouffre.data && !gouffre.loading && !gouffre.error) loadGouffre();
+    var g = gouffreState(), f = g.prof + 1, week = gouffreWeek(), foe = gouffreFoe(f, week), mod = gouffreMod(week), d = gouffre.data, me = myFight(), rw = gouffreRewards(f);
+    var row = function (label, his, mine, fm) { var worse = his > mine * 1.08, better = his < mine * 0.92; return '<li><span>' + label + '</span><b class="' + (worse ? 'down' : (better ? 'up' : '')) + '">' + fm(his) + '</b><small>toi : ' + fm(mine) + '</small></li>'; };
+    var n = function (v) { return Math.round(v).toLocaleString('fr-FR'); }, p = function (v) { return Math.round(v * 100) + ' %'; };
+    var html = '<span class="dj-s-kicker">LE GOUFFRE · PROFONDEUR ' + f + (foe.rank === 'boss' ? ' · BOSS' : (foe.rank === 'gardien' ? ' · GARDIEN' : '')) + '</span>' +
+      '<div class="dj-s-foe gf-s-foe' + (foe.rank === 'boss' ? ' boss' : '') + '"><img class="px" src="' + monsterPortrait(foe) + '" alt=""></div>' +
+      '<h2 class="dj-s-name">' + escapeHtml(foe.name) + '</h2><span class="dj-s-lvl">Niveau ' + foe.level + ' · venu des terres : ' + escapeHtml(BIOMES[foe.land].name) + '</span>' +
+      '<ul class="dj-s-stats">' + row('PV', foe.maxHp, me.maxHp, n) + row('Dégâts', foe.dmg, me.dmg, n) + row('Esquive', foe.dodge, me.dodge, p) + '</ul>' +
+      '<p class="gf-trait">Les abysses la nourrissent : <b>+' + Math.round(GOUFFRE.regen * 100) + ' % de ses PV</b> à chaque tour' + (foe.dmgReduce ? ', et sa cuirasse arrête <b>' + Math.round(foe.dmgReduce * 100) + ' %</b> des coups' : '') + '.</p>' +
+      (mod.id !== 'clair' ? '<p class="gf-trait"><b>' + mod.name + '</b> sur tout le Gouffre cette semaine : ' + mod.desc + '</p>' : '') +
+      '<div class="dj-s-rew"><span><b>' + n(rw.gold) + '</b> lucioles</span>' + (save.level < MAX_LEVEL ? '<span><b>' + n(rw.xp * xpGapMult(save.level, foe.level)) + '</b> XP</span>' : '') + (rw.eclats ? '<span><b>' + rw.eclats + '</b> éclats</span>' : '') +
+      '<span>Semaine : <b>' + g.prof + '</b> · record <b>' + (g.record || 0) + '</b>' + (d && d.rang ? ' · <b>' + nth(d.rang) + '</b> / ' + d.classes : '') + '</span></div>' +
+      '<button class="btn dj-go" data-gouffre-go="' + f + '">Descendre à la profondeur ' + f + ' ▶</button>';
+    if (!Cloud.id) html += '<p class="dj-s-note">Joue avec un compte pour le classement de la semaine.</p>';
+    else if (!d) html += '<p class="dj-s-note">' + (gouffre.error ? escapeHtml(gouffre.error) + ' <button class="link" data-gouffre-reload>Réessayer</button>' : 'On mesure la profondeur des autres…') + '</p>';
+    else html += '<div class="gf-s-top"><h3>LES PLUS PROFONDES DE LA SEMAINE</h3>' + (d.top.length ? '<ol>' + d.top.slice(0, 5).map(function (e, k) {
+      return '<li class="' + (e.id === Cloud.id ? 'is-me' : '') + '" title="Lundi : ' + giftText(d.recompenses[k]) + '"><span class="tt-pos">' + (k + 1) + '</span><img class="px" src="' + portraitOf(e) + '" alt=""><b>' + escapeHtml(e.nom) + '</b><span class="gf-prof">' + e.prof + '</span></li>';
+    }).join('') + '</ol>' : '<p class="muted">Personne n’est encore descendu cette semaine.</p>') +
+      '<p class="dj-s-note">Lundi (dans ' + untilMs(d.fin) + '), les dix plus profondes reçoivent un cadeau ; les trois premières, une peau des Abysses qu’on ne trouve nulle part ailleurs.</p></div>';
+    box.innerHTML = html;
+    var art = box.querySelector('canvas[data-dj-art]'); if (art) drawGouffreArt(art.getContext('2d'), false, 0);
   }
   // un combat du Gouffre : la profondeur f de la semaine, sous le ciel de la semaine, dans le décor de sa créature
   function gouffreFight(f) {
     var week = gouffreWeek(), foe = gouffreFoe(f, week);
     var fight = {
-      kind: 'gouffre', title: 'Le Gouffre · profondeur ' + f, enemy: foe, biomeIndex: foe.land, weather: gouffreMod(week), floor: f,
-      intro: 'Profondeur ' + f + ' : ' + foe.name + ' remonte des abysses !',
+      kind: 'gouffre', title: 'Le Gouffre · profondeur ' + f, enemy: foe, biomeIndex: foe.land, weather: gouffreMod(week), floor: f, gloom: true,
+      intro: 'Profondeur ' + f + ' : ' + foe.name + ' remonte des abysses, et ses plaies se referment déjà !',
       next: function () { return gouffreFight(f + 1); },
       again: function () { return gouffreFight(f); }
     };
@@ -2865,7 +2881,7 @@
     var g = gouffreState();
     if (f <= g.prof) return Promise.resolve('<p>Profondeur déjà atteinte cette semaine : pas de nouvelle récompense.</p>');
     var apply = function (extra) {
-      var r = gouffreRewards(f), best = f > (g.record || 0), gold = clanGold(r.gold), xp = clanXp(r.xp * xpGapMult(save.level, foe.level)), levels = xp ? gainXp(save, xp, 'gouffre') : 0;
+      var r = gouffreRewards(f), best = f > (g.record || 0), gold = clanGold(r.gold), xp = save.level >= MAX_LEVEL ? 0 : clanXp(r.xp * xpGapMult(save.level, foe.level)), levels = xp ? gainXp(save, xp, 'gouffre') : 0; // (au niveau maximum, plus d'XP)
       g.prof = f; g.record = Math.max(g.record || 0, f);
       save.gold += gold; save.eclats = (save.eclats || 0) + r.eclats;
       var qd = track(save, 'gouffre');
@@ -2879,41 +2895,55 @@
       return apply(res.rang ? '<p class="muted">Classement de la semaine : ' + nth(res.rang) + ' sur ' + res.classes + '.</p>' : '');
     }, function (e) { fight.next = null; return '<p>' + escapeHtml(e.message) + '</p>'; });
   }
-  // le décor : un puits sans fond entre deux parois, la lueur rouge de la Citadelle tout en haut, des braises qui
-  // montent, et des yeux qui s'ouvrent dans le noir
-  function gouffreWalls() {
-    if (gouffre.walls) return gouffre.walls;
-    var c = document.createElement('canvas'); c.width = 320; c.height = 180;
-    var x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 180);
-    g.addColorStop(0, '#2a0a14'); g.addColorStop(0.25, '#120814'); g.addColorStop(1, '#030206');
-    x.fillStyle = g; x.fillRect(0, 0, 320, 180);
-    for (var y = 0; y < 180; y++) {
-      var l = 40 + Math.round(Math.sin(y / 9) * 6 + hash(y, 1, 77) * 5 + y * 0.12), r = 200 - Math.round(Math.sin(y / 11 + 1) * 6 + hash(y, 2, 77) * 5 + y * 0.12);
-      x.fillStyle = '#0c0a12'; x.fillRect(0, y, l, 1); x.fillRect(r, y, 320 - r, 1);
-      x.fillStyle = y < 40 ? '#4a1a24' : '#1e1a2a'; x.fillRect(l - 1, y, 1, 1); x.fillRect(r, y, 1, 1);
-      if (hash(y, 3, 77) < 0.08) { x.fillStyle = '#2a2436'; x.fillRect(l - 6 - Math.round(hash(y, 4, 77) * 10), y, 6, 1); }
-      if (hash(y, 5, 77) < 0.08) { x.fillStyle = '#2a2436'; x.fillRect(r + 2 + Math.round(hash(y, 6, 77) * 10), y, 6, 1); }
+  // la carte du Gouffre : une fissure au milieu d'une salle de pierre, sous le soleil noir ; dedans, une lueur qui respire,
+  // des braises qui y tombent en tournant, et des yeux qui s'ouvrent ; fermée, tout est éteint
+  function gouffreArtBg(lit) {
+    var key = lit ? 'l' : 'd';
+    gouffre.bg = gouffre.bg || {};
+    if (gouffre.bg[key]) return gouffre.bg[key];
+    var W = DungeonArt.W, H = DungeonArt.H, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var x = c.getContext('2d'), R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
+    var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#120614'); g.addColorStop(0.45, '#0a0610'); g.addColorStop(1, '#040306');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    for (var s = 0; s < 40; s++) R(hash(s, 1, 91) * W, hash(s, 2, 91) * H * 0.4, 1, 1, s % 4 ? '#3a2a4a' : '#8a7aa0'); // des étoiles mortes
+    var sx = W * 0.78, sy = H * 0.17; // le soleil noir
+    [[11, '#5a0a14'], [9, '#c82a3a'], [8, '#ffd040'], [7, '#05030a']].forEach(function (r) { for (var yy = -r[0]; yy <= r[0]; yy++) { var hw = Math.round(Math.sqrt(Math.max(0, r[0] * r[0] - yy * yy))); R(sx - hw, sy + yy, hw * 2 + 1, 1, r[1]); } });
+    var cx = W / 2, cy = H * 0.66;
+    for (var y = Math.round(H * 0.42); y < H; y++) { // le sol de pierre, en dalles
+      var shade = 18 + Math.round((y - H * 0.42) / (H * 0.58) * 22);
+      R(0, y, W, 1, 'rgb(' + shade + ',' + (shade - 4) + ',' + (shade + 8) + ')');
+      if (y % 9 === 0) R(0, y, W, 1, '#0c0a12');
     }
-    for (var d = 1; d <= 6; d++) { var yy = d * 28; x.fillStyle = 'rgba(200, 170, 255, 0.18)'; x.fillRect(46, yy, 4, 1); x.fillRect(46, yy, 1, 3); } // des repères de profondeur
-    return (gouffre.walls = c);
+    for (var col = 0; col < W; col += 24) R(col + ((Math.floor(col / 24) % 2) * 12), H * 0.42, 1, H, 'rgba(12, 10, 18, 0.6)');
+    for (var ry = -26; ry <= 26; ry++) { // la fissure : un trou sans fond, au bord déchiqueté
+      var half = Math.round(Math.sqrt(Math.max(0, 1 - (ry / 26) * (ry / 26))) * 78 + (hash(ry, 3, 91) - 0.5) * 6);
+      R(cx - half - 3, cy + ry, half * 2 + 6, 1, '#2a2436');
+      R(cx - half, cy + ry, half * 2, 1, lit ? '#0c0414' : '#030205');
+    }
+    for (var k = 0; k < 9; k++) { var a = k / 9 * Math.PI * 2, len = 30 + hash(k, 4, 91) * 30; for (var l = 0; l < len; l++) R(cx + Math.cos(a) * (82 + l), cy + Math.sin(a) * (28 + l * 0.35), 1, 1, '#08060c'); } // les fêlures
+    if (!lit) { x.fillStyle = 'rgba(4, 4, 8, 0.55)'; x.fillRect(0, 0, W, H); }
+    var v = x.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, 150); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.7)');
+    x.fillStyle = v; x.fillRect(0, 0, W, H);
+    return (gouffre.bg[key] = c);
   }
-  function drawGouffre(now) {
-    var cv = $('gouffre-bg');
-    if (cv.width !== 320) { cv.width = 320; cv.height = 180; }
-    var x = cv.getContext('2d'), t = now / 1000;
+  function drawGouffreArt(x, lit, t) {
+    var W = DungeonArt.W, H = DungeonArt.H, cx = W / 2, cy = H * 0.66, R = function (a, y, w, h, col) { x.fillStyle = col; x.fillRect(Math.round(a), Math.round(y), Math.round(w), Math.round(h)); };
     x.imageSmoothingEnabled = false;
-    x.drawImage(gouffreWalls(), 0, 0);
-    var glow = x.createRadialGradient(120, 0, 4, 120, 0, 70); glow.addColorStop(0, 'rgba(255, 60, 60, ' + (0.35 + 0.08 * Math.sin(t * 1.4)) + ')'); glow.addColorStop(1, 'rgba(255, 60, 60, 0)');
-    x.fillStyle = glow; x.fillRect(40, 0, 160, 70);
-    for (var i = 0; i < 26; i++) { // les braises qui montent du fond
-      var life = (t * (0.05 + (i % 5) * 0.012) + i * 0.137) % 1, ex = 60 + hash(i, 9, 3) * 120 + Math.sin(t + i) * 3, ey = 180 - life * 190;
-      x.fillStyle = i % 3 ? 'rgba(255, 120, 60, ' + (1 - life) + ')' : 'rgba(255, 210, 90, ' + (1 - life) + ')'; x.fillRect(Math.round(ex), Math.round(ey), 1, 1);
+    x.drawImage(gouffreArtBg(lit), 0, 0);
+    if (lit) {
+      var a = 0.5 + 0.2 * Math.sin(t * 1.3), g = x.createRadialGradient(cx, cy, 4, cx, cy, 80);
+      g.addColorStop(0, 'rgba(170, 60, 255, ' + a + ')'); g.addColorStop(0.5, 'rgba(255, 40, 70, ' + a * 0.35 + ')'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g; x.fillRect(cx - 82, cy - 30, 164, 60);
+      for (var e = 0; e < 18; e++) { // des braises qui tombent dans le trou en tournant
+        var life = (t * (0.18 + (e % 4) * 0.04) + hash(e, 5, 91)) % 1, ang = e * 1.7 + life * 5, rad = (1 - life) * 70;
+        x.globalAlpha = Math.sin(life * Math.PI); R(cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad * 0.34 - (1 - life) * 18, e % 3 ? 1 : 2, e % 3 ? 1 : 2, e % 2 ? '#ff6a3a' : '#c080ff'); x.globalAlpha = 1;
+      }
     }
-    for (var k = 0; k < 7; k++) { // des yeux qui s'ouvrent dans le noir, de plus en plus bas
-      var phase = (t * 0.18 + k * 0.31) % 1, open = phase < 0.5 ? Math.sin(phase / 0.5 * Math.PI) : 0;
-      if (open <= 0.05) continue;
-      var bx = 70 + hash(k, 11, 3) * 100, by = 70 + hash(k, 12, 3) * 100, col = k % 2 ? '255, 60, 60' : '160, 110, 255';
-      x.fillStyle = 'rgba(' + col + ', ' + open + ')'; x.fillRect(Math.round(bx), Math.round(by), 2, Math.max(1, Math.round(2 * open))); x.fillRect(Math.round(bx) + 6, Math.round(by), 2, Math.max(1, Math.round(2 * open)));
+    for (var k = 0; k < 5; k++) { // des yeux qui s'ouvrent au fond
+      var ph = (t * 0.22 + k * 0.37) % 1, open = ph < 0.4 ? Math.sin(ph / 0.4 * Math.PI) : 0;
+      if (open < 0.05 || (!lit && k > 1)) continue;
+      var bx = cx - 50 + hash(k, 6, 91) * 100, by = cy - 12 + hash(k, 7, 91) * 22;
+      x.globalAlpha = open * (lit ? 1 : 0.7); R(bx, by, 2, Math.max(1, Math.round(2 * open)), k % 2 ? '#ff3a3a' : '#c080ff'); R(bx + 5, by, 2, Math.max(1, Math.round(2 * open)), k % 2 ? '#ff3a3a' : '#c080ff'); x.globalAlpha = 1;
     }
   }
   // le décor : la mer démontée sous l'orage (dessinée une fois), puis, à chaque image, le Titan qui respire en sortant
@@ -3138,16 +3168,23 @@
   // ses dix salles, l'ennemi de la prochaine (comparé à soi), ce qu'elle rapporte, et ses objets Uniques.
   var dj = { sel: null };
   // les donjons qu'on voit : ceux qui sont ouverts, et le suivant (fermé, en silhouette)
-  function djVisible() { var list = []; for (var i = 0; i < DUNGEONS.length; i++) { list.push(DUNGEONS[i]); if (!dungeonOpen(save, DUNGEONS[i])) break; } return list; }
+  // (et, une fois le dernier ouvert, la 31e carte : le Gouffre, qui s'ouvre quand les trente sont vidés)
+  function djVisible() {
+    var list = [];
+    for (var i = 0; i < DUNGEONS.length; i++) { list.push(DUNGEONS[i]); if (!dungeonOpen(save, DUNGEONS[i])) return list; }
+    return list.concat([GOUFFRE_DJ]);
+  }
+  function djById(id) { return id === 'gouffre' ? GOUFFRE_DJ : dungeonById(id); }
   function openDonjons() {
     var vis = djVisible(), open = vis.filter(function (d) { return dungeonOpen(save, d); });
-    if (!dungeonById(dj.sel) || vis.indexOf(dungeonById(dj.sel)) < 0) {
+    if (!djById(dj.sel) || vis.indexOf(djById(dj.sel)) < 0) {
       var todo = open.filter(function (d) { return !dungeonCleared(save, d); });
-      dj.sel = (todo[0] || open[open.length - 1] || DUNGEONS[0]).id; // le premier pas encore vidé
+      dj.sel = (todo[0] || (gouffreOpen(save) ? GOUFFRE_DJ : null) || open[open.length - 1] || DUNGEONS[0]).id; // le premier pas encore vidé (tous vidés : le Gouffre)
     }
     renderDonjons();
   }
   function djCard(d) {
+    if (d.gouffre) return gouffreCard();
     var open = dungeonOpen(save, d), st = dungeonState(save, d), done = st.room >= DUNGEON_ROOMS, pips = '';
     for (var r = 1; r <= DUNGEON_ROOMS; r++) pips += '<i class="' + (r <= st.room ? 'on' : (r === st.room + 1 && open ? 'next' : '')) + (r === DUNGEON_ROOMS ? ' boss' : (r === 5 ? ' guard' : '')) + '"></i>';
     var uniq = save.owned.filter(function (id) { return ITEMS[id] && ITEMS[id].rarity === 'unique' && ITEMS[id].dungeon === d.id; }).length, pet = petById(d.id), pl = pet ? petLevel(save, pet.id) : 0;
@@ -3165,7 +3202,10 @@
     $('dj-count').textContent = cleared + ' / ' + DUNGEONS.length + ' vidés';
     $('dj-carousel').innerHTML = '<button class="dj-arrow prev" data-dj-step="-1" aria-label="Donjon précédent">◀</button><div class="dj-viewport"><div class="dj-track" id="dj-track">' + vis.map(djCard).join('') + '</div></div>' +
       '<button class="dj-arrow next" data-dj-step="1" aria-label="Donjon suivant">▶</button>';
-    $('dj-dots').innerHTML = vis.map(function (d) { return '<button class="dj-dot' + (dungeonCleared(save, d) ? ' done' : '') + (dungeonOpen(save, d) ? '' : ' locked') + '" data-dj="' + d.id + '" aria-label="' + (dungeonOpen(save, d) ? d.name : 'Donjon fermé') + '"></button>'; }).join('');
+    $('dj-dots').innerHTML = vis.map(function (d) {
+      if (d.gouffre) return '<button class="dj-dot gf-dot' + (gouffreOpen(save) ? '' : ' locked') + '" data-dj="gouffre" aria-label="Le Gouffre"></button>';
+      return '<button class="dj-dot' + (dungeonCleared(save, d) ? ' done' : '') + (dungeonOpen(save, d) ? '' : ' locked') + '" data-dj="' + d.id + '" aria-label="' + (dungeonOpen(save, d) ? d.name : 'Donjon fermé') + '"></button>';
+    }).join('');
     selectDungeon(dj.sel, true);
     djArtLast = 0; drawDjArts(performance.now(), true);
   }
@@ -3174,15 +3214,16 @@
   function drawDjArts(now, all) {
     if (!all && now - djArtLast < 50) return;
     djArtLast = now;
-    var cards = document.querySelectorAll('#dj-track canvas[data-dj-art]'), vis = djVisible(), sel = vis.indexOf(dungeonById(dj.sel));
+    var cards = document.querySelectorAll('#dj-track canvas[data-dj-art]'), vis = djVisible(), sel = vis.indexOf(djById(dj.sel));
     Array.prototype.forEach.call(cards, function (cv, i) {
       if (!all && Math.abs(i - sel) > 1) return;
-      DungeonArt.draw(cv.getContext('2d'), dungeonById(cv.dataset.djArt), !!cv.dataset.lit, now / 1000);
+      if (cv.dataset.djArt === 'gouffre') drawGouffreArt(cv.getContext('2d'), !!cv.dataset.lit, now / 1000);
+      else DungeonArt.draw(cv.getContext('2d'), dungeonById(cv.dataset.djArt), !!cv.dataset.lit, now / 1000);
     });
   }
   // choisir un donjon : la piste glisse jusqu'à sa carte, et le panneau montre son monstre
   function selectDungeon(id, instant) {
-    var vis = djVisible(), d = dungeonById(id) || vis[0], idx = Math.max(0, vis.indexOf(d)), track = $('dj-track');
+    var vis = djVisible(), d = djById(id) || vis[0], idx = Math.max(0, vis.indexOf(d)), track = $('dj-track');
     dj.sel = d.id;
     Array.prototype.forEach.call(track.children, function (c) { c.classList.toggle('is-active', c.dataset.djCard === d.id); });
     Array.prototype.forEach.call(document.querySelectorAll('.dj-dot'), function (b) { b.classList.toggle('is-on', b.dataset.dj === d.id); });
@@ -3196,13 +3237,14 @@
     renderDjSide();
   }
   function djStep(n) {
-    var vis = djVisible(), idx = vis.indexOf(dungeonById(dj.sel)), to = Math.max(0, Math.min(vis.length - 1, idx + n));
+    var vis = djVisible(), idx = vis.indexOf(djById(dj.sel)), to = Math.max(0, Math.min(vis.length - 1, idx + n));
     if (to !== idx) { Sfx.play('page'); selectDungeon(vis[to].id); }
   }
   // à droite : seulement le monstre de la prochaine salle, sa force comparée à la tienne, et ce qu'il rapporte
   function renderDjSide() {
-    var d = dungeonById(dj.sel), box = $('dj-side');
+    var d = djById(dj.sel), box = $('dj-side');
     if (!d) { box.innerHTML = ''; return; }
+    if (d.gouffre) return renderGouffreSide(box);
     if (!dungeonOpen(save, d)) {
       box.innerHTML = '<div class="dj-s-locked"><img class="px" src="' + DungeonArt.gate(d, false) + '" alt=""><h2>DONJON FERMÉ</h2><p>' + dungeonLock(save, d) + '.</p><p class="muted">Ses monstres et ses Uniques n’existent nulle part ailleurs.</p></div>';
       return;
@@ -3213,7 +3255,8 @@
       box.innerHTML = '<span class="dj-s-kicker">DONJON NETTOYÉ</span><div class="dj-s-foe done"><img class="px" src="' + monsterPortrait(dungeonFoe(d, DUNGEON_ROOMS)) + '" alt=""></div>' +
         '<h2 class="dj-s-name">' + d.boss.name + '</h2><span class="dj-s-lvl">est tombé, et tous ses monstres avec lui.</span>' +
         '<div class="dj-s-rew"><span class="dj-unique"><b>' + uq + '</b> Unique' + (uq > 1 ? 's' : '') + ' de ' + setName(d) + '</span>' + (plv ? '<span>Compagnon : <b>' + pt.name + '</b> niv. ' + plv + '</span>' : '') + '</div>' +
-        (DUNGEONS[d.n + 1] && djVisible().indexOf(DUNGEONS[d.n + 1]) >= 0 ? '<button class="btn dj-go" data-dj-step="1">Donjon suivant ▶</button>' : '<p class="dj-s-lvl dj-go">Le prochain donjon s’ouvrira plus loin dans l’aventure.</p>');
+        (DUNGEONS[d.n + 1] && djVisible().indexOf(DUNGEONS[d.n + 1]) >= 0 ? '<button class="btn dj-go" data-dj-step="1">Donjon suivant ▶</button>'
+          : (!DUNGEONS[d.n + 1] ? '<button class="btn dj-go" data-dj-step="1">' + (gouffreOpen(save) ? 'Le Gouffre ▶' : 'Plus bas : le Gouffre ▶') + '</button>' : '<p class="dj-s-lvl dj-go">Le prochain donjon s’ouvrira plus loin dans l’aventure.</p>'));
       return;
     }
     var foe = dungeonFoe(d, next), me = myFight(), rw = dungeonRewards(d, next), gap = xpGapMult(save.level, foe.level), boss = next === DUNGEON_ROOMS;
@@ -3443,7 +3486,7 @@
 
   function showPage(page) {
     state.page = page;
-    ['camp', 'perso', 'forge', 'skills', 'map', 'shop', 'skins', 'tower', 'gouffre', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
+    ['camp', 'perso', 'forge', 'skills', 'map', 'shop', 'skins', 'tower', 'donjons', 'dojo', 'clans', 'titan', 'album', 'rank'].forEach(function (p) { $('page-' + p).hidden = p !== page; });
     renderSidebar();
     if (page === 'camp') { campBiome(); layoutScene(); }
     if (page === 'skills') renderTree();
@@ -3456,7 +3499,6 @@
     if (page === 'forge') openForge();
     if (page === 'skins') openSkins();
     if (page === 'tower') openTower();
-    if (page === 'gouffre') openGouffre();
     if (page === 'album') renderAlbum();
     if (page === 'shop') { state.ware = null; renderShop(); gamakoSay(GAMAKO_SAYS[Math.floor(Math.random() * GAMAKO_SAYS.length)]); } else gamakoHush();
     Sfx.ambient(page === 'camp' && visible);
@@ -3496,7 +3538,8 @@
     if (fight.kind === 'titan') loadTitan();
     if (fight.kind === 'guerre' && result === 'flee' && !fight.settled) fight.settle(false).then(function () { notice('Tu as quitté le combat : il compte comme une défaite.'); loadClans(); }, function () {});
     var atClan = fight.kind === 'raid' || fight.kind === 'guerre';
-    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (fight.kind === 'titan' ? 'titan' : (fight.kind === 'gouffre' ? 'gouffre' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map'))))));
+    if (fight.kind === 'gouffre') { dj.sel = 'gouffre'; if (Cloud.id) { gouffre.data = null; loadGouffre(); } } // (retour à sa carte, le classement relu)
+    showPage(fight.kind === 'tour' ? 'tower' : (fight.kind === 'donjon' ? 'donjons' : (fight.kind === 'titan' ? 'titan' : (fight.kind === 'gouffre' ? 'donjons' : (atDojo ? 'dojo' : (atClan ? 'clans' : 'map'))))));
     startTick();
   }
 
@@ -3525,7 +3568,7 @@
     if (t.dataset.djFight) { var djd = dungeonById(dj.sel), djr = +t.dataset.djFight; if (djd && dungeonOpen(save, djd) && djr === dungeonState(save, djd).room + 1 && !dungeonRetryIn(save, djd)) { Sfx.play('click'); startFight(donjonFight(djd, djr, false)); } return; }
     if (t.dataset.petFeed) { var fp = petById(t.dataset.petFeed), fpc = fp && petFeedCost(save, fp); if (fp && feedPet(save, fp)) { journal('compagnon', { id: fp.id, niveau: petLevel(save, fp.id), eclats: fpc }); persist(); Sfx.play('levelup'); notice(fp.name + ' grandit : niveau ' + petLevel(save, fp.id) + ' !'); setPlayer(save); renderAll(); } return; }
     if (t.dataset.gouffreGo) { var gf = +t.dataset.gouffreGo; if (gouffreOpen(save) && gf === gouffreState().prof + 1) { Sfx.play('click'); startFight(gouffreFight(gf)); } return; }
-    if (t.hasAttribute('data-gouffre-reload')) { gouffre.error = ''; renderGouffre(); loadGouffre(); return; }
+    if (t.hasAttribute('data-gouffre-reload')) { gouffre.error = ''; loadGouffre(); renderDjSide(); return; }
     if (t.dataset.towerFight) { var tf = +t.dataset.towerFight; if (tf <= towerNext()) { Sfx.play('click'); startFight(towerFight(tf)); } return; }
     if (t.dataset.bookGo) { turnPage(+t.dataset.bookGo); return; }
     if (t.dataset.bookStep) { turnPage(Math.max(0, Math.min(ALBUM_CHAPTERS.length, album.spread + +t.dataset.bookStep))); return; }
