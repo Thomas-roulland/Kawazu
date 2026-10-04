@@ -209,14 +209,12 @@
 
   // ---------- Les nouveautés : une fenêtre, une fois par mise à jour (NEWS.id), pour celles qui ont déjà joué ----------
   var NEWS = {
-    id: '2026-10-3',
+    id: '2026-10-4',
     list: [
-      ['perso', 'perso', 'Les voies rééquilibrées', 'L’Ermite rattrape les deux autres (ses mains grandissent avec ses objets) ; le Lancer domine moins les duels ; en fin de jeu, les Armes et le Lancer tiennent mieux face aux monstres.'],
-      ['eclat', 'forge', 'Forge et Uniques', 'La forge donne +3 % par niveau, les Uniques ×2,3 (les tiens ont été recalculés). Recycler un objet renforcé rend la moitié de ce que tu y as mis.'],
-      ['donjon', 'donjons', 'Les donjons', 'Plus durs et mieux payés. Un monstre vaincu ne revient pas ; battu, tu le retentes une heure plus tard. Le compagnon te suit à coup sûr et grandit avec des éclats.'],
-      ['donjons', 'map', 'Archipel et Royaume', 'Leurs gardiens et leurs boss sont bien plus coriaces. Dans les cycles, toutes les terres ont la force de la dernière.'],
-      ['tour', 'tower', 'Tour et méditation', 'Quand tu dépasses de loin le sage ou ta terre, l’XP fond, comme sur la carte. Le week-end donne XP ×1,5.'],
-      ['rank', 'skins', 'Aura et titres', 'Jusqu’à dix mutations : chacune ajoute un palier à l’aura (ailes, runes, éclairs…), une couleur et un titre, à régler dans la page Skins. Au classement, les mutations passent d’abord.']
+      ['donjons', 'map', 'L’Île de l’Éclipse', 'Après le Ver du Cœur du Monde : six terres sous un soleil noir, la plus dure du jeu, au-delà du niveau 300. Ses monstres portent une cuirasse ; son butin est le plus fort du monde.'],
+      ['titan', 'map', 'Lord Bufo', 'Le Seigneur de l’Éclipse se bat en trois temps : le duel, le bouclier d’ombre, puis l’éclipse totale. La première fois qu’il tombe, il laisse un Légendaire de l’Éclipse.'],
+      ['skins', 'skins', 'Dix mutations, dix auras', 'Chaque mutation ajoute un palier à l’aura (runes, ailes, éclairs…), une couleur et un titre. Tout se règle dans la page Skins, onglet « Aura & titre ».'],
+      ['rank', 'rank', 'Au classement', 'Ta couleur d’aura et ton titre s’affichent à côté de tes mutations.']
     ]
   };
   function showNews() {
@@ -1737,7 +1735,8 @@
     continent: function () { return Cinematic.dive(HERO_IMG, ContinentMap); },
     colosses: function () { return Cinematic.crossing(HERO_IMG, ColossesMap); },
     archipel: function () { return Cinematic.mists(HERO_IMG, ArchipelMap); },
-    royaume: function () { return Cinematic.descent(HERO_IMG, RoyaumeMap); }
+    royaume: function () { return Cinematic.descent(HERO_IMG, RoyaumeMap); },
+    eclipse: function () { return Cinematic.eclipse(HERO_IMG, EclipseMap); }
   };
   function playArrival(isle) {
     var done = function () {

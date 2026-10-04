@@ -68,7 +68,14 @@ var CampScene = (function () {
     lac: { shift: { h: 150, s: 0.8, l: 0.45 }, fog: '90,110,150', halo: '230,230,150', fire: '#fff080', fires: 8, cave: true },
     cristaux: { shift: { h: -110, s: 0.9, l: 0.6 }, fog: '160,120,190', halo: '240,190,255', fire: '#ff80ff', fires: 22, cave: true },
     cite: { shift: { h: 100, s: 0.5, l: 0.6 }, fog: '110,150,140', halo: '240,210,140', fire: '#e0b43a', fires: 16, cave: true, ruins: true },
-    coeur: { shift: { h: -110, s: 1.3, l: 0.5 }, fog: '170,90,60', halo: '255,170,90', fire: '#ff8a2a', fires: 34, cave: true }
+    coeur: { shift: { h: -110, s: 1.3, l: 0.5 }, fog: '170,90,60', halo: '255,170,90', fire: '#ff8a2a', fires: 34, cave: true },
+    // l'Île de l'Éclipse : le soleil noir à la place de la lune (eclipse), la Citadelle du Lord à l'horizon (castle)
+    greve: { shift: { h: 160, s: 0.2, l: 0.8 }, fog: '170,160,160', halo: '230,200,190', fire: '#ff6a5a', fires: 10, eclipse: true },
+    ecarlate: { shift: { h: -150, s: 1.2, l: 0.6 }, fog: '170,90,100', halo: '240,150,150', fire: '#ff4a6a', fires: 24, eclipse: true },
+    petrifiee: { shift: { h: 170, s: 0.1, l: 0.85 }, fog: '160,160,165', halo: '220,215,215', fire: '#ff6a2a', fires: 12, eclipse: true, ruins: true },
+    remparts: { shift: { h: 150, s: 0.3, l: 0.55 }, fog: '120,120,140', halo: '200,190,170', fire: '#e0b43a', fires: 14, eclipse: true, ruins: true, castle: true },
+    nocturne: { shift: { h: 160, s: 1.0, l: 0.5 }, fog: '120,100,160', halo: '230,210,140', fire: '#ffd040', fires: 36, eclipse: true },
+    citadelle: { shift: { h: -140, s: 0.9, l: 0.4 }, fog: '120,60,80', halo: '255,120,110', fire: '#ff2a2a', fires: 30, eclipse: true, ruins: true, castle: true }
   };
 
   function rgbToHsl(r, g, b) {
@@ -210,6 +217,8 @@ var CampScene = (function () {
 
     if (theme.shift) recolor(back, theme.shift, false);
     if (theme.cave) caveCeiling(ctx);
+    if (theme.eclipse) eclipseSun(ctx);
+    if (theme.castle) lordCastle(ctx);
     if (theme.ruins) sunkenRuins(ctx);
 
     ctx = front.getContext('2d');
@@ -332,6 +341,33 @@ var CampScene = (function () {
   }
 
   // Grottes Luisantes : la voûte d'une caverne avec ses stalactites, et des cristaux au bord de l'eau
+  // Le soleil noir de l'Éclipse, à la place de la lune : un disque noir, son anneau d'or et sa couronne rouge
+  function eclipseSun(ctx) {
+    for (var y = MOON.y - 24; y < MOON.y + 24; y++) {
+      for (var x = MOON.x - 24; x <= MOON.x + 24; x++) {
+        var d = Math.hypot(x - MOON.x, y - MOON.y), c = null;
+        if (d < 9) c = '#06040a';
+        else if (d < 10.4) c = '#ffd040';
+        else if (d < 12) c = '#ff6a3a';
+        else if (d < 15 && (x + y) % 2 === 0) c = '#c82a3a';
+        else if (d < 22 && (x + y) % 4 === 0) c = '#5a1a2a';
+        else if (d < 20 && Math.abs(Math.atan2(y - MOON.y, x - MOON.x) % (Math.PI / 4)) < 0.05) c = '#ff6a3a'; // ses rayons
+        if (c) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+      }
+    }
+  }
+  // La Citadelle du Lord, au loin sur l'horizon : des tours noires, des fenêtres rouges
+  function lordCastle(ctx) {
+    var R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }, base = HORIZON - 4, X0 = 186; // (sous le soleil noir)
+    [[0, 18, 6], [10, 30, 7], [22, 44, 8], [34, 28, 7], [45, 16, 6]].map(function (t) { return [X0 + t[0], t[1], t[2]]; }).forEach(function (t) {
+      var x = t[0], h = t[1], w = t[2];
+      R(x, base - h, w, h, '#0a070e');
+      for (var k = 1; k <= Math.ceil(w / 2); k++) R(x + k - 1, base - h - k, w - 2 * k + 2, 1, '#0a070e'); // le toit pointu
+      R(x + Math.floor(w / 2), base - h + 5, 1, 2, '#ff2a2a'); if (h > 25) R(x + Math.floor(w / 2), base - h + 15, 1, 2, '#ff6a3a');
+    });
+    R(X0 - 2, base - 10, 56, 10, '#0a070e');
+    for (var c = 0; c < 14; c++) if (c % 2 === 0) R(X0 - 2 + c * 4, base - 12, 3, 2, '#0a070e'); // les créneaux
+  }
   function caveCeiling(ctx) {
     for (var x = 0; x < W; x++) {
       var len = 40 + Math.floor(noise(x * 0.31) * 12) + (x % 9 === 0 ? Math.floor(noise(x) * 26) : 0) + (x % 9 === 1 || x % 9 === 8 ? Math.floor(noise(x - 1) * 14) : 0);
@@ -420,7 +456,7 @@ var CampScene = (function () {
       var n = noise(y * 3 + Math.floor(t * 2.5) * 7);
       if (n < 0.35) continue;
       var w = Math.max(2, 12 - (y - HORIZON) * 0.15);
-      ctx.fillStyle = y < 118 ? '#c8caa8' : '#7a8a68';
+      ctx.fillStyle = th.eclipse ? (y < 118 ? '#c83a3a' : '#6a1a2a') : (y < 118 ? '#c8caa8' : '#7a8a68');
       ctx.fillRect(Math.round(MOON.x - w / 2 + Math.sin(t * 1.5 + y) * 2), y, Math.round(w * n), 1);
     }
     // ondulations lentes

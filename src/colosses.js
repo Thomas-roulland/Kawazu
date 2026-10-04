@@ -24,8 +24,9 @@ function sculpt(size, draw, shades) {
       var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2));
       for (var i = 0; i <= n; i++) { var t = i / n, r = r0 + (r1 - r0) * t; S.ell(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, r, r, ch); }
     },
-    // une courbe (liste de points), d'épaisseur r0 → r1
+    // une courbe (liste de points), d'épaisseur r0 → r1 (r0 tout du long si r1 manque : avant, la courbe disparaissait)
     path: function (pts, ch, r0, r1) {
+      r1 = r1 == null ? r0 : r1;
       var total = 0, i, acc = 0;
       for (i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
       for (i = 1; i < pts.length; i++) {

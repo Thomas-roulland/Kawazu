@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kawazu — Notes de mise à jour</title>
-<meta name="description" content="Kawazu, le grand rééquilibrage du 3 octobre 2026 : les voies, la forge, les donjons, l’Archipel et le Royaume, l’XP.">
+<meta name="description" content="Kawazu : l’Île de l’Éclipse et Lord Bufo, dix mutations et leurs auras (4 octobre 2026) ; le grand rééquilibrage du 3 octobre.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen&amp;text=0123456789%25%C3%97%2B%E2%88%92%E2%86%92.,&amp;display=swap" rel="stylesheet">
@@ -56,6 +56,9 @@
   .card { padding: 14px 16px; background: var(--panel); box-shadow: inset 0 0 0 2px var(--line), inset 3px 0 0 var(--gold); }
   .card b { display: block; margin-bottom: 4px; font-family: var(--pixel); font-weight: 400; font-size: 9px; line-height: 1.6; color: var(--gold-2); }
   .card span { font-size: 16px; color: var(--soft); }
+  .patch { margin-top: 44px; padding: 10px 14px; font-family: var(--pixel); font-size: 12px; line-height: 1.6; color: #0d1310; background: linear-gradient(90deg, var(--gold-2), var(--gold)); }
+  .patch.old-patch { background: linear-gradient(90deg, #6a7a6a, #4a5a4e); color: #f4f4e8; }
+  .card.red { box-shadow: inset 0 0 0 2px var(--line), inset 3px 0 0 #ff4a4a; }
   footer { margin-top: 48px; padding-top: 16px; border-top: 2px solid var(--line); font-size: 15px; color: var(--muted); }
   @media (max-width: 600px) {
     body { font-size: 16px; } table { font-size: 14px; } th, td { padding: 8px 6px; }
@@ -70,15 +73,103 @@
     <div>
       <div class="brand">KAWAZU · NINJA DU MARAIS</div>
       <h1>Notes de mise à jour</h1>
-      <div class="date">3 octobre 2026 · le grand rééquilibrage</div>
+      <div class="date">4 octobre 2026 · l’Île de l’Éclipse — et le 3 octobre, le grand rééquilibrage</div>
     </div>
     <a class="play" href="index.html">Jouer ▶</a>
   </header>
 
   <nav class="toc" aria-label="Sommaire">
+    <a href="#eclipse">L’Île de l’Éclipse</a><a href="#lord">Lord Bufo</a><a href="#mutation">Mutation et auras</a><a href="#corrections">Corrections</a>
     <a href="#voies">Les voies</a><a href="#equipement">Forge et Uniques</a><a href="#monde">Le monde et l’XP</a>
     <a href="#donjons">Les donjons</a><a href="#ligne">En ligne</a><a href="#voir">À voir</a>
   </nav>
+
+  <div class="patch" id="p-2026-10-4">4 OCTOBRE 2026 · L’ILE DE L’ECLIPSE</div>
+
+  <p class="lead">Une nouvelle île au bout de l’histoire, la plus dure du jeu : six terres sous un soleil noir, dix
+    nouvelles créatures, un nouveau butin, et tout en haut de sa Citadelle, un seigneur qui n’a jamais perdu un duel.</p>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="eclipse">
+    <h2>L’Île de l’Éclipse</h2>
+    <p>Elle s’ouvre quand le Ver du Cœur du Monde tombe : un film, <b>l’Éclipse</b>, emporte la grenouille par une
+      cheminée de lave jusqu’à une grève grise, de l’autre côté du monde, où le soleil s’éteint. Ses monstres vont du
+      <b>niveau 297 au niveau 346</b> : au-delà du niveau maximum (300). Là-bas, seul l’équipement fait avancer.</p>
+    <div class="table"><table>
+      <thead><tr><th>Terre</th><th>Ses créatures</th><th>Son boss</th></tr></thead>
+      <tbody>
+        <tr><td>La Grève aux Ossements</td><td>crabe d’os, méduse noire, revenant</td><td>le Crabe-Roi des Ossements</td></tr>
+        <tr><td>Les Marais Écarlates</td><td>sangsue géante, dionée, méduse de sang</td><td>la Mère des Sangsues</td></tr>
+        <tr><td>La Forêt Pétrifiée</td><td>molosse pétrifié, dionée de pierre, freux de l’éclipse</td><td>le Grand Molosse de Pierre</td></tr>
+        <tr><td>Les Remparts Noirs</td><td>crapaud-paladin, freux des remparts, revenant cuirassé</td><td>le Capitaine des Remparts</td></tr>
+        <tr><td>Le Jardin des Éclipses</td><td>phalène de l’éclipse, dionée nocturne, molosse d’ombre</td><td>la Reine-Phalène</td></tr>
+        <tr class="total"><td>La Citadelle du Lord</td><td>garde noire, chevalier revenant, freux du Lord</td><td><b>Lord Bufo, Seigneur de l’Éclipse</b></td></tr>
+      </tbody>
+    </table></div>
+    <h3>CE QUI CHANGE AU COMBAT</h3>
+    <ul>
+      <li><b>La cuirasse</b> : les monstres de l’île arrêtent une part des coups (<b>−8 %</b> des dégâts pour les ordinaires,
+        <b>−12 %</b> pour les gardiens, <b>−15 %</b> pour les boss). Elle s’affiche sous leurs PV.</li>
+      <li>Leur force vaut aussi dans les cycles : l’Éclipse reste la terre la plus dure, même au cycle II.</li>
+    </ul>
+    <h3>SON BUTIN</h3>
+    <ul>
+      <li>Ses propres armes et formes, les plus fortes du monde : Sceptre, Hallebarde, Estoc, Fléau, Dague, Croissant,
+        Manteau, Ceinturon, Sceau, Heaume.</li>
+      <li>Deux <b>Légendaires de l’Éclipse</b>, qu’on ne trouve que là-bas : le <b>Bandeau de l’Éclipse</b> (un peu de tout,
+        et beaucoup) et la <b>Cape du Lord</b>. Lord Bufo en laisse toujours un, la première fois qu’il tombe.</li>
+    </ul>
+    <h3>RÉGLÉ AU SIMULATEUR</h3>
+    <div class="table"><table>
+      <thead><tr><th>Équipement de la terre</th><th class="num">Monstres</th><th class="num">Gardiens</th><th class="num">Boss</th><th class="num">Lord Bufo</th></tr></thead>
+      <tbody>
+        <tr><td>Royaume, Rares <span class="note">(pour comparer)</span></td><td class="num">97-100 %</td><td class="num">68-97 %</td><td class="num">37-62 %</td><td class="num">—</td></tr>
+        <tr><td>Éclipse, Rares</td><td class="num">92-100 %</td><td class="num">48-89 %</td><td class="num">23-37 %</td><td class="num"><b>11 %</b></td></tr>
+        <tr><td>Éclipse, à moitié Épique ou forgé</td><td class="num">99-100 %</td><td class="num">88-100 %</td><td class="num">71-88 %</td><td class="num"><b>42 %</b></td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Moyenne des trois voies, grenouille au niveau 300, des milliers de combats avec les vraies règles.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="lord">
+    <h2>Lord Bufo, en trois temps</h2>
+    <p>Un crapaud immense en armure noire, couronné d’or, sa cape rouge sang et une épée longue comme lui. Il se bat en
+      trois temps :</p>
+    <div class="cards">
+      <div class="card"><b>1 · LE DUEL</b><span>Il frappe et prépare ses charges, comme tout boss, mais il ne s’enrage pas à la moitié de ses PV.</span></div>
+      <div class="card"><b>2 · LE BOUCLIER D’OMBRE</b><span>Sous les deux tiers de ses PV, il lève sa lame : un bouclier de 15 % de ses PV l’enveloppe.</span></div>
+      <div class="card red"><b>3 · L’ÉCLIPSE TOTALE</b><span>Sous le tiers, l’arène s’assombrit : il frappe 35 % plus fort et chaque coup lui rend 35 % des dégâts. Il faut le finir vite.</span></div>
+    </div>
+    <p>Hauts faits : <b>Sous le soleil noir</b> (accoster sur l’île) et <b>Régicide</b> (vaincre Lord Bufo). Le cycle
+      suivant s’ouvre maintenant à sa chute.</p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="mutation">
+    <h2>Mutation : jusqu’à dix, et leurs auras</h2>
+    <ul>
+      <li>On peut muter <b>dix fois</b> au plus. Chaque mutation ajoute un <b>palier d’aura</b> : cercle et étincelles,
+        colonne de lumière, éclats en orbite, couronne, second cercle, runes, <b>ailes de lumière</b>, étoiles filantes,
+        <b>éclairs</b>, et au dixième des rayons et une onde au sol.</li>
+      <li>Chaque mutation donne aussi une <b>couleur d’aura</b> (Lagon, Soleil, Orchidée, Jeune pousse, Lune, Braise, Abysse,
+        Améthyste, Sang royal, et le Prisme qui les mêle toutes) et un <b>titre</b>, jusqu’à « la Légende du Marais ».</li>
+      <li>Tout se règle dans la page <b>Skins</b>, onglet « Aura &amp; titre » : l’aura montrée ou masquée, son palier, sa
+        couleur et le titre porté. Le classement montre ta couleur et ton titre.</li>
+      <li>Haut fait : <b>La Légende du Marais</b> (muter dix fois).</li>
+    </ul>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section id="corrections">
+    <h2>Corrections</h2>
+    <ul>
+      <li>Les fentes de lave du Ver du Cœur du Monde se voient enfin : un tracé de son sprite ne se dessinait pas.</li>
+      <li>Le dernier donjon, au-delà du niveau 300, garde la force et le butin du Cœur de la Terre (et pas ceux de l’Éclipse).</li>
+    </ul>
+  </section>
+
+  <div class="patch old-patch" id="p-2026-10-3">3 OCTOBRE 2026 · LE GRAND REEQUILIBRAGE</div>
 
   <p class="lead">Des joueurs finissaient l’histoire en tuant tout d’un seul coup, et une voie était presque injouable en
     duel. Tout a été mesuré au simulateur du jeu (des milliers de combats, avec les vraies règles) avant et après chaque

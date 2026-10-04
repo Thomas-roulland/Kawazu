@@ -327,12 +327,32 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   gardienne, et le **Ver du Cœur du Monde**, le dernier boss. Leur butin a ses propres armes et formes (Pic, Trident, Lame,
   Marteau, Poinçon, Disque, Cape, Baudrier, Chevalière, Casque de mineur). Une pente douce, comme l’Archipel. (Depuis le 3 octobre 2026, leurs gardiens et leurs boss sont relevés, LATE_POWER : ils
   tombaient presque à coup sûr ; leurs boss se gagnent maintenant à 25-60 % avec l’équipement du réglage (Colosses : 63-70 %), et leurs monstres ordinaires restent du gibier.)
-- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui le Ver du Cœur du Monde, au fond du
-  Royaume sous la Terre), on peut entrer dans le **cycle suivant** : tout recommence
+- **L’Île de l’Éclipse** (4 octobre 2026), **la plus dure du jeu** : une fois le Ver du Cœur du Monde vaincu, un
+  cinquième film, **l’Éclipse** : une cheminée de lave s’ouvre au-dessus du Ver et la vapeur emporte la grenouille vers
+  le haut ; elle débouche sur une grève grise, de l’autre côté du monde, et le soleil s’éteint au-dessus d’elle ; au
+  loin, en haut de la Citadelle, deux yeux rouges s’allument. Puis **six terres sous le soleil noir** (`src/eclipse.js`),
+  sur une île en croissant au milieu d’une mer couleur de vin : la Grève aux Ossements, les Marais Écarlates, la Forêt
+  Pétrifiée, les Remparts Noirs, le Jardin des Éclipses et la **Citadelle du Lord**. Leurs monstres vont du niveau 297
+  au niveau 346, **au-delà du niveau maximum** : là-bas, seul l’équipement fait avancer. **Dix nouvelles créatures** :
+  le crabe d’os, la méduse noire, le revenant, la sangsue géante, la dionée, le molosse pétrifié, le freux de
+  l’éclipse, le crapaud-paladin, la phalène de l’éclipse et **Lord Bufo, le Seigneur de l’Éclipse**, un crapaud
+  immense couronné d’or, en armure noire et cape rouge sang. Deux nouveautés de combat : la **cuirasse** des monstres de
+  l’île (−8 % des dégâts reçus pour les ordinaires, −12 % pour les gardiens, −15 % pour les boss, affichée sous leurs
+  PV), et **Lord Bufo en trois temps** : sous les deux tiers de ses PV, il s’entoure d’un **bouclier d’ombre** (15 % de
+  ses PV) ; sous le tiers, c’est l’**éclipse totale** : l’arène s’assombrit, il frappe 35 % plus fort et chaque coup lui
+  rend 35 % des dégâts (`LORD_PHASES`). Leur butin a ses propres armes et formes (Sceptre, Hallebarde, Estoc, Fléau,
+  Dague, Croissant, Manteau, Ceinturon, Sceau, Heaume), le plus fort du monde, et deux **Légendaires de l’Éclipse**
+  qui ne tombent que là-bas : le **Bandeau de l’Éclipse** et la **Cape du Lord** ; Lord Bufo en laisse toujours un la
+  première fois qu’il tombe. Au camp, le soleil noir remplace la lune, et la Citadelle se dresse à l’horizon. Réglé au
+  simulateur : avec les Rares de la terre, ses boss se gagnent à 23-37 % et le Lord à 11 % (le Royaume : 37-62 %) ; à
+  moitié Épique ou forgée, 71-88 % et 42 % pour le Lord. Sa force vaut aussi dans les cycles. Hauts faits « Sous le
+  soleil noir » et « Régicide ».
+- **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui Lord Bufo, en haut de la Citadelle de
+  l’Île de l’Éclipse), on peut entrer dans le **cycle suivant** : tout recommence
   au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), et **toutes les terres ont la force
   de la dernière** à niveau égal (on y revient avec l’équipement de la fin : ils tiennent tête dès le Marais-Brume ;
   réglé au simulateur, une grenouille de fin de monde y gagne environ la moitié de ses combats de boss), et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
-  échange, le butin et l’étal sont du **plus haut rang**, « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
+  échange, le butin et l’étal sont du **plus haut rang** (celui du Cœur de la Terre ; sur l’Éclipse, le sien), « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
   ses objets et ses lucioles. Sans fin ; le classement Aventure compte les cycles.
 - **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
@@ -348,8 +368,9 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   onglet « Aura & titre » : l’aura montrée ou masquée, son palier, sa couleur et le titre porté (affichés au camp, en
   combat et au classement ; purement décoratif). Ses donjons restent : ceux où
   elle est entrée ou qu’elle a nettoyés restent ouverts, même au niveau 1.
-- Hauts faits en plus : niveau 100, première et cinquième mutation, cycles II et V, premier Légendaire, l’Île des
-  Colosses et le Léviathan Ancestral, la Tour des Ancêtres et ses 600 étages, la première Maîtrise et le premier éveil.
+- Hauts faits en plus : niveau 100, première, cinquième et dixième mutation, cycles II et V, premier Légendaire, l’Île des
+  Colosses et le Léviathan Ancestral, l’Île de l’Éclipse et Lord Bufo, la Tour des Ancêtres et ses 600 étages, la
+  première Maîtrise et le premier éveil.
 
 ## Chaque jour : quêtes, forge, compagnons, Titan et saisons
 
@@ -460,7 +481,8 @@ puissance des voies.
 - `src/biomes.js` : les biomes (les 6 de l’île, les 16 du Continent : décor, monstres, boss) et la liste des îles (`ISLES`) ;
   `src/colosses.js` : l’Île des Colosses (l’outil de sculpture des sprites, ses espèces, ses 3 terres, son butin) ;
   `src/archipel.js` : l’Archipel des Brumes (ses 10 espèces, ses 6 terres, son butin) ; `src/royaume.js` : le Royaume
-  sous la Terre (ses 10 espèces, ses 6 terres, son butin)
+  sous la Terre (ses 10 espèces, ses 6 terres, son butin) ; `src/eclipse.js` : l’Île de l’Éclipse (ses 10 espèces, ses
+  6 terres, son butin, la cuirasse de ses monstres et les trois temps de Lord Bufo)
 - `src/skills.js` : les voies, leurs sorts, le Temple (3 branches et la dalle-sommet) et le deck
 - `src/feats.js` : hauts faits et leurs médailles
 - `src/items.js` : objets, couleurs, stats, niveaux, prix, sauvegarde

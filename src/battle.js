@@ -168,7 +168,8 @@ var BattleScene = (function () {
     if (f.weaken > 0) s.push('Affaibli ' + f.weaken);
     if (f.stun > 0) s.push('Étourdi');
     if (f.charging) s.push('Prépare une charge !');
-    if (f.enraged) s.push('Enragé');
+    if (f.enraged) s.push(f.lord ? 'Éclipse totale' : 'Enragé');
+    if (f !== P && !f.frog && f.dmgReduce > 0) s.push('Cuirasse −' + Math.round(f.dmgReduce * 100) + ' %'); // (les monstres de l'Éclipse)
     return s.join(' · ');
   }
 
@@ -1184,14 +1185,15 @@ var BattleScene = (function () {
   // Un monstre : il fonce, charge, aspire la vie ou englue
   async function monsterTurn() {
     E.turn++;
-    if (E.rank === 'boss' && !E.enraged && E.hp < E.maxHp * 0.5) {
+    if (E.lord) await lordPhase();
+    else if (E.rank === 'boss' && !E.enraged && E.hp < E.maxHp * 0.5) {
       E.enraged = true;
       log(E.name + ' entre dans une rage folle !', 'danger');
       sfx('boss');
       shake = 6;
       await wait(500);
     }
-    var dmgMult = (E.enraged ? 1.3 : 1) * (fight.weather && fight.weather.enemyDmg || 1);
+    var dmgMult = (E.enraged ? (E.lord ? LORD_PHASES.totalDmg : 1.3) : 1) * (fight.weather && fight.weather.enemyDmg || 1);
     var move = 'normal';
     if (E.charging) { move = 'charge'; E.charging = false; }
     else if ((E.behavior === 'dasher' || E.rank === 'boss') && E.turn % 3 === 0) {
@@ -1210,6 +1212,7 @@ var BattleScene = (function () {
       var names = { normal: 'attaque', charge: 'charge de plein fouet', drain: 'aspire la vie de ' + heroName(), glue: 'englue ' + heroName() };
       log(E.name + ' ' + names[move] + ' : ' + dmg + ' dégâts.', 'danger');
       if (move === 'drain') heal(E, dmg * 0.5);
+      if (E.lord && E.enraged) { heal(E, dmg * LORD_PHASES.drain); floater(midX(E), headY(E), 'Éclipse', '#ff6a6a'); } // l'éclipse totale : il se nourrit de chaque coup
       if (move === 'glue') { // englué : les sorts en relance prennent un tour de plus
         var slowed = false;
         Object.keys(P.cds).forEach(function (k) { if (P.cds[k] > 0) { P.cds[k]++; slowed = true; } });
@@ -1217,6 +1220,25 @@ var BattleScene = (function () {
       }
     }
     await tween(E, 'x', E.homeX, 240);
+  }
+  // Lord Bufo se bat en trois temps (LORD_PHASES, eclipse.js) : sous les deux tiers de ses PV, un bouclier d'ombre ; sous
+  // le tiers, l'éclipse totale (il frappe plus fort et chaque coup le soigne)
+  async function lordPhase() {
+    if (!E.lordShield && E.hp < E.maxHp * LORD_PHASES.shield) {
+      E.lordShield = true;
+      E.shield = E.shieldMax = Math.round(E.maxHp * LORD_PHASES.shieldPart);
+      log(E.name + ' lève sa lame : un bouclier d’ombre l’enveloppe !', 'danger');
+      floater(midX(E), headY(E) - 10, 'Bouclier d’ombre', '#9cd8f8');
+      sfx('boss'); shake = 5; renderHud();
+      await wait(650);
+    }
+    if (!E.enraged && E.hp < E.maxHp * LORD_PHASES.total) {
+      E.enraged = true;
+      log('Éclipse totale ! ' + E.name + ' frappe plus fort et se nourrit de chaque coup.', 'danger');
+      floater(midX(E), headY(E) - 10, 'ÉCLIPSE TOTALE', '#ff4a4a');
+      sfx('boss'); shake = 9; renderHud();
+      await wait(800);
+    }
   }
   // Une grenouille (duel, tour) : elle joue ses sorts comme Kawazu, choisis par l'ordinateur
   async function frogTurn() {
@@ -1299,7 +1321,8 @@ var BattleScene = (function () {
     // récompenses
     var r = fight.rewards;
     var tier = lootTier(save, fight.biomeIndex);
-    var loot = rollLoot(save, tier, r.itemChance, fight.luck);
+    var lordGift = E.lord && save.progress[fight.biomeIndex] < STAGES; // (la première fois, il laisse un Légendaire de l'Éclipse)
+    var loot = lordGift ? rollLegend(save, tier, true) : rollLoot(save, tier, r.itemChance, fight.luck);
     if (loot) save.owned.push(loot);
     if (fight.albumId) albumKill(save, fight.albumId);
     var quests = typeof track === 'function' ? track(save, 'stage').concat(E.rank === 'boss' || E.rank === 'gardien' ? track(save, 'boss') : [], E.rarity && E.rarity !== 'commun' ? track(save, 'rareFoe') : [], trackLoot(save, [loot])) : [];
@@ -1464,6 +1487,7 @@ var BattleScene = (function () {
     ctx.drawImage(bg, 0, 0, W, H, 0, 0, W, H);
     if (fight.bgFx) fight.bgFx(ctx, now); // un décor animé (l'eau de la cascade)
     if (fight.weather && fight.weather.id !== 'clair') drawWeather(now);
+    if (E.lord && E.enraged && !E.dead) { ctx.fillStyle = 'rgba(30, 0, 10, ' + (0.32 + 0.06 * Math.sin(now / 300)) + ')'; ctx.fillRect(0, 0, W, H); } // l'éclipse totale : l'arène s'assombrit
 
     // ombres
     ctx.fillStyle = 'rgba(0,0,0,0.35)';

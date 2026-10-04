@@ -99,7 +99,7 @@ var ALBUM_CHAPTERS = (function () {
     obj('ceintures', 'Les Ceintures', 'Nouées à la taille, parfois avec une breloque.', isle(function (it) { return it.slot === 'ceinture' && !it.reward; })),
     obj('anneaux', 'Les Anneaux', 'Petits, mais on les voit briller au doigt.', isle(function (it) { return it.slot === 'anneau' && !it.reward; })),
     obj('tresors', 'Les Trésors', 'Ni en boutique ni en butin : la tour, les duels de la cascade et l’album lui-même.', function (it) { return !!it.reward; }),
-    obj('legendaires', 'Les Légendaires', 'Des bandeaux et des capes d’or, qu’on ne trouve que sur le Continent… très, très rarement.', function (it) { return !!it.legend; })
+    obj('legendaires', 'Les Légendaires', 'Des bandeaux et des capes d’or, qu’on ne trouve que très, très rarement ; ceux de l’Éclipse, seulement sur son île (et Lord Bufo en laisse un).', function (it) { return !!it.legend; })
   ];
   // les îles suivantes (le Continent, les Colosses…) : pour chaque terre, son bestiaire, puis son butin (le sommaire
   // les regroupe par île)

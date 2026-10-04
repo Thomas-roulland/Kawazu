@@ -202,7 +202,7 @@ const summaries = async (account) => (await Promise.all(account.grenouilles.map(
 const RANK = 'classement';
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v) || 0));
 const MUTATION_MAX = 10; // (comme src/items.js) : dix mutations, donc dix titres et dix couleurs d'aura
-const TERRES = 37; // les terres du monde (l'île, le Continent, les Colosses, l'Archipel, le Royaume) ; à suivre quand une île s'ajoute
+const TERRES = 43; // les terres du monde (l'île, le Continent, les Colosses, l'Archipel, le Royaume, l'Éclipse) ; à suivre quand une île s'ajoute
 function rankEntry(frog, pseudo) {
   const s = frog.save || {}, progress = Array.isArray(s.progress) ? s.progress.slice(0, TERRES).map((p) => num(p, 10)) : [];
   const cycle = Math.max(1, num(s.cycle || 1, 999)), mutations = num(s.mutation && s.mutation.n, 999);

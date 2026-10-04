@@ -38,12 +38,19 @@ var ISLAND_POWER = [
 var CONTINENT_RAMP = 0.8;
 // dans un cycle (NG+), toutes les terres ont la force de la toute dernière à niveau égal : on y revient avec l'équipement
 // de la fin du monde, et les monstres doivent tenir tête dès la première terre (réglé au simulateur)
-var CYCLE_FLOOR = BIOMES.length - 1 - ISLAND_WORLDS, CYCLE_GEAR = 0.25;
+// (la force d'avant l'Île de l'Éclipse, CYCLE_TIER : l'Éclipse est à part, plus dure, dans les cycles aussi ; et le butin
+// d'un cycle reste du rang du Cœur de la Terre, sauf sur l'Éclipse, qui donne le sien)
+var CYCLE_TIER = typeof ECLIPSE_FROM !== 'undefined' ? ECLIPSE_FROM : BIOMES.length;
+var CYCLE_FLOOR = CYCLE_TIER - 1 - ISLAND_WORLDS, CYCLE_GEAR = 0.25;
 // L'Archipel et le Royaume : leur force suit la pente du Continent, mais l'équipement grandit bien plus vite ; sans ce
 // renfort, leurs boss tombaient presque à coup sûr (77 à 97 %, contre 37 à 80 % ailleurs) ; avec, 25 à 60 % (les Armes et le Lancer
 // ayant en fin de jeu plus de PV contre les monstres, pveHp). Réglé au
 // simulateur (terres.js) ; pas dans les cycles, réglés à part.
-var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 } }, CYCLE_LATE = { hp: 1.45, dmg: 1.22 };
+// L'Île de l'Éclipse, la plus dure : son renfort vaut aussi dans les cycles (always), en plus de la cuirasse de ses monstres
+// (ECLIPSE_ARMOR, eclipse.js), et la grenouille n'y monte plus de niveau (300 au plus) : seul l'équipement la fait avancer.
+// Réglé au simulateur : avec les Rares de la terre, ses boss tombent 23 à 37 % du temps et Lord Bufo 11 % (le Royaume :
+// 37 à 62 %) ; à moitié Épique (ou forgée), 71 à 88 % et 42 % pour le Lord.
+var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 }, eclipse: { hp: 1.55, dmg: 1.28, always: true } }, CYCLE_LATE = { hp: 1.45, dmg: 1.22 };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
 function makeEnemy(w, level, variant, rank, title) {
@@ -52,7 +59,8 @@ function makeEnemy(w, level, variant, rank, title) {
   // plus), sans descendre sous le niveau de leur étape (une grenouille qui vient de muter refait son chemin)
   // (et sur son équipement : une grenouille qui porte des objets d'un rang bien plus haut que son niveau, après une
   // mutation par exemple, voit les monstres monter d'une part CYCLE_GEAR de l'écart, sinon elle tuait tout d'un coup)
-  if (cyc) { var eff = playerLevel + CYCLE_GEAR * Math.max(0, playerGearLevel - playerLevel); level = Math.min(MAX_LEVEL + 20, Math.max(level, Math.round(eff) - 7 + st)); }
+  // (jamais sous le niveau de leur étape : ceux de l'Éclipse, au-delà du niveau maximum, gardent le leur)
+  if (cyc) { var eff = playerLevel + CYCLE_GEAR * Math.max(0, playerGearLevel - playerLevel); level = Math.max(level, Math.min(MAX_LEVEL + 20, Math.round(eff) - 7 + st)); }
   // la force des terres : k = 0 à la Plaine des Vents, 15 au Trône de l'Orage (l'île en dessous) ; dans un cycle, toutes
   // les terres ont la force de la dernière (CYCLE_FLOOR : on y revient avec l'équipement de la fin),
   // et chaque cycle multiplie en plus PV et dégâts par CYCLE.power
@@ -64,7 +72,8 @@ function makeEnemy(w, level, variant, rank, title) {
   if (k >= 0 && (rank || 'normal') === 'normal') { hpX *= up(CP.normal); dmgX *= Math.sqrt(up(CP.normal)); }
   var isBoss = rank === 'boss', isGuard = rank === 'gardien';
   if (b.giant) { var GP = COLOSSUS_POWER, bb = isBoss ? GP.boss : 1, gk = cyc ? 0.5 : 1; hpX *= Math.pow(GP.hp * bb, gk); dmgX *= Math.pow(GP.dmg * Math.sqrt(bb), gk); } // (dans un cycle, déjà au plus fort : le surplus des géants est adouci)
-  var lp = cyc ? CYCLE_LATE : LATE_POWER[isleOf(w).id]; // (dans un cycle, sa part à lui : CYCLE_LATE)
+  var lp = LATE_POWER[isleOf(w).id];
+  if (cyc && !(lp && lp.always)) lp = CYCLE_LATE; // (dans un cycle, sa part à lui : CYCLE_LATE ; sauf l'Éclipse, qui garde la sienne)
   if (lp) { var lk = (rank || 'normal') === 'normal' ? 0.5 : 1; hpX *= Math.pow(lp.hp, lk); dmgX *= Math.pow(lp.dmg, lk); } // (les ordinaires, le gibier du farm, la moitié du renfort)
   if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
@@ -79,7 +88,9 @@ function makeEnemy(w, level, variant, rank, title) {
     maxHp: Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX),
     dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX),
     agi: 6 + level * 0.6,
-    dodge: s.behavior === 'flyer' ? 0.18 : 0.05
+    dodge: s.behavior === 'flyer' ? 0.18 : 0.05,
+    // l'Éclipse : la cuirasse de ses monstres (une part des dégâts reçus en moins), et Lord Bufo et ses trois temps (battle.js)
+    dmgReduce: b.eclipse ? ECLIPSE_ARMOR[rank || 'normal'] || 0 : 0, lord: !!(isBoss && b.boss.lord)
   };
 }
 
@@ -115,7 +126,7 @@ function xpGapMult(heroLevel, foeLevel) { var gap = heroLevel - foeLevel - XP_GA
 
 function worldUnlocked(save, w) { return w === 0 || save.progress[w - 1] >= STAGES; }
 // Le Continent s'ouvre quand le Héron Ancestral est vaincu ; le monde est achevé quand le boss de la toute dernière terre
-// l'est (celui de la dernière île : le Ver du Cœur du Monde, au fond du Royaume sous la Terre, pour l'instant)
+// l'est (celui de la dernière île : Lord Bufo, en haut de la Citadelle de l'Île de l'Éclipse, pour l'instant)
 function continentOpen(save) { return worldUnlocked(save, ISLAND_WORLDS); }
 // une île est ouverte quand le boss de la dernière terre de la précédente est tombé
 function isleOpen(save, isle) { return worldUnlocked(save, isle.from); }
@@ -318,12 +329,11 @@ function dailyShop(save) {
 
 // Le rang de l'étal : sur l'île, un rang d'avance (jusqu'au 6) ; sur le Continent, celui de la terre atteinte
 // Le rang du butin d'une terre : le sien, et dans un cycle le plus haut (avec son « + »)
-function lootTier(save, w) { return (save.cycle || 1) > 1 ? BIOMES.length : w + 1; }
+function lootTier(save, w) { return (save.cycle || 1) > 1 ? Math.max(CYCLE_TIER, w + 1) : w + 1; }
 function shopTier(save) {
-  if ((save.cycle || 1) > 1) return BIOMES.length;
   var maxTier = 1;
   for (var w = 0; w < BIOMES.length; w++) if (worldUnlocked(save, w)) maxTier = w < ISLAND_WORLDS ? Math.min(6, w + 2) : w + 1;
-  return maxTier;
+  return (save.cycle || 1) > 1 ? Math.max(CYCLE_TIER, maxTier) : maxTier; // (dans un cycle, le rang du Cœur de la Terre, ou de l'Éclipse atteinte)
 }
 function refreshShop(save) {
   var stock = [];

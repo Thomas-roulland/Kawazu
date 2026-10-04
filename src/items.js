@@ -972,6 +972,8 @@ if (typeof ARCHIPEL_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ARCHIPEL
 if (typeof ARCHIPEL_ICONS !== 'undefined') Object.assign(ICONS, ARCHIPEL_ICONS);
 if (typeof ROYAUME_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ROYAUME_GEAR);
 if (typeof ROYAUME_ICONS !== 'undefined') Object.assign(ICONS, ROYAUME_ICONS);
+if (typeof ECLIPSE_GEAR !== 'undefined') Object.assign(CONTINENT_GEAR, ECLIPSE_GEAR);
+if (typeof ECLIPSE_ICONS !== 'undefined') Object.assign(ICONS, ECLIPSE_ICONS);
 (function () {
   var SECOND = { echarpe: 'vitalite', ceinture: 'agilite', anneau: 'esprit', tete: 'vitalite' };
   var R = Math.round;
@@ -1041,12 +1043,18 @@ var LEGENDS = {
   leg_cape_aurore: mkLegend('echarpe', 'Cape de l’Aurore', { force: 1.3, agilite: 0.6, vitalite: 0.4 }, ['#e0602a', '#8a2a0a'], 'Une cape d’or et de feu, qui claque au vent comme un drapeau.'),
   leg_cape_etoiles: mkLegend('echarpe', 'Cape d’Étoiles', { esprit: 1.3, agilite: 0.6, vitalite: 0.4 }, ['#3a4aa8', '#1a2260'], 'Sa doublure est un ciel de nuit. On y voit parfois filer une étoile.'),
   leg_cape_dragon: mkLegend('echarpe', 'Cape du Dragon', { vitalite: 1.3, force: 0.6, esprit: 0.4 }, ['#a81a2a', '#4a0a12'], 'Taillée dans une aile de dragon. Rien ne la perce.'),
-  leg_cape_jade: mkLegend('echarpe', 'Cape de Jade', { agilite: 1.3, vitalite: 0.6, force: 0.4 }, ['#2aa07a', '#0a4a3a'], 'Légère comme une feuille, verte comme la mare au printemps.')
+  leg_cape_jade: mkLegend('echarpe', 'Cape de Jade', { agilite: 1.3, vitalite: 0.6, force: 0.4 }, ['#2aa07a', '#0a4a3a'], 'Légère comme une feuille, verte comme la mare au printemps.'),
+  // ceux de l'Île de l'Éclipse : ils ne tombent que là-bas, et Lord Bufo en laisse toujours un la première fois qu'il tombe
+  leg_bandeau_eclipse: mkLegend('tete', 'Bandeau de l’Éclipse', { force: 1, agilite: 0.7, esprit: 0.7, vitalite: 0.4 }, ['#ff2a2a', '#1a0a14'], 'Noir comme le soleil de l’île, cerclé d’or. Il donne un peu de tout, et beaucoup.'),
+  leg_cape_lord: mkLegend('echarpe', 'Cape du Lord', { vitalite: 1.2, force: 0.8, agilite: 0.4, esprit: 0.4 }, ['#8a0a1a', '#2a0410'], 'La cape rouge sang de Lord Bufo. Elle a essuyé mille lames sans un accroc.')
 };
+LEGENDS.leg_bandeau_eclipse.eclipse = LEGENDS.leg_cape_lord.eclipse = true;
 Object.keys(LEGENDS).forEach(function (id) { ITEMS[id] = LEGENDS[id]; });
 // Un Légendaire tombe : un exemplaire dont les stats suivent le rang de la terre (et le cycle)
-function rollLegend(save, tier) {
-  var ids = Object.keys(LEGENDS).filter(function (id) { return itemAvailable(save, id); }), base = ids[Math.floor(Math.random() * ids.length)];
+// (ceux de l'Éclipse, seulement sur l'Éclipse ; eclipse : seulement eux, le cadeau de Lord Bufo)
+function rollLegend(save, tier, eclipse) {
+  var onIsle = typeof ECLIPSE_FROM !== 'undefined' && tier > ECLIPSE_FROM;
+  var ids = Object.keys(LEGENDS).filter(function (id) { var e = !!LEGENDS[id].eclipse; return itemAvailable(save, id) && (eclipse ? e : !e || onIsle); }), base = ids[Math.floor(Math.random() * ids.length)];
   var unit = continentAcc(Math.max(ISLAND_WORLDS, tier - 1)) * (1 + CYCLE.loot * Math.max(0, (save.cycle || 1) - 1)), stats = {};
   Object.keys(LEGENDS[base].weights).forEach(function (k) { stats[k] = Math.max(1, Math.round(LEGENDS[base].weights[k] * unit * (0.95 + Math.random() * 0.1))); });
   var id = base + '#' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 6);

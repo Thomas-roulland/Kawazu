@@ -643,5 +643,64 @@ var RoyaumeMap = makeWorldMap({
   }
 });
 
+// ---------- L'Île de l'Éclipse ----------
+// Une île en croissant sur une mer couleur de vin : on accoste sur la grève au sud-ouest, on longe la côte vers l'est
+// (les marais, la forêt de pierre), on force les remparts, on traverse le jardin, et l'on finit au pied de la Citadelle,
+// au nord, sous le soleil noir.
+var EclipseMap = makeWorldMap({
+  W: 768, H: 480, first: ECLIPSE_FROM, radius: 80, bridge: 26, density: 1.2,
+  regions: [{ x: 118, y: 368 }, { x: 300, y: 394 }, { x: 488, y: 360 }, { x: 640, y: 232 }, { x: 494, y: 124 }, { x: 290, y: 190 }],
+  blobs: [{ x: 62, y: 214, r: 28 }, { x: 702, y: 420, r: 24 }, { x: 170, y: 82, r: 26 }, { x: 716, y: 84, r: 20 }],
+  start: { x: 40, y: 444 }, nest: { x: 262, y: 164 },
+  sea: { deep: ['#120610', '#1c0a16'], shallow: ['#2a0e1c', '#3a1426'], foam: '#8a3a4a', sand: ['#5a544c', '#46423a'], wave: '#3a1a2a',
+    cloud: ['#2a1a24', '#3a2632', '#4a3442', '#5a4252'], rim: '#8a5a6a' },
+  trailPal: [
+    { e: '#3a362e', f: '#9a9288', l: '#d8d0bc' }, { e: '#2a1010', f: '#6a3e3a', l: '#c84a5a', planks: true },
+    { e: '#2a2a2e', f: '#7a7a80', l: '#b0b0b8' }, { e: '#0e0e14', f: '#52525e', l: '#e0b43a' },
+    { e: '#0e0a1a', f: '#3e3658', l: '#ffd040' }, { e: '#08060c', f: '#3e3446', l: '#ff3a3a' }
+  ],
+  decor: [
+    ['bones', 'rock', 'bones', 'deadtree', 'rock'], ['reeds', 'thorn', 'deadtree', 'reeds', 'thorn'], ['deadtree', 'rock', 'stub', 'deadtree', 'rock'],
+    ['banner', 'sword', 'pillar', 'tomb', 'sword'], ['flower', 'crystal', 'glow', 'flower', 'grass'], ['lavarock', 'tomb', 'sword', 'bones', 'pillar']
+  ],
+  // une épave sur la grève, une dionée géante, un arbre de pierre, la porte des remparts, une fleur d'éclipse
+  // (la Citadelle se dessine à part, avec son soleil noir)
+  landmarks: function (m) {
+    var K = MAP_K;
+    return [
+      m.sprite(['......k.......', '.....kWk......', '.....kWk..k...', '....kSSSk.kWk.', '...kSS.SSk.W..', '..kkkkkkkkkkk.', '.kBBBBBBBBBBBk', '..kBBkBBBBBk..', '...kkkkkkkk...'],
+        { k: K, W: '#6a5a4a', S: '#c8c0a8', B: '#4a3a2a' }),
+      m.sprite(['..kkkkkk..', '.kRRwRwRk.', 'kRmmmmmmRk', '.kRwRwRRk.', '..kkkkkk..', '....kgk...', '...kggk...', '..kgk.....', '.kkkkk....'],
+        { k: K, R: '#c82a3a', m: '#ff6a6a', w: '#f4f4e8', g: '#3a7a2a' }),
+      m.sprite(['..kk.kk.kk..', '.kLLkLLkLLk.', 'kLLLLLLLLLLk', 'kLlLLLlLLlLk', '.kkLLLLLLkk.', '...kLLlk....', '...kLLLk....', '...kLlLk....', '..kLLLLLk...', '.kkkkkkkkk..'],
+        { k: K, L: '#a0a0a8', l: '#6a6a72' }),
+      m.sprite(['k.k.k..k.k.k', 'kkkkkkkkkkkk', 'kSSSSSSSSSSk', 'kSSkkkkkkSSk', 'kSkbbbbbbkSk', 'kSkbkbkbbkSk', 'kSkbbbbbbkSk', 'kSkbkbkbbkSk', 'kSSSSSSSSSSk', 'kkkkkkkkkkkk'],
+        { k: K, S: '#3a3a4e', b: '#0a0a10' }),
+      m.sprite(['...kkk...', '..kPPPk..', '.kPkkkPk.', 'kPkEyEkPk', 'kPkyEykPk', '.kPkkkPk.', '..kPPPk..', '...kgk...', '..kggk...', '.kkkkkk..'],
+        { k: K, P: '#9a7ac0', E: '#140a1e', y: '#ffd040', g: '#3a5a3a' }),
+      null
+    ];
+  },
+  // la Citadelle du Lord : ses tours noires aux fenêtres rouges, sur son rocher, et le soleil noir au-dessus
+  mountains: function (ctx, T) {
+    var R = function (x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+    var l = T[5].landmark, cx = Math.round(l.x), cy = Math.round(l.y) + 6;
+    for (var dy = 0; dy < 10; dy++) R(cx - 32 + dy * 2, cy + dy, 64 - dy * 4, 1, dy ? '#2a2230' : MAP_K); // le rocher
+    [[-24, 24, 7], [-13, 38, 8], [-2, 52, 9], [10, 36, 8], [21, 22, 7]].forEach(function (t) {
+      var x = cx + t[0], h = t[1], w = t[2];
+      R(x - 1, cy - h, w + 2, h, MAP_K); R(x, cy - h + 1, w, h - 1, '#1e1826'); R(x, cy - h + 1, 1, h - 1, '#3a3046');
+      for (var k = 0; k <= Math.ceil(w / 2); k++) R(x - 1 + k, cy - h - k, w + 2 - 2 * k, 1, k ? '#140e1a' : MAP_K); // le toit pointu
+      R(x + Math.floor(w / 2) - 1, cy - h + 6, 2, 3, '#ff2a2a'); if (h > 30) R(x + Math.floor(w / 2) - 1, cy - h + 18, 2, 3, '#ff6a3a'); // les fenêtres
+    });
+    R(cx - 32, cy - 12, 64, 12, MAP_K); R(cx - 31, cy - 11, 62, 11, '#2a2234'); // la muraille
+    for (var c = 0; c < 16; c++) if (c % 2 === 0) R(cx - 31 + c * 4, cy - 14, 3, 2, '#2a2234'); // ses créneaux
+    R(cx - 4, cy - 9, 8, 9, '#08060c'); R(cx - 3, cy - 10, 6, 1, '#08060c'); // la porte
+    var sx = cx + 2, sy = cy - 86;
+    [[15, '#4a0a14'], [13, '#8a0a1a'], [11, '#ff3a3a'], [10, '#ffd040']].forEach(function (r) { for (var yy = -r[0]; yy <= r[0]; yy++) { var hw = Math.round(Math.sqrt(Math.max(0, r[0] * r[0] - yy * yy))); R(sx - hw, sy + yy, hw * 2 + 1, 1, r[1]); } }); // la couronne
+    for (var yy2 = -9; yy2 <= 9; yy2++) { var hw2 = Math.round(Math.sqrt(Math.max(0, 81 - yy2 * yy2))); R(sx - hw2, sy + yy2, hw2 * 2 + 1, 1, '#08060c'); } // le disque noir
+    [[-20, 0], [20, 0], [0, -20], [-14, -14], [14, -14], [-14, 14], [14, 14]].forEach(function (p) { R(sx + p[0], sy + p[1], 2, 2, '#ff6a3a'); }); // ses flammèches
+  }
+});
+
 // la carte de chaque île
-ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap, archipel: ArchipelMap, royaume: RoyaumeMap }[s.id]; });
+ISLES.forEach(function (s) { s.map = { ile: WorldMap, continent: ContinentMap, colosses: ColossesMap, archipel: ArchipelMap, royaume: RoyaumeMap, eclipse: EclipseMap }[s.id]; });

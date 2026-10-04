@@ -627,5 +627,87 @@ var Cinematic = (function () {
     };
   }
 
-  return { play: play, dive: dive, crossing: crossing, mists: mists, descent: descent };
+  // ---------- L'Éclipse : du Royaume sous la Terre à l'Île de l'Éclipse ----------
+  // Le Ver vaincu, une cheminée de lave s'ouvre vers le haut : la grenouille y remonte, portée par la vapeur ; elle
+  // débouche sur une grève grise, de l'autre côté du monde, et le soleil s'éteint au-dessus d'elle ; au loin, sur la plus
+  // haute tour de la Citadelle, deux yeux rouges s'allument ; puis la carte de l'île et son nom.
+  function eclipse(hero, map) {
+    var face = hero.face, side = hero.profil, back = hero.dos || hero.face, at = function (list, t) { return list[Math.floor(t / (1000 / list.length)) % list.length]; };
+    var hx = function (a, b, t) { var A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), o = '#'; [16, 8, 0].forEach(function (sh) { var v = Math.round(((A >> sh) & 255) + (((B >> sh) & 255) - ((A >> sh) & 255)) * clamp(t)); o += (v < 16 ? '0' : '') + v.toString(16); }); return o; }; // (un mélange en #rrggbb, pour F.bands)
+    var disc = function (F, cx, cy, r, c) { for (var dy = -r; dy <= r; dy++) { var hw = Math.round(Math.sqrt(Math.max(0, r * r - dy * dy))); F.R(cx - hw, cy + dy, hw * 2 + 1, 1, c); } };
+    var lord = null, land = null;
+    var embers = []; for (var i = 0; i < 40; i++) embers.push({ x: rnd(i, 150) * 320, y: rnd(i, 151) * 200, v: 0.5 + rnd(i, 152), p: rnd(i, 153) * 6 });
+    // la Citadelle, au loin (x : son centre ; base : le pied de ses tours ; s : son échelle)
+    function citadel(F, x, base, s, lit) {
+      [[-24, 24, 7], [-13, 38, 8], [-2, 52, 9], [10, 36, 8], [21, 22, 7]].forEach(function (t) {
+        var tx = x + t[0] * s, h = t[1] * s, w = Math.max(2, t[2] * s);
+        F.R(tx, base - h, w, h, '#0a070e');
+        for (var k = 1; k <= Math.ceil(w / 2); k++) F.R(tx + k - 1, base - h - k, w - 2 * k + 2, 1, '#0a070e');
+        if (lit) F.R(tx + w / 2 - s, base - h + 6 * s, Math.max(1, 2 * s), Math.max(1, 3 * s), '#ff2a2a');
+      });
+      F.R(x - 32 * s, base - 12 * s, 64 * s, 12 * s, '#0a070e');
+    }
+    // ---- 1. La remontée : une cheminée de lave, la vapeur qui la porte vers le haut ----
+    function chimney(ctx, k, t, F) {
+      F.bands(0, F.H, [[0, '#1a0806'], [0.6, '#3a1208'], [1, '#a83a0a']]);
+      for (var y = 0; y < F.H; y += 2) { var wob = Math.round(Math.sin(y / 9 + t / 400) * 3); F.R(0, y, 92 + wob, 2, '#140806'); F.R(228 - wob, y, 92 + wob, 2, '#140806'); F.R(92 + wob, y, 1, 2, '#5a1e14'); F.R(227 - wob, y, 1, 2, '#5a1e14'); } // les parois
+      for (var r = 0; r < 14; r++) { var ry = ((rnd(r, 160) * 220 + t * 0.12) % 220) - 20; F.R(96 + rnd(r, 161) * 120, F.H - ry, 2, 2, r % 3 ? '#ff8a2a' : '#ffd040'); } // les braises qui tombent… vers le bas
+      for (var v = 0; v < 22; v++) { var vy = ((rnd(v, 162) * 200 - t * 0.09 * (1 + rnd(v, 163))) % 200 + 200) % 200; F.alpha(0.35, function () { F.R(110 + rnd(v, 164) * 100, vy, 6 + rnd(v, 165) * 10, 3, '#e8dcd0'); }); } // la vapeur qui monte
+      F.frog(at(back, t), 160 + Math.sin(t / 250) * 4, 150 - ease(k) * 130, 0.9, Math.sin(t / 300) * 0.1);
+      F.fade(1 - k * 7, '#000000'); F.fade((k - 0.86) / 0.14, '#ffffff');
+    }
+    // ---- 2. La grève : elle se pose sur le sable gris ; au-dessus, le soleil s'éteint ----
+    function shore(ctx, k, t, F) {
+      var dark = ease((k - 0.25) / 0.6);
+      F.bands(0, 120, [[0, hx('#6a8ab0', '#14060e', dark)], [1, hx('#d8b890', '#3a0a14', dark)]]);
+      var sx = 220, sy = 40;
+      disc(F, sx, sy, 16, F.mix('#fff6c0', '#ff3a3a', dark)); // le soleil, puis sa couronne
+      if (dark > 0.6) [[-24, 0], [24, 0], [0, -24], [0, 24], [-17, -17], [17, -17], [-17, 17], [17, 17]].forEach(function (p) { F.alpha((dark - 0.6) * 2.5, function () { F.R(sx + p[0], sy + p[1], 2, 2, '#ff6a3a'); }); });
+      disc(F, sx - 34 + ease(k / 0.85) * 34, sy, 14, '#06040a'); // la lune noire qui le recouvre
+      F.ridge(new Array(320).fill(0).map(function (_, x) { return 104 + Math.round(Math.sin(x / 23) * 4 + Math.sin(x / 7) * 1.5); }), 0, F.mix('#4a4a5a', '#140a14', dark));
+      F.bands(110, 140, [[0, hx('#4a6a8a', '#2a0e1c', dark)], [1, hx('#2a3a5a', '#120610', dark)]], 2); // la mer
+      F.R(0, 140, F.W, 40, F.mix('#9a9288', '#3a3430', dark)); F.R(0, 140, F.W, 2, F.mix('#d8d0bc', '#5a544c', dark)); // la grève
+      [[40, 156], [86, 166], [250, 160], [290, 170]].forEach(function (b) { F.R(b[0], b[1], 7, 2, '#f0ecdc'); F.R(b[0] + 1, b[1] - 1, 2, 1, '#f0ecdc'); F.R(b[0] + 5, b[1] + 2, 2, 1, '#f0ecdc'); }); // des os sur le sable
+      F.frog(k < 0.5 ? at(face, t) : at(side, t), 120, 150, 0.8, 0);
+      F.fade(1 - k * 8, '#ffffff'); F.fade((k - 0.9) / 0.1, '#000000');
+    }
+    // ---- 3. La Citadelle : au loin, sur la plus haute tour, Lord Bufo ; ses yeux s'allument ----
+    function tower(ctx, k, t, F) {
+      if (!lord) lord = stringsToCanvas(SPECIES.lord.frames[0], SPECIES.lord.pal);
+      var z = 1 + ease(k) * 0.8;
+      F.bands(0, F.H, [[0, '#08040a'], [0.7, '#2a0a14'], [1, '#4a0e1a']]);
+      disc(F, 250, 34, 15, '#8a0a1a'); disc(F, 250, 34, 12, '#ffd040'); disc(F, 250, 34, 11, '#06040a'); // le soleil noir
+      embers.forEach(function (e) { var ey = ((e.y - t * 0.03 * e.v) % 200 + 200) % 200; F.R(e.x, ey, 1, 1, Math.sin(t / 250 + e.p) > 0 ? '#ff3a3a' : '#ffd040'); });
+      citadel(F, 160, 150 + (z - 1) * 40, 1.6 * z, k > 0.15);
+      var cs = 1.6 * z, ly = 150 + (z - 1) * 40 - 52 * cs + 2, ls = 22 * z; // Lord Bufo, debout en haut de la plus haute tour
+      var lx = Math.round(160 + 2.5 * cs - ls / 2), ltop = Math.round(ly - ls), u = ls / 32;
+      ctx.drawImage(lord, lx, ltop, Math.round(ls), Math.round(ls));
+      if (k > 0.55) { var flash = Math.min(1, (k - 0.55) / 0.1) * (0.7 + 0.3 * Math.sin(t / 90)); F.alpha(flash, function () { [10, 20].forEach(function (ex) { F.R(lx + ex * u - 1, ltop + 8 * u - 1, 3, 3, '#ff2a2a'); F.R(lx + ex * u - 3, ltop + 8 * u, 7, 1, '#ff6a6a'); }); }); } // ses yeux qui s'allument
+      F.R(0, 160, F.W, 20, '#06040a');
+      F.frog(at(back, t), 60, 168, 0.8, 0);
+      F.fade(1 - k * 8, '#000000'); F.fade((k - 0.88) / 0.12, '#ffffff');
+    }
+    function title(ctx, k, t, F) {
+      if (!land) { var all = []; for (var li = 0; li < map.REGIONS.length; li++) all.push(li); land = map.render(all).canvas; }
+      mapReveal(ctx, k, F, map, land, 'L\'ILE DE L\'ECLIPSE', 'SIX TERRES SOUS LE SOLEIL NOIR', 12);
+    }
+    return {
+      dur: 16000,
+      captions: [
+        [0, 'Le Ver du Cœur du Monde s’effondre. Au-dessus de lui, une cheminée de lave s’ouvre : la vapeur emporte la grenouille vers le haut.'],
+        [3500, 'Elle débouche sur une grève grise, de l’autre côté du monde. Au-dessus d’elle, le soleil s’éteint.'],
+        [8000, 'Tout en haut de la Citadelle, deux yeux rouges s’allument. Lord Bufo l’attendait.'],
+        [12000, 'L’ILE DE L’ECLIPSE · Six terres sous le soleil noir, et en haut de sa tour, le Seigneur de l’Éclipse.']
+      ],
+      sounds: [[300, 'riser'], [3400, 'thud'], [5200, 'boss'], [9800, 'boss'], [12100, 'levelup']],
+      scenes: [
+        { from: 0, to: 3500, draw: chimney },
+        { from: 3500, to: 8000, draw: shore },
+        { from: 8000, to: 12000, draw: tower },
+        { from: 12000, to: 16000, draw: title }
+      ]
+    };
+  }
+
+  return { play: play, dive: dive, crossing: crossing, mists: mists, descent: descent, eclipse: eclipse };
 })();

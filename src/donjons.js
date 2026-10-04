@@ -223,12 +223,12 @@ function dungeonLock(save, d) {
   return 'Au niveau ' + d.level;
 }
 // le rang des objets qui y tombent : celui des terres de son niveau
-function dungeonTier(d) { return Math.max(1, Math.min(BIOMES.length, Math.floor((d.level - 1) / 8) + 1)); }
+function dungeonTier(d) { return Math.max(1, Math.min(CYCLE_TIER, Math.floor((d.level - 1) / 8) + 1)); } // (jamais celui de l'Éclipse)
 // L'ennemi d'une salle (r de 1 à 10) : un niveau de plus par salle, un gardien à la 5e, le boss à la 10e (+2 niveaux).
 // Sa force est celle des terres de son niveau (la terre « w » dont les étapes ont ce niveau), bien plus coriace (DUNGEON_POWER).
 function dungeonFoe(d, r) {
   var boss = r === DUNGEON_ROOMS, guard = r === 5, lvl = d.level + r - 1 + (boss ? 2 : 0);
-  var w = Math.max(0, Math.min(BIOMES.length - 1, Math.floor((lvl - 1) / 8)));
+  var w = Math.max(0, Math.min(CYCLE_TIER - 1, Math.floor((lvl - 1) / 8))); // (les terres d'avant l'Éclipse : le dernier donjon dépasse le niveau 300)
   var variant = d.monsters[(r * 2 + d.n) % d.monsters.length], sp = SPECIES[boss ? d.boss.species : variant.species];
   var e = makeEnemy(w, lvl, variant, boss ? 'boss' : 'normal', 'des profondeurs');
   if (guard) { e.name = DUNGEON_SPECIES_NAMES[variant.species] + ' de garde'; e.rank = 'gardien'; e.maxHp = Math.round(e.maxHp * DUNGEON_POWER.guardHp); e.dmg = Math.round(e.dmg * DUNGEON_POWER.guardDmg); } // le gardien de la 5e salle
