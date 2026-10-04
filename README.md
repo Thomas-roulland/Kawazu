@@ -18,12 +18,15 @@ Sans serveur, pour jouer seul en local : double-cliquer sur `jeu.html`.
 
 ## Page d’accueil et comptes
 
-- `index.html` : une **cinématique** en pixel art (les vrais décors du jeu) qui raconte l’histoire de la
-  grenouille, puis l’écran titre. Un seul bouton, en haut à droite : **Connexion / Inscription**.
-  Les phrases de la cinématique sont provisoires, en attendant le lore.
+- `index.html` : le jeu présenté sur un **fond animé**, les vrais camps du jeu d’une île à l’autre en fondu (le
+  Marais-Brume, la Lagune, la Toundra, le Chemin des Mille Portes, la Forêt de Champignons, la Citadelle du Lord),
+  chacun avec sa grenouille, de plus en plus parée (et son aura, jusqu’au Prisme) ; à côté, le **compte**, toujours à
+  portée : connexion ou inscription, puis **ses grenouilles** (la dernière jouée en premier : « Reprendre »), en créer
+  une, en supprimer une. (La cinématique du Héron d’avant n’est plus là.)
 - Un compte = un pseudo et un mot de passe, et jusqu’à **5 grenouilles**. On choisit sa grenouille, on
   joue (`jeu.html?grenouille=…`) et la partie est **sauvegardée sur le serveur** après chaque changement :
-  on la retrouve depuis n’importe quel appareil.
+  on la retrouve depuis n’importe quel appareil. En jeu, le bouton **⇄** à côté du nom ouvre la liste des grenouilles
+  du compte : un clic, et la partie part au serveur avant de passer à l’autre.
 - L’API des comptes (`server/api.js`, Node pur) range tout dans un magasin clé → valeur : des fichiers
   JSON dans `server/data/kv/` en local, **Upstash Redis** en ligne. Les mots de passe n’y sont jamais en
   clair (scrypt + sel), la session tient dans un cookie `HttpOnly`, et les essais de mot de passe sont

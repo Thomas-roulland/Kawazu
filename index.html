@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kawazu — Ninja du marais</title>
-<meta name="description" content="Kawazu, un RPG en pixel art : une grenouille ninja quitte son marais pour remonter jusqu’au Sommet du Héron.">
+<meta name="description" content="Kawazu, un RPG en pixel art : une grenouille ninja quitte son marais et traverse six îles, jusqu’à la Citadelle du Lord. Duels, clans, donjons, Titan.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Pixelify+Sans:wght@400;600&amp;display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen&amp;text=0123456789&amp;display=swap" rel="stylesheet">
@@ -13,31 +13,36 @@
 </head>
 <body class="accueil">
 
-<!-- La cinématique, en plein écran -->
-<canvas id="film" aria-label="Cinématique : l’histoire de la grenouille"></canvas>
-<p id="film-caption" class="film-caption" aria-live="polite"></p>
-<p id="film-tag" class="film-tag" aria-hidden="true"></p>
+<!-- Le fond : les camps du jeu, d'une île à l'autre, en fondu -->
+<canvas id="bg" aria-hidden="true"></canvas>
+<p id="bg-land" class="bg-land" aria-live="polite"></p>
 
-<!-- L'écran titre, à la fin du film -->
-<div id="film-title" class="film-title" hidden>
-  <canvas id="title-logo" aria-hidden="true"></canvas>
-  <h1>KAWAZU</h1>
-  <p>Ninja du marais</p>
-  <button id="title-play" class="btn">Jouer ▶</button>
-</div>
+<main class="home">
+  <!-- Le jeu, en quelques mots -->
+  <section class="pitch" aria-labelledby="home-title">
+    <canvas id="title-logo" aria-hidden="true"></canvas>
+    <h1 id="home-title">KAWAZU</h1>
+    <p class="tagline">Ninja du marais</p>
+    <p class="lead">Une grenouille ninja quitte sa mare et traverse le monde : le Continent, l’Île des Colosses,
+      l’Archipel des Brumes, le Royaume sous la Terre… jusqu’à la Citadelle de Lord Bufo, sous un soleil noir.</p>
+    <ul class="features">
+      <li><b>43 terres</b><span>six îles, des centaines de monstres</span></li>
+      <li><b>Trois voies</b><span>les Armes, le Lancer, l’Ermite</span></li>
+      <li><b>En ligne</b><span>duels, clans, guerres, Titan</span></li>
+      <li><b>Sans fin</b><span>donjons, forge, mutations, cycles</span></li>
+    </ul>
+  </section>
 
-<!-- En haut à droite : le compte, et rien d'autre -->
-<button id="account-btn" class="btn account-btn">Connexion / Inscription</button>
-<aside id="account-panel" class="account-panel" hidden aria-label="Ton compte">
-  <button id="account-close" class="account-close" aria-label="Fermer">×</button>
-  <div id="account-body"></div>
-</aside>
+  <!-- Le compte : se connecter, puis ses grenouilles -->
+  <section class="account-card" aria-label="Ton compte">
+    <div id="account-body"></div>
+  </section>
+</main>
 
-<!-- En bas à gauche : le son et revoir le film -->
-<div class="film-controls">
-  <button id="film-sound" class="link" aria-pressed="false">Son coupé</button>
-  <button id="film-replay" class="link">Revoir le film</button>
+<div class="home-links">
+  <button id="bg-sound" class="link" aria-pressed="false">Activer le son</button>
   <a class="link" href="patch.html">Notes de mise à jour</a>
+  <a class="link" href="jeu.html">Jouer sans compte</a>
 </div>
 
 <script src="src/audio.js"></script>
@@ -52,7 +57,6 @@
 <script src="src/items.js"></script>
 <script src="src/tiles.js"></script>
 <script src="src/scene.js"></script>
-<script src="src/map.js"></script>
 <script src="src/accueil.js"></script>
 </body>
 </html>

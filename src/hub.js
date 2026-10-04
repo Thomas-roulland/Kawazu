@@ -228,9 +228,46 @@
     if (e.target === $('news-modal') || (t && t.id === 'news-close')) { $('news-modal').hidden = true; Sfx.play('click'); return; }
     if (t && t.dataset.newsGo) { $('news-modal').hidden = true; Sfx.play('click'); showPage(t.dataset.newsGo); }
   });
+  // ---------- Changer de grenouille (une partie de compte : ses grenouilles, à portée de clic) ----------
+  var myFrogs = null;
+  function loadFrogs() {
+    if (!Cloud.id) return;
+    fetch('/api/moi', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.grenouilles) return;
+      myFrogs = d.grenouilles; $('sb-switch').hidden = false;
+    }, function () { /* hors ligne : pas de bascule */ });
+  }
+  function renderFrogSwitch() {
+    var list = (myFrogs || []).slice().sort(function (a, b) { return (a.id === Cloud.id ? -1 : 0) - (b.id === Cloud.id ? -1 : 0) || (b.modifie || 0) - (a.modifie || 0); });
+    $('frog-switch').innerHTML = '<h3>TES GRENOUILLES</h3>' + list.map(function (g) {
+      var here = g.id === Cloud.id, where = BIOMES[g.monde] ? BIOMES[g.monde].name : '';
+      return '<button class="fs-frog' + (here ? ' is-current' : '') + '" data-frog-go="' + g.id + '"' + (here ? ' aria-current="true"' : '') + '><img class="px" src="' + portraitOf({ peau: g.peau, voie: g.voie }) + '" alt="">' +
+        '<span><b>' + escapeHtml(g.nom) + '</b><small>Niveau ' + (here ? save.level : g.niveau) + (here ? ' · en jeu' : (where ? ' · ' + escapeHtml(where) : '')) + '</small></span></button>';
+    }).join('') + '<a class="fs-home" href="index.html">' + ((myFrogs || []).length < 5 ? 'Nouvelle grenouille · accueil' : 'Accueil') + '</a>';
+  }
+  function toggleFrogSwitch(open) {
+    var box = $('frog-switch');
+    open = open == null ? box.hidden : open;
+    if (open) renderFrogSwitch();
+    box.hidden = !open;
+    $('sb-switch').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button');
+    if (t && t.id === 'sb-switch') { Sfx.play('click'); toggleFrogSwitch(); return; }
+    if (t && t.dataset.frogGo) {
+      if (t.dataset.frogGo === Cloud.id) { toggleFrogSwitch(false); return; }
+      Sfx.play('click'); t.disabled = true;
+      Cloud.flush().then(function () { location.href = 'jeu.html?grenouille=' + t.dataset.frogGo; }); // la partie part d'abord
+      return;
+    }
+    if (!$('frog-switch').hidden && !e.target.closest('#frog-switch')) toggleFrogSwitch(false);
+  });
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('frog-switch').hidden) toggleFrogSwitch(false); });
   function enterGame() {
     $('title').hidden = true;
     $('app').hidden = false;
+    loadFrogs();
     if (!dailyShop(save)) tidyShop(save);
     questsToday(save, questCtx());
     persist();
