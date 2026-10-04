@@ -758,7 +758,11 @@
       html += '<p class="mu-sum"><span class="mu-glow" style="--g:' + AURA_COLORS[auraColorOf(save)].hex + '"></span>+' + (MUTATION_BASE * n) + ' à chaque caractéristique · +' + Math.round(MUTATION_XP * n * 100) + ' % d’XP</p>' +
         '<ul class="mu-traits">' + traits.map(function (id) { return '<li><b>' + MUTATIONS[id].name + (m.traits[id] > 1 ? ' ×' + m.traits[id] : '') + '</b><small>' + MUTATIONS[id].desc + (m.traits[id] > 1 ? ' (×' + m.traits[id] + ')' : '') + '</small></li>'; }).join('') + '</ul>';
     }
-    if (n >= MUTATION_MAX) {
+    var rest = n < MUTATION_MAX && save.level >= MUTATION_LEVEL ? mutationRestLeft(save) : 0;
+    if (rest) { // la mue demande du repos : une mutation par jour au plus
+      var hh = Math.floor(rest / 3600e3), mm = Math.ceil((rest % 3600e3) / 60000);
+      html += '<p class="mu-help"><b>Ta grenouille est prête, mais la mue demande du repos.</b> La prochaine mutation sera possible dans <b>' + (hh ? hh + ' h ' : '') + mm + ' min</b> (une mutation par jour au plus).</p>';
+    } else if (n >= MUTATION_MAX) {
       html += '<p class="mu-help"><b>Mutation maximale.</b> Ta grenouille a muté ' + MUTATION_MAX + ' fois : tous les paliers d’aura, toutes les couleurs et tous les titres sont à elle (page Skins).</p>';
     } else if (!ready) {
       html += '<p class="mu-help">Au niveau ' + MUTATION_LEVEL + ', ta grenouille pourra muter : elle repart au niveau 1 (points et dalles remis à zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +' + MUTATION_BASE + ' à chaque caractéristique, +' + Math.round(MUTATION_XP * 100) + ' % d’XP et un trait au choix (' + MUTATION_MAX + ' mutations au plus). Une aura l’entoure, un palier de plus à chaque mutation, et chaque mutation donne une couleur d’aura et un titre (« l’Éveillée », « la Transfigurée »… jusqu’à « la Légende du Marais ») : tout se règle dans la page Skins.</p>' +

@@ -61,6 +61,10 @@ function romanCycle(n) { var r = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 
 // (AURA_COLORS) par mutation. Tout se règle dans la page Skins : l'aura montrée ou masquée (save.auraOff), son palier
 // (save.auraTier, jusqu'au nombre de mutations), sa couleur (save.auraColor) et le titre porté (save.titre).
 var MUTATION_LEVEL = 100, MUTATION_BASE = 3, MUTATION_XP = 0.1, MUTATION_MAX = 10;
+// la mue demande du repos : MUTATION_REST entre deux mutations (save.mutation.t : l'heure de la dernière) ; sinon, avec
+// l'équipement gardé et l'XP des mutations, une grenouille en faisait dix dans l'après-midi
+var MUTATION_REST = 20 * 3600e3;
+function mutationRestLeft(save) { var t = save.mutation && save.mutation.t; return t ? Math.max(0, t + MUTATION_REST - Date.now()) : 0; }
 var MUTATIONS = {
   ecorce: { name: 'Peau d’écorce', desc: '+8 % de PV', hp: 0.08 },
   crocs: { name: 'Crocs', desc: '+8 % de dégâts', dmg: 0.08 },
@@ -111,10 +115,11 @@ function mutationChoices(save) {
   var n = (save.mutation && save.mutation.n) || 0;
   return Object.keys(MUTATIONS).map(function (id, i) { return { id: id, r: hash(n, i, 77) }; }).sort(function (a, b) { return a.r - b.r; }).slice(0, 3).map(function (o) { return o.id; });
 }
-function canMutate(save) { return save.level >= MUTATION_LEVEL && ((save.mutation && save.mutation.n) || 0) < MUTATION_MAX; }
+function canMutate(save) { return save.level >= MUTATION_LEVEL && ((save.mutation && save.mutation.n) || 0) < MUTATION_MAX && !mutationRestLeft(save); }
 function mutate(save, trait) {
   if (!canMutate(save) || mutationChoices(save).indexOf(trait) < 0) return false;
   save.mutation.n++;
+  save.mutation.t = Date.now();
   save.mutation.traits[trait] = (save.mutation.traits[trait] || 0) + 1;
   save.level = 1; save.xp = 0; save.points = 0; save.skillPoints = 0; save.tree = []; save.deck = [];
   Object.keys(save.alloc).forEach(function (k) { save.alloc[k] = 0; });
@@ -136,6 +141,19 @@ function setPlayer(save) {
   playerGearLevel = gearLevelOf(save.equip);
   var gb = typeof gearBonus === 'function' ? gearBonus(save) : {};
   playerGearBonus = { xp: gb.xp || 0, gold: gb.gold || 0, loot: gb.loot || 0 };
+  playerSaveRef = save; playerPower = null; // (sa force se recalcule à la demande : cyclePower)
+}
+// La force de la grenouille chargée, calculée une fois par setPlayer : ses dégâts par tour (son coup × son meilleur sort,
+// et ses critiques : une grenouille qui vient de muter, sans sorts, frappe bien moins fort que son équipement ne le dit)
+// et ses PV. Dans un cycle, les monstres ne descendent jamais en dessous (CYCLE_FLOOR_POWER, worlds.js).
+var playerSaveRef = null, playerPower = null;
+function cyclePower() {
+  if (!playerPower && playerSaveRef) {
+    var sv = playerSaveRef, pr = combatProfile(sv), best = 1;
+    try { deckSkills(sv, weaponOf(sv.equip)).forEach(function (sk) { best = Math.max(best, (sk.power || 0) * (sk.hits || 1) * (sk.base ? 1 : pr.spell)); }); } catch (e) { /* (une partie incomplète) */ }
+    playerPower = { dmg: pr.dmg * best * (1 + pr.crit * (pr.critMult - 1)), hp: pr.maxHp };
+  }
+  return playerPower;
 }
 
 // Ajoute de l'XP ; renvoie le nombre de niveaux gagnés
@@ -1297,6 +1315,7 @@ function parseSave(data) {
   if (save.seenContinent && save.seenIsles.indexOf('continent') < 0) save.seenIsles.push('continent');
   if (data.mutation && typeof data.mutation === 'object') {
     save.mutation.n = Math.min(999, int(data.mutation.n, 0) || 0);
+    if (int(data.mutation.t, 1)) save.mutation.t = Math.min(Date.now(), int(data.mutation.t, 1)); // (l'heure de la dernière mutation)
     Object.keys(data.mutation.traits || {}).forEach(function (id) { if (MUTATIONS[id]) save.mutation.traits[id] = Math.min(999, int(data.mutation.traits[id], 0) || 0); });
   }
   if (data.dungeons && typeof data.dungeons === 'object') Object.keys(data.dungeons).forEach(function (id) {

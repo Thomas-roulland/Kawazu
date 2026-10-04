@@ -1109,6 +1109,12 @@ async function route(req, res, p) {
       if (verdict.fixes.length) await strike(id, 3, 'sauvegarde corrigée : ' + verdict.fixes.join(', '), 'corrigée');
       if (verdict.flags.length) await strike(id, Math.min(TRICHE_SEUIL, verdict.flags.reduce((n, f) => n + f.p, 0)), 'trop rapide : ' + verdict.flags.map((f) => f.r).join(', '), 'rapide');
       frog.save = verdict.save;
+      // la mue demande du repos (une mutation par jour, src/items.js) : le serveur note l'heure de chacune, à sa montre
+      const nAvant = (before.save && before.save.mutation && before.save.mutation.n) || 0, nApres = (frog.save.mutation && frog.save.mutation.n) || 0;
+      if (nApres > nAvant) {
+        if (frog.mueLe && Date.now() - frog.mueLe < 18 * 3600e3) await strike(id, 3, 'mutation ' + nApres + ' moins de 18 h après la précédente', 'mutation');
+        frog.mueLe = Date.now();
+      }
       frog.modifie = Date.now();
       if (frog.save.hero && typeof frog.save.hero.name === 'string') frog.nom = frog.save.hero.name.slice(0, 16);
       await store.set('grenouille:' + id, frog);

@@ -50,6 +50,10 @@ var CYCLE_FLOOR = CYCLE_TIER - 1 - ISLAND_WORLDS, CYCLE_GEAR = 0.25;
 // (ECLIPSE_ARMOR, eclipse.js), et la grenouille n'y monte plus de niveau (300 au plus) : seul l'équipement la fait avancer.
 // Réglé au simulateur : avec les Rares de la terre, ses boss tombent 23 à 37 % du temps et Lord Bufo 11 % (le Royaume :
 // 37 à 62 %) ; à moitié Épique (ou forgée), 71 à 88 % et 42 % pour le Lord.
+// Le plancher des monstres d'un cycle (voir makeEnemy) : PV = hp × les dégâts d'un coup de la grenouille, dégâts = dmg ×
+// ses PV. Réglé au simulateur (mut-sim.js) : sans lui, une grenouille à 10 mutations en équipement de l'Éclipse tuait
+// tout d'un coup, et remontait de 1 à 100 en quelques minutes après chaque mutation.
+var CYCLE_FLOOR_POWER = { normal: { hp: 2.2, dmg: 0.05 }, gardien: { hp: 3.4, dmg: 0.07 }, boss: { hp: 4.4, dmg: 0.08 } };
 var LATE_POWER = { archipel: { hp: 1.6, dmg: 1.3 }, royaume: { hp: 1.6, dmg: 1.3 }, eclipse: { hp: 1.55, dmg: 1.28, always: true } }, CYCLE_LATE = { hp: 1.45, dmg: 1.22 };
 // L'Île des Colosses : plus coriace encore que le Continent à force égale (des géants, et des boss très durs)
 var COLOSSUS_POWER = { hp: 1.22, dmg: 1.12, boss: 1.25 };
@@ -76,6 +80,10 @@ function makeEnemy(w, level, variant, rank, title) {
   if (cyc && !(lp && lp.always)) lp = CYCLE_LATE; // (dans un cycle, sa part à lui : CYCLE_LATE ; sauf l'Éclipse, qui garde la sienne)
   if (lp) { var lk = (rank || 'normal') === 'normal' ? 0.5 : 1; hpX *= Math.pow(lp.hp, lk); dmgX *= Math.pow(lp.dmg, lk); } // (les ordinaires, le gibier du farm, la moitié du renfort)
   if (isBoss && b.bossPower) hpX *= b.bossPower; // certains boss, durs par nature (esquive…), ont un peu moins de PV
+  // dans un cycle, jamais plus faible que ce plancher, calé sur la force de la grenouille (CYCLE_FLOOR_POWER) : ses PV
+  // valent quelques-uns de ses coups, ses coups une part de ses PV (une grenouille qui vient de muter garde son équipement)
+  var fp = cyc && typeof cyclePower === 'function' ? cyclePower() : null, fr = CYCLE_FLOOR_POWER[rank || 'normal'] || CYCLE_FLOOR_POWER.normal;
+  var floor = fp ? { hp: Math.round(fp.dmg * fr.hp), dmg: Math.round(fp.hp * fr.dmg) } : { hp: 0, dmg: 0 };
   var v = isBoss ? { species: b.boss.species, name: b.boss.name, pal: b.boss.pal } : variant;
   var s = SPECIES[v.species];
   return {
@@ -85,8 +93,8 @@ function makeEnemy(w, level, variant, rank, title) {
     // (dans l'Archipel, les créatures 32 × 32 gardent une taille normale : monsterScale ; son dernier boss est plus grand : bossScale)
     scale: b.giant ? (isBoss ? 140 : (isGuard ? 126 : 110)) / (s.size === 32 ? 96 : 48) : (isBoss ? (s.size === 32 ? (b.bossScale || 1) : 1.9) : (isGuard ? 1.45 : 1)) * (s.size === 32 && !isBoss && b.monsterScale ? b.monsterScale : 1),
     // (sur le Continent, les espèces ont toutes la même base de PV : c'est la terre qui fait la force, et le dragon un peu plus)
-    maxHp: Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX),
-    dmg: Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX),
+    maxHp: Math.max(floor.hp, Math.round((k >= 0 ? (s.size === 32 ? 16 : 13) : s.hp) * 2.4 * MONSTER_POWER.hp * (1 + 0.2 * (level - 1)) * (isBoss ? 2.4 : (isGuard ? 1.8 : 1)) * hpX)),
+    dmg: Math.max(floor.dmg, Math.round((2 + 0.95 * level) * MONSTER_POWER.dmg * (isBoss || isGuard ? 1.1 : 1) * dmgX)),
     agi: 6 + level * 0.6,
     dodge: s.behavior === 'flyer' ? 0.18 : 0.05,
     // l'Éclipse : la cuirasse de ses monstres (une part des dégâts reçus en moins), et Lord Bufo et ses trois temps (battle.js)

@@ -391,12 +391,17 @@ grenouille, avec l’événement en cours (le week-end de l’XP).
   soleil noir » et « Régicide ».
 - **Les cycles (NG+)** : une fois le dernier boss du monde vaincu (aujourd’hui Lord Bufo, en haut de la Citadelle de
   l’Île de l’Éclipse), on peut entrer dans le **cycle suivant** : tout recommence
-  au Marais-Brume, mais les monstres **se mettent à ton niveau** (jamais sous celui de leur étape), et **toutes les terres ont la force
+  au Marais-Brume, mais les monstres **se mettent à ton niveau** et **ne tombent jamais en un coup** : leurs PV et leurs
+  dégâts ne descendent pas sous un plancher calé sur la force de la grenouille (ses dégâts par tour, d'après son meilleur
+  sort, et ses PV : `CYCLE_FLOOR_POWER`) ; sans lui, une grenouille à 10 mutations en équipement de l'Éclipse tuait tout
+  d'un coup et remontait de 1 à 100 en quelques minutes après chaque mutation (réglé au simulateur : 3 à 5 tours pour un
+  monstre ordinaire, 7 à 10 pour un boss) (jamais sous celui de leur étape), et **toutes les terres ont la force
   de la dernière** à niveau égal (on y revient avec l’équipement de la fin : ils tiennent tête dès le Marais-Brume ;
   réglé au simulateur, une grenouille de fin de monde y gagne environ la moitié de ses combats de boss), et tout a 25 % de PV et de dégâts en plus par cycle (cumulés). En
   échange, le butin et l’étal sont du **plus haut rang** (celui du Cœur de la Terre ; sur l’Éclipse, le sien), « +1 », « +2 »… (+20 % de stats par +). On garde son niveau,
   ses objets et ses lucioles. Sans fin ; le classement Aventure compte les cycles.
-- **La mutation** : dès le **niveau 100**, la grenouille peut muter. Elle repart au niveau 1 (points et dalles remis à
+- **La mutation** : dès le **niveau 100**, la grenouille peut muter, **une fois par jour au plus** (la mue demande
+  20 h de repos ; le serveur note l'heure de chacune). Elle repart au niveau 1 (points et dalles remis à
   zéro ; elle garde sa voie, ses objets, ses lucioles et sa progression), mais gagne pour toujours +3 à chaque
   caractéristique, +10 % d’XP et **un trait au choix parmi trois** (Peau d’écorce +8 % PV, Crocs +8 % dégâts, Œil de
   nuit, Pattes-ressorts, Troisième œil, Mémoire ancestrale, Flair, Trèfle de mare). Les mutations se cumulent, **dix au
